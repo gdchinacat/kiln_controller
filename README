@@ -1,0 +1,10 @@
+The Kiln Controller is a distributed software and hardware package that
+implements advanced control for kilns or furnaces.
+
+There are multiple components:
+  server - a server that exposes the user interface for managing the kiln
+           devices, firing schedules, history of past firings, etc.
+  device - the embedded device that is controlled by the server to perform
+           firings. It is a minimal REST API primarily for conducting an active
+           firing and reporting metrics
+  hardware - the physical stuff necessary for integrating with a device.

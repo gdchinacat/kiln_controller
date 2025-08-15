@@ -1,0 +1,29 @@
+This directory contains the server implementation.
+
+Architecture:
+The server is implemented as a stereotypical REST application built on the
+Flask server. It uses an RDBMS server accessed through sqlalchemy.
+The datamodel consists of:
+  /schedules
+    /{name}
+      /{phase number}
+  /firings
+    /{schedule-name}-{datettime}
+      /phases
+        /{phase}
+        /metrics
+      /metrics
+  /devices
+    /{name}
+      /users   -> /users/{name}
+      /schedules
+        /start -> /schedules/{name}
+        /end   -> /schedules/{name}
+  /users
+    /{name}
+      /firings
+        -> /firings/ filtered by user
+
+Database:
+The default database is an instance of sqllite, but the intent is to allow this to be
+configured to use a more production-ready database.

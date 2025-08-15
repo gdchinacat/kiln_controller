@@ -1,6 +1,7 @@
 from typing import List, Optional
 from datetime import time
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import ForeignKey
 
 from .base import Base, primary_key, name_field
 
@@ -16,7 +17,8 @@ class Phase(Base):
     duration: Mapped[Optional[time]]
     rate:  Mapped[Optional[int]] # degrees C per minute
     
-    #schedule: Mapped[List["Schedule"]]
+    schedule_id: Mapped[Optional[int]] = mapped_column(ForeignKey('schedules.id'))
+    schedule = relationship("Schedule", cascade="all")
     
 class Schedule(Base):
     """
@@ -26,7 +28,7 @@ class Schedule(Base):
     
     id: Mapped[primary_key] = mapped_column(init=False)
     name: Mapped[name_field]
-    #phases: Mapped[List[Phase]] = relationship(back_populates="schedule",
-    #                                           default_factory=list)
+    phases: Mapped[List[Phase]] = relationship(back_populates="schedule",
+                                               default_factory=list)
 
     

@@ -16,11 +16,22 @@ db.init_app(app)
 def default_page():
     return render_template("index.html")
 
-from .resources import UserResource, UserListResource, DeviceResource, DeviceListResource
-api.add_resource(UserListResource, "/user")
-api.add_resource(UserResource, "/user/<string:id>")
-api.add_resource(DeviceListResource, "/device")
-api.add_resource(DeviceResource, "/device/<string:id>")
+from .resources import (UserResource, UserListResource,
+                        DeviceResource, DeviceListResource, 
+                        ScheduleResource, ScheduleListResource,
+                        PhaseResource, PhaseListResource,
+                        )
+api.add_resource(UserResource, "/user/<string:id>/")
+api.add_resource(UserListResource, "/user/")
+
+api.add_resource(DeviceResource, "/device/<string:id>/")
+api.add_resource(DeviceListResource, "/device/")
+
+api.add_resource(ScheduleResource, "/schedule/<string:id>/")
+api.add_resource(ScheduleListResource, "/schedule/")
+
+api.add_resource(PhaseResource, "/schedule/<string:schedule_id>/phase/<string:id>/")
+api.add_resource(PhaseListResource, "/schedule/<string:schedule_id>/phase/")
 
 with app.app_context() as ctx:
     db.create_all()

@@ -3,8 +3,10 @@ from flask_restful import Resource
 from flask import current_app, request
 from http import HTTPStatus
 from sqlalchemy.exc import NoResultFound
+from functools import wraps
 
 def db(func):
+    @wraps(func)
     def wrap(*args, **kwargs):
         db = current_app.db
         return func(*args, **kwargs, db=db)
@@ -14,6 +16,7 @@ def error(msg):
     return {"message": msg}
 
 def validate_request_json(func):
+    @wraps(func)
     def wrap(self, *args, **kwargs):
         errors = self.validate(request.json)
         if errors:
@@ -52,7 +55,7 @@ class BaseResource(Resource, DataclassFieldJsonValidator):
             return None
 
     @db
-    def get(self, id, *, db):
+    def get(self, id, *, db, **kwargs):
         orm = self._lookup(db, id)
         if not orm:
             return error(f"{self.TYPE.__name__} with id={id} not found"), HTTPStatus.NOT_FOUND
@@ -93,6 +96,7 @@ class BaseListResource(Resource, DataclassFieldJsonValidator):
     
     @db
     def get(self,*, db):
+        # kwargs is ignored, it includes the IDs for parents
         orms = db.session.execute(db.select(self.TYPE)).scalars()
         return [orm.asdict() for orm in orms]
     

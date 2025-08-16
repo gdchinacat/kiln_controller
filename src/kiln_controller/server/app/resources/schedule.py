@@ -28,7 +28,8 @@ def coerce(attr, is_list, request_coerce, response_coerce):
     def dec(func):
         def wrap(*args, **kwargs):
             if request_coerce:
-                request.json[attr] = request_coerce(request.json[attr])
+                if request.json.get(attr, None):
+                    request.json[attr] = request_coerce(request.json[attr])
             ret = func(*args, **kwargs)
             (data, code, _) = ret = unpack(ret)
             if code == HTTPStatus.OK and response_coerce:
@@ -52,7 +53,6 @@ class PhaseResource(BaseResource):
     
     @suppress('schedule_id')
     def delete(self, *args, **kwargs):
-        print("deleting", args, kwargs)
         return super().delete(*args, **kwargs)
 
 class PhaseListResource(BaseListResource):
@@ -60,7 +60,7 @@ class PhaseListResource(BaseListResource):
     
     @suppress('schedule_id')
     @coerce('duration', True, None,
-            lambda x: x.isoformat())
+            lambda x: x.isoformat() if x else None)
     def get(self, *args, **kwargs):
         ret = super().get(*args, **kwargs)
         return ret
@@ -68,7 +68,7 @@ class PhaseListResource(BaseListResource):
     @populate('schedule_id', int)
     @coerce('duration', False,
             lambda x: datetime.strptime(x, "%H:%M:%S").time(),
-            lambda x: x.isoformat())
+            lambda x: x.isoformat() if x else None)
     def post(self, *args, **kwargs):
         return super().post(*args, **kwargs)
     

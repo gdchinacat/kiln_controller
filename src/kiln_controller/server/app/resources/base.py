@@ -95,9 +95,11 @@ class BaseListResource(Resource, DataclassFieldJsonValidator):
     TYPE = None
     
     @db
-    def get(self,*, db):
-        # kwargs is ignored, it includes the IDs for parents
-        orms = db.session.execute(db.select(self.TYPE)).scalars()
+    def get(self, *, db, **filters):
+        query = db.select(self.TYPE)
+        if filters:
+            query = query.filter_by(**filters)
+        orms = db.session.execute(query).scalars()
         return [orm.asdict() for orm in orms]
     
     @validate_request_json

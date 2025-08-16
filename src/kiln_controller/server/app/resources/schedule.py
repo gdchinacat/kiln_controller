@@ -6,14 +6,8 @@ from http import HTTPStatus
 from kiln_controller.models import Schedule, Phase
 from .base import BaseResource, BaseListResource
 
-def suppress(attr):
-    """remove attr from kwargs"""
-    def dec(func):
-        def wrap(*args, **kwargs):
-            kwargs.pop(attr)
-            return func(*args, **kwargs)
-        return wrap
-    return dec
+import logging
+logger = logging.getLogger(__name__)
 
 def populate(attr, coerce_func=lambda x: x):
     """populate the attribute from kwargs to request.json"""
@@ -45,20 +39,18 @@ def coerce(attr, is_list, request_coerce, response_coerce):
 class PhaseResource(BaseResource):
     TYPE = Phase
     
-    @suppress('schedule_id')
     @coerce('duration', False, None,
             lambda x: x.isoformat())
     def get(self, *args, **kwargs):
         return super().get(*args, **kwargs)
     
-    @suppress('schedule_id')
-    def delete(self, *args, **kwargs):
+    def delete(self, *args, schedule_id, **kwargs):
+        logger.error("PhaseResource ignoring schedule_id path parameter")
         return super().delete(*args, **kwargs)
 
 class PhaseListResource(BaseListResource):
     TYPE = Phase
     
-    @suppress('schedule_id')
     @coerce('duration', True, None,
             lambda x: x.isoformat() if x else None)
     def get(self, *args, **kwargs):

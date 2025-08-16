@@ -15,14 +15,6 @@ from sqlalchemy.sql.functions import func
 def noop(*args): ...
 
 logger = logging.getLogger("client")
-def enable_client_logging(level=None):
-    handler = logging.StreamHandler()
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-    logger.setLevel(level if level is not None else logging.DEBUG)
-enable_client_logging(logging.WARNING)
- 
 
 def trace(func):
     @wraps(func)
@@ -185,7 +177,7 @@ class BaseRestClient(ABC):
     @detect_bad_url
     @_response_handler
     @format_url
-    @trace    
+    @trace
     def post(self, url, obj):
         """Post the obj to the url."""
         return requests.post(url, json=obj.asdict())
@@ -193,7 +185,7 @@ class BaseRestClient(ABC):
     @detect_bad_url
     @format_url
     @_response_handler
-    @trace    
+    @trace
     def get(self, url):
         """Get a resource or set of resources from url"""
         return requests.get(url)

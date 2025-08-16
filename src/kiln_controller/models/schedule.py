@@ -17,7 +17,7 @@ class Phase(Base):
     rate:  Mapped[Optional[int]] # degrees C per minute
     schedule_id: Mapped[Optional[int]] = mapped_column(ForeignKey('schedules.id'))
     
-    #schedule = relationship("Schedule", cascade="all")
+    schedule = relationship("Schedule", back_populates='phases')
     
 class Schedule(Base):
     """
@@ -27,7 +27,6 @@ class Schedule(Base):
     
     name: Mapped[name_field]
     
-    #phases: Mapped[List[Phase]] = relationship(back_populates="schedule",
-    #                                           default_factory=list)
+    phases: Mapped[List[Phase]] = relationship(back_populates="schedule")
 
     

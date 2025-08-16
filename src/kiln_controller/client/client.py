@@ -1,32 +1,32 @@
 """
-A requests based client for accessing the model
+A requests based client for interacting with the REST server
+
+It *does not* use the models as those are sqlalchemy mapped and the
+client doesn't want any of that. Instead, the objects exposed by the
+client are extensions of dict to contain whatever the server emits.
 """
 from abc import ABC
 from typing import SupportsIndex
 from http import HTTPStatus
-import logging
 import requests
 import traceback
+from .helpers import logger, detect_bad_url, trace
 
-from .. import User, Device, Schedule, Phase
 from functools import wraps
-from sqlalchemy.sql.functions import func
 
-def noop(*args): ...
-
-logger = logging.getLogger("client")
-
-def trace(func):
+def format_url(func):
+    """
+    calculate the url based on the request url, client url, and
+    object arguments
+    TODO - move this to a method on client
+    """
     @wraps(func)
-    def wrap(*args, **kwargs):
-        logger.debug(f"trace: {func.__name__}({args}, {kwargs})")
-        try:
-            ret = func(*args, **kwargs)
-            logger.debug(f"trace: {func.__name__}({args}, {kwargs} = {ret})")
-            return ret
-        except Exception as e:
-            logger.debug(f"trace: {func.__name__}({args}, {kwargs} raised {''.join(traceback.format_exception(e))})")
-            raise e
+    def wrap(self, url, *args, **kwargs):
+        obj = args[0] if args else {}
+        url = f"{self.url}{url}/"
+        if obj:
+            url = url.format(**obj.asdict())
+        return func(self, url, *args, **kwargs)
     return wrap
         
 class _List(list):
@@ -117,33 +117,6 @@ class _List(list):
             return cls(_type, self, url, objs)
         return resource_list_factory
             
-            
-def detect_bad_url(func):
-    """decorator that logs an ERROR when the url is "invalid" """
-    @wraps(func)
-    def wrap(self, url, *args, **kwargs):
-        if url[0] != '/':
-            raise ValueError(f"url must begin with '/':{url}")
-        
-        if any(bad in url for bad in ('{')):
-            raise ValueError(f"url contains '{{': {url}")
-        return func(self, url, *args, **kwargs)
-    return wrap
-        
-def format_url(func):
-    """
-    calculate the url based on the request url, client url, and
-    object arguments
-    """
-    @wraps(func)
-    def wrap(self, url, *args, **kwargs):
-        obj = args[0] if args else {}
-        url = f"{self.url}{url}/"
-        if obj:
-            url = url.format(**obj.asdict())
-        return func(self, url, *args, **kwargs)
-    return wrap
-        
 class BaseRestClient(ABC):
     """
     Client to interace with the REST resources.
@@ -204,7 +177,6 @@ class Client(BaseRestClient):
         ('users', User, '/user'),
         ('devices', Device, '/device'),
         ('schedules', Schedule, '/schedule'),
-        #((Schedule, 'phases'), Phase, '/schedule/{schedule_id}/phase'),
         ):
         prop = property(_List.factory(_type, url))
         prop = prop.setter(noop)

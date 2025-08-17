@@ -61,6 +61,7 @@ def detect_bad_url(func):
         bad_characters = '{}'
         if any(bad in url for bad in bad_characters):
             raise ValueError(f"url contains one of '{bad_characters}': {url}")
+
         return func(self, url, *args, **kwargs)
     return wrap
         

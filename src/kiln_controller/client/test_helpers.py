@@ -1,6 +1,6 @@
 import unittest
 import logging
-from kiln_controller.client.helpers import trace, logger, detect_bad_url
+from .helpers import trace, logger, detect_bad_url
 from typing import List, Tuple, Dict
 from contextlib import contextmanager
 

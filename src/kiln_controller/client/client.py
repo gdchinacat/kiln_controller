@@ -6,13 +6,16 @@ client doesn't want any of that. Instead, the objects exposed by the
 client are extensions of dict to contain whatever the server emits.
 """
 from abc import ABC
-from typing import SupportsIndex
+import dataclasses
+from dataclasses import dataclass, field, asdict
+import datetime
+from functools import wraps
+from typing import SupportsIndex, Set, Any, Sequence
 from http import HTTPStatus
 import requests
 import traceback
 from .helpers import logger, detect_bad_url, trace
 
-from functools import wraps
 
 def format_url(func):
     """
@@ -25,11 +28,11 @@ def format_url(func):
         obj = args[0] if args else {}
         url = f"{self.url}{url}/"
         if obj:
-            url = url.format(**obj.asdict())
+            url = url.format(**asdict(obj))
         return func(self, url, *args, **kwargs)
     return wrap
         
-class _List(list):
+class ResourceList(list):
     """
     List implementation for model elements. Used for REST resource lists.
     Item deletion is intercepted to make REST calls to delete the entity
@@ -53,6 +56,7 @@ class _List(list):
                 return func(self, *args, **kwargs)
             except Exception as e:
                 logger.debug(f"refresh: {func.__name__}({args}, {kwargs} raised:{''.join(traceback.format_exception(e))})")
+                raise
             finally:
                 self.clear()
                 self.extend(self.coerce(self._type, self._client.get(self._url)))
@@ -66,15 +70,16 @@ class _List(list):
         The dictionary representation of obj is used to format() the _url. this
         allows the ids of a parent resource to be placed into the URL. For
         example:
-             _List(url="/parent/{parent_id}/child", ...
+             ResourceList(url="/parent/{parent_id}/child", ...
              ...
              obj = Resource(parent_id=1, ...
              ...
              client.post(url="/parent/1/child", ...
              
         """
-        assert isinstance(obj, (self._type))
-        self._client.post(self._url, obj)
+        assert isinstance(obj, (self._type)), f"{type(obj)} is not an instance of {self._type}"
+        resp = self._client.post(self._url, obj)
+        obj.__init__(**resp) # update the object (a bit scary, lets see how this ages)
         return self
     
     def append(self, obj):
@@ -108,7 +113,7 @@ class _List(list):
     @classmethod
     def factory(cls, _type, url):
         """
-        Create a method that will create a _List for the specified data model
+        Create a method that will create a ResourceList for the specified data model
         _type that is backed by the resources at url (relative to client url).
         """
         def resource_list_factory(self):
@@ -121,7 +126,7 @@ class BaseRestClient(ABC):
     """
     Client to interace with the REST resources.
     Coercion from json to model elements is only performed through the high
-    level _List properties. The HTTP methods do not perform coercion.
+    level ResourceList properties. The HTTP methods do not perform coercion.
     TODO - refactor into ABCClient to decouple it from the model it supports.
     """
     def __init__(self, host='localhost', port=5000):
@@ -153,7 +158,7 @@ class BaseRestClient(ABC):
     @trace
     def post(self, url, obj):
         """Post the obj to the url."""
-        return requests.post(url, json=obj.asdict())
+        return requests.post(url, json=asdict(obj))
         
     @detect_bad_url
     @format_url
@@ -171,15 +176,109 @@ class BaseRestClient(ABC):
         """delete a resource at the url"""
         return requests.delete(url)
     
-class Client(BaseRestClient):
+class Resource(ABC):
+    """A resource associates a dataclass with a REST resource"""
+    URL: str # format string for the url for this type of resource
+        
+    @classmethod
+    def new(_, cls, url, _attrs={}):
+        """Create a new RESTEntity class"""
+        attrs = {}
+        attrs.update(_attrs)
+        attrs['URL'] = url
+        #remove last four characters from name to remove Base
+        return type(cls.__name__[:-4], (cls, Resource,), attrs)
     
-    for (name, _type, url) in (
-        ('users', User, '/user'),
-        ('devices', Device, '/device'),
-        ('schedules', Schedule, '/schedule'),
+    @classmethod
+    def new_child(cls, name, url):
+        """Create a child resource of this Resource"""
+        child_url = f"{cls.URL}/{{{cls.__name__.lower()}_id}}{url}"
+        return cls.new(name, child_url)
+
+################################################################################
+# The dataclasses for the resource types.
+# TODO - move these into model as base classes of the mapped classes?
+#        as it stands this duplicates the definitions and isn't very
+#        maintainable
+################################################################################
+
+def foreign_key(cls, attr):
+    """return the type of the referenced cls.attr using annotation"""
+    for field in dataclasses.fields(cls):
+        if field.name == attr:
+            return field.type
+    raise ValueError(f"{cls.__name__}.{attr} does not exist")
+
+@dataclass
+class DataclassBase(ABC):
+    id: int = field(default=None, kw_only=True)     # primary key
+    name: str
+    
+@dataclass
+class UserBase(DataclassBase):
+    email: str = None
+    phone_number: str = None
+    
+@dataclass
+class DeviceBase(DataclassBase):
+    host: str
+    port: int
+    url: str = "/"
+    description: str = None
+    #_user_ids: Sequence[foreign_key(Base, 'id')] = field(default_factory=tuple)
+    
+@dataclass
+class ScheduleBase(DataclassBase):
+    ...
+
+@dataclass
+class PhaseBase(DataclassBase):
+    type: str   # todo enum
+    duration: datetime.time
+    rate: int
+    _schedule_id: foreign_key(ScheduleBase, 'id')
+    # todo - add schedule: Schedule (not ScheduleBase)
+    
+################################################################################
+    
+class ClientFactory(BaseRestClient):
+    resource_class_map = {}
+    
+    # Expose lists of the top level resources so objects can be accessed.
+    for (name, base) in (
+            ('user', UserBase),
+            ('device', DeviceBase),
+            ('schedule', ScheduleBase),
         ):
-        prop = property(_List.factory(_type, url))
-        prop = prop.setter(noop)
-        locals()[name] = prop
-        del prop
+        #create the resource class
+        url = f"/{name}"
+        resource = resource_class_map[name.capitalize()] = Resource.new(base, url)
+        locals()[f"{name}s"] = property(ResourceList.factory(resource, url))
+        
+# make these classes available on the module rather than the client
+for (name, cls) in ClientFactory.resource_class_map.items():
+    locals()[name] = cls
+
+        
+class Client:
+    """
+    The kiln_controller client interface.
     
+    Client provides a view of the top-level resources as resource lists.
+    """
+    
+    
+    users: ResourceList
+    devices: ResourceList
+    schedules: ResourceList
+    
+    def __init__(self, *args, **kwargs):
+        self._client = ClientFactory(*args, **kwargs)
+        self.refresh()
+        
+    def refresh(self):
+        # copy the top level ResourceLists from the real client.
+        self.users = self._client.users
+        self.devices = self._client.devices
+        self.schedules = self._client.schedules
+

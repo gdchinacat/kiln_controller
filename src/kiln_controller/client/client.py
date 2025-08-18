@@ -202,10 +202,11 @@ class ResourceList(list):
         The list is refreshed regardless of success.
         """
         if isinstance(key, slice):
-            for obj in self[key]:
-                obj.delete()
+            for resource in self[key]:
+                resource.delete()
         else:
-            self[key].delete()
+            resource = self[key]
+            resource.delete()
 
     @classmethod
     def coerce(cls, client, _type, data):

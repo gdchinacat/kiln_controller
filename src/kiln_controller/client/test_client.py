@@ -172,8 +172,10 @@ class ClientTest(unittest.TestCase):
         return resource
         
     def _testDeleteResource(self, resource):
+        """test that Resource.delete() functions"""
         self.assertIsNotNone(resource.id)
         resource.delete()
+        # todo - verify requests.delete(...) is called
         self.assertIsNone(resource.id)
     
     @fixture(_client)
@@ -191,8 +193,36 @@ class ClientTest(unittest.TestCase):
     def testDeleteScheduleResource(self, client, schedule):
         return self._testDeleteResource(schedule)
     
-    # TODO - add delete test
-    #  - ResourceList.delete()
+    def _testDeleteResourceByList(self, resource_list, resource):
+        """test that Resource.delete() functions"""
+        
+        resource_list.refresh() # ensure the view is in sync with resource
+        
+        self.assertTrue(resource in resource_list)
+        
+        idx = resource_list.index(resource)
+        del resource_list[idx]
+        # todo - verify requests.delete(...) is called
+        
+        self.assertIsNone(resource.id)
+        resource_list.refresh()
+        self.assertRaiseS(Exception, resource.refresh)
+        self.assertFalse(resource in resource_list)
+        
+    @fixture(_client)
+    @fixture(_resource, User, "name", fixture_name='user')
+    def testDeleteUserResourceByList(self, client, user):
+        return self._testDeleteResourceByList(client.users, user)
+    
+    @fixture(_client)
+    @fixture(_resource, Device, "name", "host", 5000, fixture_name='device')
+    def testDeleteDeviceResourceByList(self, client, device):
+        return self._testDeleteResourceByList(client.devices, device)
+    
+    @fixture(_client)
+    @fixture(_resource, Schedule, "name", fixture_name='schedule')
+    def testDeleteScheduleResourceByList(self, client, schedule):
+        return self._testDeleteResourceByList(client.schedules, schedule)
     
     # TODO - phase...all of it
     

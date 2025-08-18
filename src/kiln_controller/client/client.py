@@ -14,7 +14,8 @@ from typing import SupportsIndex, Set, Any, Sequence
 from http import HTTPStatus
 import requests
 import traceback
-from .helpers import logger, detect_bad_url, trace
+from .helpers import logger, detect_bad_url, trace, validate_url
+from flask_restful.inputs import url
 
 
 def format_url(func):
@@ -32,6 +33,109 @@ def format_url(func):
         return func(self, url, *args, **kwargs)
     return wrap
         
+class Resource(ABC):
+    """A resource associates a dataclass with a REST resource"""
+    _URL: str # format string for the url for this type of resource (class)
+    _url: str # the url for a specific resource (instance)
+    
+    _client: "_Client" = None  # associated through _set_client() or get()
+        
+    @classmethod
+    def new(cls, base, url, _attrs={}):
+        """Create a new RESTEntity class"""
+        attrs = {
+            '__init__': Resource.__init__,
+            '_URL': url,
+            }
+        attrs.update(_attrs)
+        #remove last four characters from name to remove Base
+        name = base.__name__[:-4]
+        
+        #create a new type that extends both base and cls
+        return type(name, (cls, base), attrs)
+
+    @classmethod
+    def new_child(cls, name, url):
+        """Create a child resource of this Resource"""
+        child_url = f"{cls._URL}/{{{cls.__name__.lower()}_id}}{url}"
+        return cls.new(name, child_url)
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._set_url()
+    
+    def _update(self, **kwargs):
+        """update the resource attributes"""
+        # probably a less sketchy way to do this, but it works for now
+        super().__init__(**kwargs)
+        
+    def _set_url(self):
+        if self.id is not None:
+            url = f"{self._URL}/{self.id}"
+            validate_url(url)
+            self._url = url
+        else:
+            self._url = None
+        
+    def _set_client(self, client):
+        # this is separate from __init__ so that Resources can be created
+        # without specifying their client, and are associated with the client
+        # only once added to a list or refreshed.
+        self._client = client
+
+    @staticmethod
+    def _requires_url(func):
+        """decorator to populate the _url if possible"""
+        @wraps(func)
+        def wrap(self, *args, **kwargs):
+            self._set_url()
+            if not self._url:
+                raise ValueError(f"{self} has no _url (no id)")
+            return func(self, *args, **kwargs)
+        return wrap
+    
+    @staticmethod
+    def _accepts_client(func):
+        """
+        decorator to allow decorated function to take a client kwarg to
+        associate the resource with the client.
+        The only reason to accept client is because it is requred, this also
+        validates a client exists on self.
+        If specified, the clientl is *NOT* passed to the decorated method.
+        """
+        @wraps(func)
+        def wrap(self, client=None):
+            self._client = client or self._client
+            if not self._client:
+                raise ValueError(f"must associate resources with a client before get'ing them")
+            return func(self)
+        return wrap
+            
+    @_accepts_client
+    @_requires_url    
+    def get(self):
+        self._update(**self._client._client.get(self._url))
+        return self
+        
+    @_accepts_client
+    @_requires_url
+    def delete(self):
+        self._client._client.delete(self._url)
+        self.id = None
+        # TODO - if this resource came from a ResourceList refresh the list?
+
+    @_accepts_client
+    @_requires_url
+    def put(self):
+        self._client._client.put(self._url, self)
+        
+    @_accepts_client
+    def post(self):
+        if self.id is not None:
+            raise AttributeError("refusing to POST resource with id (use put()?)")
+        # post goes to the Class._URL
+        self._update(**self._client._client.post(self._URL, self))
+
 class ResourceList(list):
     """
     List implementation for model elements. Used for REST resource lists.
@@ -43,6 +147,12 @@ class ResourceList(list):
         self._client = client
         self._url = url
         super().__init__(iterable)
+
+    def refresh(self):
+        """refresh the list of resources"""
+        self.clear()
+        self.extend(self.coerce(self._client, self._type, self._client.get(self._url)))
+        return self
 
     @staticmethod    
     def _refresh(func):
@@ -58,8 +168,7 @@ class ResourceList(list):
                 logger.debug(f"refresh: {func.__name__}({args}, {kwargs} raised:{''.join(traceback.format_exception(e))})")
                 raise
             finally:
-                self.clear()
-                self.extend(self.coerce(self._type, self._client.get(self._url)))
+                self.refresh()
         return wrap
 
     @_refresh
@@ -68,7 +177,7 @@ class ResourceList(list):
         implement the "+=" operator to create a new resource on the server.
         The list is refreshed regardless of success.
         The dictionary representation of obj is used to format() the _url. this
-        allows the ids of a parent resource to be placed into the URL. For
+        allows the ids of a parent resource to be placed into the url. For
         example:
              ResourceList(url="/parent/{parent_id}/child", ...
              ...
@@ -80,6 +189,7 @@ class ResourceList(list):
         assert isinstance(obj, (self._type)), f"{type(obj)} is not an instance of {self._type}"
         resp = self._client.post(self._url, obj)
         obj.__init__(**resp) # update the object (a bit scary, lets see how this ages)
+        obj._set_client(self._client)
         return self
     
     def append(self, obj):
@@ -91,24 +201,29 @@ class ResourceList(list):
         Implement "del list[key|slice]".
         The list is refreshed regardless of success.
         """
-        def _del(obj):
-            self._client.delete(f"{self._url}/{obj.id}")
         if isinstance(key, slice):
             for obj in self[key]:
-                _del(obj)
+                obj.delete()
         else:
-            _del(self[key])
+            self[key].delete()
 
     @classmethod
-    def coerce(cls, _type, data):
+    def coerce(cls, client, _type, data):
         """
         convert json dicts that represent model elements in resp 
         to instances of _type
         """
         if isinstance(data, list):
-            return [_type(**obj) for obj in data]
+            resources = []
+            for _data in data:
+                resource = _type(**_data)
+                resource._set_client(client)
+                resources.append(resource)
+            return resources
         else:
-            return _type(**data)
+            resource = _type(**data)
+            resource._set_client(client)
+            return resource
     
     @classmethod
     def factory(cls, _type, url):
@@ -116,11 +231,12 @@ class ResourceList(list):
         Create a method that will create a ResourceList for the specified data model
         _type that is backed by the resources at url (relative to client url).
         """
-        def resource_list_factory(self):
-            json = self.get(url)
-            objs = cls.coerce(_type, json)
-            return cls(_type, self, url, objs)
-        return resource_list_factory
+        def _create_resource_list(client):
+            # this class effectively becomes a method on Client
+            data = client.get(url)
+            resources = cls.coerce(client, _type, data)
+            return cls(_type, client, url, resources)
+        return _create_resource_list
             
 class BaseRestClient(ABC):
     """
@@ -176,25 +292,14 @@ class BaseRestClient(ABC):
         """delete a resource at the url"""
         return requests.delete(url)
     
-class Resource(ABC):
-    """A resource associates a dataclass with a REST resource"""
-    URL: str # format string for the url for this type of resource
-        
-    @classmethod
-    def new(_, cls, url, _attrs={}):
-        """Create a new RESTEntity class"""
-        attrs = {}
-        attrs.update(_attrs)
-        attrs['URL'] = url
-        #remove last four characters from name to remove Base
-        return type(cls.__name__[:-4], (cls, Resource,), attrs)
+    @detect_bad_url
+    @format_url
+    @_response_handler
+    @trace    
+    def put(self, url, obj):
+        """delete a resource at the url"""
+        return requests.put(url, json=asdict(obj))
     
-    @classmethod
-    def new_child(cls, name, url):
-        """Create a child resource of this Resource"""
-        child_url = f"{cls.URL}/{{{cls.__name__.lower()}_id}}{url}"
-        return cls.new(name, child_url)
-
 ################################################################################
 # The dataclasses for the resource types.
 # TODO - move these into model as base classes of the mapped classes?
@@ -241,7 +346,10 @@ class PhaseBase(DataclassBase):
     
 ################################################################################
     
-class ClientFactory(BaseRestClient):
+class _Client(BaseRestClient):
+    """
+    _ClientFactory creates Clients, as its name implies.
+    """
     resource_class_map = {}
     
     # Expose lists of the top level resources so objects can be accessed.
@@ -253,11 +361,20 @@ class ClientFactory(BaseRestClient):
         #create the resource class
         url = f"/{name}"
         resource = resource_class_map[name.capitalize()] = Resource.new(base, url)
+        
+        # create a ResourceList
+        # This creates an attribute on class that when accessed creates a new
+        # ResourceList for the resource at the url.
         locals()[f"{name}s"] = property(ResourceList.factory(resource, url))
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._client = self  # allow resources to be bound to both _Client and Client
         
 # make these classes available on the module rather than the client
-for (name, cls) in ClientFactory.resource_class_map.items():
+for (name, cls) in _Client.resource_class_map.items():
     locals()[name] = cls
+    
 
         
 class Client:
@@ -266,14 +383,12 @@ class Client:
     
     Client provides a view of the top-level resources as resource lists.
     """
-    
-    
     users: ResourceList
     devices: ResourceList
     schedules: ResourceList
     
     def __init__(self, *args, **kwargs):
-        self._client = ClientFactory(*args, **kwargs)
+        self._client = _Client(*args, **kwargs)
         self.refresh()
         
     def refresh(self):

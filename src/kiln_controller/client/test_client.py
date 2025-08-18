@@ -1,27 +1,54 @@
 import unittest
 from . import Client, User, Device, Schedule
+import traceback
+import random
 
 class ClientTest(unittest.TestCase):
     """
-    currently requires the server to be running and be ok with it mucking with
-    it.
+    Currently requires the service to be running at the default url for the
+    client (localhost:5000) and be ok with it mucking with.
+    It does *try* to clean up after itself, even when there are failures,
+    but no guarantees.
     """
     def testClientInit(self):
         client = Client()
     
-    def _testAdd(self, _type_list_getter, *args):
+    @staticmethod
+    def cleanup(func):
+        def wrap(self, *args, **kwargs):
+            objs = func(self, *args, **kwargs)
+            try:
+                for obj in objs:
+                    obj.delete()
+            except Exception as e:
+                # Don't fail the test, but don't simply eat the exception,
+                # dump it to console.
+                traceback.print_exception(e)
+        return wrap
+                    
+    @cleanup
+    def _testListAdd(self, _type_list_getter, *args, iadd=False):
         """
         helper to add an object.
         _type_list_getter: (_type, list_getter)
         
         list_getter: func(client) -> ResourceList
+        iadd: bool: use += as opposed to .append?
         """
         
+        # unpack the arg telling us what to add and where to add it
         _type, list_getter = _type_list_getter
         client = Client()
         _list = list_getter(client)
+        
+        # create the resource
         obj = _type(*args)
-        _list += obj
+        
+        #add it to the list
+        if iadd:
+            _list += obj
+        else:
+            _list.append(obj)
         
         # make sure the obj exists
         self.assertTrue(obj in _list, f"{obj} not in {_list}")
@@ -30,22 +57,103 @@ class ClientTest(unittest.TestCase):
         client = Client()
         _list = list_getter(client)
         self.assertTrue(obj in _list)
-        return obj
+        return (obj,)
     
-    def testAddUser(self):
-        return self._testAdd((User, lambda client: client.users),
+    def testAppendUserToList(self):
+        return self._testListAdd((User, lambda client: client.users),
                              "name")
+        
+    def testAddUserToList(self):
+        return self._testListAdd((User, lambda client: client.users),
+                             "name", iadd=True)
     
-    def testAddDevice(self):
-        return self._testAdd((Device, lambda client: client.devices),
+    def testAddDeviceToList(self):
+        return self._testListAdd((Device, lambda client: client.devices),
+                             "name", "host", 5000, 'description', iadd=True)
+        
+    def testAppendDeviceToList(self):
+        return self._testListAdd((Device, lambda client: client.devices),
                              "name", "host", 5000, 'description')
         
-    def testAddSchedule(self):
-        return self._testAdd((Schedule, lambda client: client.schedules),
+    def testAddScheduleToList(self):
+        return self._testListAdd((Schedule, lambda client: client.schedules),
+                             "name", iadd=True)
+        
+    def testAppendScheduleToList(self):
+        return self._testListAdd((Schedule, lambda client: client.schedules),
                              "name")
+
+    @cleanup
+    def _testPost(self, resource):
+        """test that resources of type _type can be created using Resource.post(client)"""
+        self.assertIsNone(resource.id)  #precondition check
+        
+        client = Client()
+        
+        # test post success
+        resource.post(client)
+        self.assertIsNotNone(resource.id, "post failed to assign id to resource")
+        
+        # test post with resource.id fails
+        self.assertRaises(AttributeError, resource.post, client)
+        
+        return (resource,)
+    
+    def testPostUser(self):
+        return self._testPost(User("name"))
+        
+    def testPostDevice(self):
+        return self._testPost(Device("name", "host", 5000))
+        
+    def testPostSchedule(self):
+        return self._testPost(Schedule("name"))
+        
+    @cleanup
+    def _testPut(self, resource):
+        """
+        test that resources of type _type can be created and updated using
+        Resource.put(client)
+        
+        """
+        client = Client()
+        
+        # test put create success
+        resource.id = int(random.random() * 1000000) # good chance this won't collide...right
+        resource.put(client)
+        self.assertIsNotNone(resource.id, "put failed to assign id to resource")
+        
+        # test put with resource.id succeeds, attribute changes
+        name = f"{resource.name}{resource.name}"
+        resource.name = name
+        resource.put(client)
+        
+        # Verify name is updated by creating a new bare Resource with only id
+        # and getting it with the client.
+        resource2 = type(resource).__new__(type(resource))
+        resource2.id = resource.id
+        resource2.get(client)
+        
+        self.assertEqual(name, resource2.name, "name not updated in put")
         
         
         
+        return (resource,)
+    
+    def testPutUser(self):
+        return self._testPut(User("name"))
+        
+    def testPutDevice(self):
+        return self._testPut(Device("name", "host", 5000))
+        
+    def testPutSchedule(self):
+        return self._testPut(Schedule("name"))
+    
+    # TODO - add delete test
+    #  - Resource.delete()
+    #  - ResourceList.delete()
+    
+    # TODO - phase...all of it
+    
 if __name__ == "__main__":
     import sys;sys.argv = ['', 'Test.testName']
     unittest.main()

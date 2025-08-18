@@ -96,6 +96,7 @@ class DetectBadUrlTest(unittest.TestCase):
                         (ValueError, "foo"),  # must start with '/'
                         (ValueError, "/{"),   # can't contain format string
                         (ValueError, "/}"),   # can't contain format string
+                        (ValueError, "/.../None/..."), # invalid id
                         ):
             with self.assertRaises(exc_type, msg=f"bad url not detected: '{bad_url}'"):
                 test.test(bad_url)

@@ -64,12 +64,45 @@ class BaseResource(Resource, DataclassFieldJsonValidator):
     @validate_request_json
     @db
     def put(self, id, *, db):
+        """
+        There is some debate in the REST community as to whether or not clients
+        should be allowed to create resources with PUT since it gives the client
+        control over what id should be used. If a client decides to use id=1
+        and a resource exists with id=1 the service has no way to tell if the
+        client intended to create a new entity or update the existing entity,
+        so the PUT succeeds, possibly clobbering an entity it didn't intend to
+        clobber. However...a naive reading of what PUT should do allows
+        resources to be created by id. That is the current implementation.
+        
+        So, why not just require POST be used? There is no way to idempotently
+        create the resource since the client doesn't know how to identify it...
+        if the request fails after the resource is created the client doesn't
+        know what the id is. The only way to proceed is to retry the POST, which
+        may create spurious resources.
+        
+        So, how do "real" services handle this? Add a resource to assign ids in
+        a way that it will *never* hand out the same id twice. Before doing a
+        PUT clients request an id to use for the resource to create using PUT.
+        This has vulnerabilities if clients or caches are malicious or buggy
+        since they may try to reuse an id leading to resource clobbering. So,
+        you increase the complexity to what amounts to a two-phase commit
+        protocol where you also provide a "create-by-id authorization token"
+        that is removed once it is used, and PUT requires the token exist when
+        creating through PUT.
+        
+        This service doesn't need that level of complexity, so, for now, it
+        allows create through POST or create-with-id through PUT. Clients are
+        trusted and assumed to not be buggy. This will be revisited if it is
+        shown to be a problem
+        
+        TODO - update the service to reject creation of resources using PUT and
+               require all clients to use POST to remove the possibility that
+               clients will clobber existing entities. 
+        """
         j = request.json
         orm = self._lookup(db, id)
         if orm is None:
-            if 'name' not in j:
-                return error("'name' is required"),  HTTPStatus.UNPROCESSABLE_ENTITY
-            orm = self.TYPE(j['name'])
+            orm = self.TYPE(**j)
             orm.id = id
             db.session.add(orm)
         for attr in orm.asdict().keys():#('name', 'email', 'phone_number'):
@@ -80,7 +113,7 @@ class BaseResource(Resource, DataclassFieldJsonValidator):
         if j:
             return error(f"unexpected values: {j}"), HTTPStatus.UNPROCESSABLE_ENTITY
         
-        current_app.db.session.commit()
+        db.session.commit()
         return orm.asdict()
     
     @db
@@ -103,11 +136,12 @@ class BaseListResource(Resource, DataclassFieldJsonValidator):
         return [orm.asdict() for orm in orms]
     
     @validate_request_json
-    def post(self):
+    @db
+    def post(self, db):
         try:
             orm = self.TYPE(**request.json)
-            current_app.db.session.add(orm)
-            current_app.db.session.commit()
+            db.session.add(orm)
+            db.session.commit()
         except Exception as e:
             return error(f"{e}"), 500
         return orm.asdict()

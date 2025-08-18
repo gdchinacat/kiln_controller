@@ -38,6 +38,25 @@ def trace(func=None, /, *, log_func=trace_logger.debug):
             return wrap
         return _wrap
     
+def validate_url(url):
+    if not isinstance(url, str):
+        raise TypeError(f"url must be a str")
+        
+    if not url:
+        raise ValueError(f"url must have a value: {url}")
+        
+    if url[0] != '/':
+        raise ValueError(f"url must begin with '/':{url}")
+
+    if '/None' in url:
+        raise ValueError(f"url appears to contain an unset 'id' attribute: {url}")
+    
+    bad_characters = '{}'
+    if any(bad in url for bad in bad_characters):
+        raise ValueError(f"url contains one of '{bad_characters}': {url}")
+    
+    return url
+
 def detect_bad_url(func):
     """
     decorator that raises a ValueError when the url argument
@@ -49,19 +68,7 @@ def detect_bad_url(func):
     """
     @wraps(func)
     def wrap(self, url, *args, **kwargs):
-        if not isinstance(url, str):
-            raise TypeError(f"url must be a str")
-            
-        if not url:
-            raise ValueError(f"url must have a value: {url}")
-            
-        if url[0] != '/':
-            raise ValueError(f"url must begin with '/':{url}")
-        
-        bad_characters = '{}'
-        if any(bad in url for bad in bad_characters):
-            raise ValueError(f"url contains one of '{bad_characters}': {url}")
-
+        validate_url(url)
         return func(self, url, *args, **kwargs)
     return wrap
         

@@ -2,6 +2,8 @@ import unittest
 from . import Client, User, Device, Schedule
 import traceback
 import random
+from contextlib import contextmanager
+from skytap.fixtures import fixture, default_fixture_name, pass_self
 
 class ClientTest(unittest.TestCase):
     """
@@ -135,8 +137,6 @@ class ClientTest(unittest.TestCase):
         
         self.assertEqual(name, resource2.name, "name not updated in put")
         
-        
-        
         return (resource,)
     
     def testPutUser(self):
@@ -148,8 +148,50 @@ class ClientTest(unittest.TestCase):
     def testPutSchedule(self):
         return self._testPut(Schedule("name"))
     
+    @contextmanager
+    def _mock_client_requests(self):
+        """context manager that replaces client.requests with a mock"""
+        mock = None
+        try:
+            yield mock
+        finally:
+            pass
+        
+    @default_fixture_name('client')
+    @pass_self
+    def _client(self, **_):
+        return Client()
+    
+    @pass_self
+    def _resource(self, _type, *args, client, **kwargs):
+        """
+        create a resource of the given _type using client.
+        """
+        resource = _type(*args, **kwargs)
+        resource.post(client)
+        return resource
+        
+    def _testDeleteResource(self, resource):
+        self.assertIsNotNone(resource.id)
+        resource.delete()
+        self.assertIsNone(resource.id)
+    
+    @fixture(_client)
+    @fixture(_resource, User, "name", fixture_name='user')
+    def testDeleteUserResource(self, client, user):
+        return self._testDeleteResource(user)
+    
+    @fixture(_client)
+    @fixture(_resource, Device, "name", "host", 5000, fixture_name='device')
+    def testDeleteDeviceResource(self, client, device):
+        return self._testDeleteResource(device)
+    
+    @fixture(_client)
+    @fixture(_resource, Schedule, "name", fixture_name='schedule')
+    def testDeleteScheduleResource(self, client, schedule):
+        return self._testDeleteResource(schedule)
+    
     # TODO - add delete test
-    #  - Resource.delete()
     #  - ResourceList.delete()
     
     # TODO - phase...all of it

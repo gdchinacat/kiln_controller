@@ -1,9 +1,32 @@
 import unittest
-from . import Client, User, Device, Schedule
+from . import Client, User, Device, Schedule, client
 import traceback
 import random
 from contextlib import contextmanager
 from skytap.fixtures import fixture, default_fixture_name, pass_self
+from unittest.mock import patch, MagicMock, Mock
+from http import HTTPStatus
+
+@contextmanager
+def mock_module_attr(module, attr:str):
+    """
+    Context manager to replace a module attribute with a mock and restore it
+    upon completion.
+    
+    For example:
+    @mock_module_attr(client, 'requests')
+    def foo(): ...
+    
+    Will replace module.requests with a mock
+    """
+    raise Exception("deprecated: use unittest.mock.patch()")
+    orig = getattr(module, attr)
+    mock = MagicMock()
+    try:
+        setattr(module, attr, mock)
+        yield mock
+    finally:
+        setattr(module, orig)
 
 class ClientTest(unittest.TestCase):
     """
@@ -160,8 +183,25 @@ class ClientTest(unittest.TestCase):
     @default_fixture_name('client')
     @pass_self
     def _client(self, **_):
-        return Client()
+        with patch('kiln_controller.client.client.requests') as requests_mock:
+            # mock the get() calls to return empty lists
+            # TODO - tie this into a full blown memory backed service
+            def _get(url):
+                self.assertTrue(url in (
+                    "http://localhost:5000/user/",
+                    "http://localhost:5000/device/",
+                    "http://localhost:5000/schedule/",
+                                    ))
+                response = Mock()
+                response.status_code = HTTPStatus.OK
+                response.json = lambda: []
+                return response
+            requests_mock.get.side_effect = _get
+            return Client()
     
+    def testAAA_client(self):
+        client = self._client()
+        
     @pass_self
     def _resource(self, _type, *args, client, **kwargs):
         """
@@ -196,7 +236,8 @@ class ClientTest(unittest.TestCase):
     def _testDeleteResourceByList(self, resource_list, resource):
         """test that Resource.delete() functions"""
         
-        resource_list.refresh() # ensure the view is in sync with resource
+        with patch('kiln_controller.client.client.requests') as requests_mock:
+            resource_list.refresh() # ensure the view is in sync with resource
         
         self.assertTrue(resource in resource_list)
         

@@ -1,20 +1,21 @@
 """
 Implementes a mock service for use by unit testing.
 """
-from ..client import User, Device, Schedule
+from ..client import User
 from dataclasses import asdict
-from unittest import mock, TestCase
+from unittest import TestCase
 from itertools import count
-import json
 from typing import Dict, List, Any
 from urllib.parse import urlparse
 from requests.models import Response
 from http import HTTPStatus
 from functools import wraps
+from contextlib import contextmanager
+from unittest.mock import patch
 
 class _HTTPError(Exception): ...
-class NotFound(Exception):
-    status_code: HTTPStatus.NOT_FOUND
+class NotFound(_HTTPError):
+    status_code = HTTPStatus.NOT_FOUND
 
 class Resource(dict):
     """
@@ -39,6 +40,18 @@ class Resource(dict):
         return self['sub_resources']
     
 class MockService(Resource):
+   
+    @contextmanager
+    def patch(self):
+        """
+        Context manager that patches client.requests to use an instance of
+        MockService rather than making request calls.
+        
+        Since this patches client.requests *ALL* requests from the client module
+        will be routed to the MockService.
+        """
+        with patch('kiln_controller.client.client.requests', new=self):
+            yield self
     
     def __init__(self, sub_resources:Dict[str, Resource]= None):
         self['sub_resources'] = sub_resources or {_type: Resource() for _type in 
@@ -48,8 +61,8 @@ class MockService(Resource):
     def response(self, status_code, obj: Dict = None) -> Response:
         response = Response()
         response.status_code = status_code
-        if json:
-            response.json = lambda: json.dumps(obj)
+        if obj is not None:
+            response.json = lambda: obj
         return response
     
     def walk(self, url: str, action=None):
@@ -65,7 +78,7 @@ class MockService(Resource):
         resource = self
         for path in paths:
             if path not in resource.sub_resources:
-                raise NotFound(paths)
+                raise NotFound(url)
             resource = resource.sub_resources[path]
             
         # If the resource attributes contains 'id' then we found an actual
@@ -100,7 +113,7 @@ class MockService(Resource):
                 return self.response(HTTPStatus.OK, ret)
             except _HTTPError as e:
                 return self.response(e.status_code,
-                                     {'message': e.msg})
+                                     {'message': e.args[0]})
         return wrap
         
     @exception_to_response
@@ -108,27 +121,27 @@ class MockService(Resource):
         return self.walk(url)
     
     @exception_to_response
-    def post(self, url:str, obj: Dict[str, Any]) -> Response:
-        obj['id'] = next(self.ids)
+    def post(self, url:str, json: Dict[str, Any]) -> Response:
+        json['id'] = next(self.ids)
         
         def _post(resource):
-            resource.sub_resources[str(obj['id'])] = Resource(**obj)
-            return obj
+            resource.sub_resources[str(json['id'])] = Resource(**json)
+            return json
         return self.walk(url, action=_post)
-        return obj
+        return json
     
     @exception_to_response
-    def put(self, url:str, obj: Dict[str, Any]) -> Response:
+    def put(self, url:str, json: Dict[str, Any]) -> Response:
         # get the id from the url and store it on the obj
         paths = self.get_paths(url)
-        obj['id'] = int(paths[-1])
+        json['id'] = int(paths[-1])
         
         # find the parent, makes handling not existing easier
         url = "/".join(paths[:-1])
         
         def _put(parent_resource):
-            parent_resource.sub_resources[str(obj['id'])] = Resource(**obj)
-            return obj
+            parent_resource.sub_resources[str(json['id'])] = Resource(**json)
+            return json
         return self.walk(url, action=_put)
     
     @exception_to_response
@@ -141,14 +154,14 @@ class MockService(Resource):
         url = "/".join(paths[:-1])
         
         def _delete(parent_resource):
-            if id in parent_resource.sub_resources:
+            if _id in parent_resource.sub_resources:
                 del parent_resource.sub_resources[_id]
             return {}
         return self.walk(url, action=_delete)
         
 def _obj(response: Response) -> Dict | List:
     """get the obj from the Response json"""
-    return json.loads(response.json())
+    return response.json()
     
 class MockServiceTest(TestCase):
     
@@ -201,7 +214,8 @@ class MockServiceTest(TestCase):
         
         #change an attribute
         user['email'] = "email"
-        self.assertEqual(HTTPStatus.OK, service.put(f"/user/{_id}", user).status_code)
+        self.assertEqual(HTTPStatus.OK,
+                         service.put(f"/user/{_id}", user).status_code)
         self.assertEqual(user, _obj(service.get(f"/user/{user['id']}/")))
 
     def testDelete(self):
@@ -212,10 +226,13 @@ class MockServiceTest(TestCase):
         
         self.assertEqual({'id': 2}, _obj(service.get("/parent/1/child/2")))
         
-        self.assertEqual(HTTPStatus.OK, service.delete("/parent/1/child/2").status_code)
-        self.assertEqual(HTTPStatus.NOT_FOUND, _obj(service.get("/parent/1/child/2")))
+        self.assertEqual(HTTPStatus.OK,
+                         service.delete("/parent/1/child/2").status_code)
+        self.assertEqual(HTTPStatus.NOT_FOUND,
+                         service.get("/parent/1/child/2").status_code)
         
         #test that it's idempotent
-        self.assertEqual(HTTPStatus.OK, service.delete("/parent/1/child/2").status_code)
+        self.assertEqual(HTTPStatus.OK,
+                         service.delete("/parent/1/child/2").status_code)
         
         

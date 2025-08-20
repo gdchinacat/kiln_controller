@@ -263,8 +263,7 @@ class BaseRestClient(ABC):
         def wrap(*args, **kwargs):
             resp = func(*args, **kwargs)
             if resp.status_code == HTTPStatus.OK:
-                resp = resp.json()
-                return resp
+                return resp.json()
             else:
                 raise Exception(resp.json()['message'])
         return wrap

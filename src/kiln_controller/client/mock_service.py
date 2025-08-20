@@ -9,6 +9,10 @@ from requests.models import Response
 from typing import Dict, List, Any
 from unittest.mock import patch
 from urllib.parse import urlparse
+import os
+
+live_service = bool(os.getenv('LIVE_SERVICE', False))
+print(live_service)
 
 class _HTTPError(Exception): ...
 class NotFound(_HTTPError):
@@ -47,8 +51,11 @@ class MockService(Resource):
         Since this patches client.requests *ALL* requests from the client module
         will be routed to the MockService.
         """
-        with patch('kiln_controller.client.client.requests', new=self):
-            yield self
+        if not live_service:
+            with patch('kiln_controller.client.client.requests', new=self):
+                yield self
+        else:
+            yield None
     
     def __init__(self, sub_resources:Dict[str, Resource]= None):
         self['sub_resources'] = sub_resources or {_type: Resource() for _type in 

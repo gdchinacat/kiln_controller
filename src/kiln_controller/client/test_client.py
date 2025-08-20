@@ -4,6 +4,7 @@ import random
 from skytap.fixtures import fixture, default_fixture_name, pass_self
 from kiln_controller.client.mock_service import MockService
 
+
 class ClientTest(unittest.TestCase):
     
     @default_fixture_name('mock_service')

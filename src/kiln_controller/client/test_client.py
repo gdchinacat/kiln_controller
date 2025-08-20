@@ -1,33 +1,8 @@
 import unittest
-from . import Client, User, Device, Schedule, client
-import traceback
+from . import Client, User, Device, Schedule
 import random
-from contextlib import contextmanager
 from skytap.fixtures import fixture, default_fixture_name, pass_self
-from unittest.mock import patch, MagicMock, Mock
-from http import HTTPStatus
 from kiln_controller.client.mock_service import MockService
-
-@contextmanager
-def mock_module_attr(module, attr:str):
-    """
-    Context manager to replace a module attribute with a mock and restore it
-    upon completion.
-    
-    For example:
-    @mock_module_attr(client, 'requests')
-    def foo(): ...
-    
-    Will replace module.requests with a mock
-    """
-    raise Exception("deprecated: use unittest.mock.patch()")
-    orig = getattr(module, attr)
-    mock = MagicMock()
-    try:
-        setattr(module, attr, mock)
-        yield mock
-    finally:
-        setattr(module, orig)
 
 class ClientTest(unittest.TestCase):
     
@@ -167,15 +142,6 @@ class ClientTest(unittest.TestCase):
     def testPutSchedule(self):
         return self._testPut(Schedule("name"))
     
-    @contextmanager
-    def _mock_client_requests(self):
-        """context manager that replaces client.requests with a mock"""
-        mock = None
-        try:
-            yield mock
-        finally:
-            pass
-        
     @pass_self
     def _resource(self, _type, *args, client, mock_service, **kwargs):
         """

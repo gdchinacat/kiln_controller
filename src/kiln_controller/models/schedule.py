@@ -1,32 +1,36 @@
-from typing import List, Optional
 from datetime import time
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import ForeignKey
+from typing import List, Optional
 
-from .base import Base, name_field
+from sqlalchemy import ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from .base import Base
+
 
 class Phase(Base):
     """
     A schedule is a definition of how a firing should be executed.
     """
     __tablename__ = "phases"
-    
-    name: Mapped[name_field]
+
     type: Mapped[str]
     duration: Mapped[Optional[time]]
-    rate:  Mapped[Optional[int]] # degrees C per minute
-    schedule_id: Mapped[Optional[int]] = mapped_column(ForeignKey('schedules.id'))
-    
-    #schedule = relationship("Schedule", back_populates='phases')
-    
+    rate:  Mapped[Optional[int]]  # degrees C per minute
+
+    schedule_id: Mapped[int] = mapped_column(ForeignKey('schedules.id'))
+    schedule: Mapped["Schedule"] = relationship()  # back_populates="phases")
+
+    def __setattr__(self, attr, value):
+        if attr == "schedule":
+            value = Schedule(**value)
+            print(f"using {value=}")
+        super().__setattr__(attr, value)
+
+
 class Schedule(Base):
     """
     A schedule is a definition of how a firing should be executed.
     """
     __tablename__ = "schedules"
-    
-    name: Mapped[name_field]
-    
-    #phases: Mapped[List[Phase]] = relationship(back_populates="schedule")
 
-    
+    phases: Mapped[List["Phase"]] = relationship(back_populates="schedule")

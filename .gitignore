@@ -1,2 +1,3 @@
 .settings
-src/kiln_controller/server/app/instance/
+src/kiln_controller/service/app/instance/
+src/instance/

@@ -1,7 +1,11 @@
+# pylint: disable=missing-module-docstring
+# pylint: disable=missing-class-docstring
+# pylint: disable=missing-function-docstring
+# pylint: disable=too-few-public-methods
 
 from unittest import TestCase
 from unittest.mock import MagicMock
-from .base import BaseResource
+from kiln_controller.service.app.resources.base import BaseResource
 
 
 class _ResourceType:
@@ -15,7 +19,7 @@ class _Resource(BaseResource):
 class TestResources(TestCase):
     """Test the application resources."""
 
-    def testBaseResourceLookup(self):
+    def test_base_resource_lookup(self):
         resource = _Resource()
         db = MagicMock()
         _id = 0

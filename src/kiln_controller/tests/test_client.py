@@ -14,7 +14,7 @@ from skytap.fixtures import fixture, default_fixture_name, pass_self
 
 from kiln_controller.client.mock_service import MockService
 
-from . import Client, User, Device, Schedule
+from kiln_controller.client import Client, User, Device, Schedule
 
 
 class ClientTest(unittest.TestCase):

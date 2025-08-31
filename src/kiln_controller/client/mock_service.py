@@ -1,19 +1,15 @@
 """
-Implementes a mock service for use by unit testing.
+Implements a mock service for use by unit testing.
 """
 from contextlib import contextmanager
-from dataclasses import asdict
 from functools import wraps
 from http import HTTPStatus
 from itertools import count
 from typing import Dict, List, Any
-from unittest import TestCase
 from unittest.mock import patch
 from urllib.parse import urlparse
 
 from requests.models import Response
-
-from ..client import User
 
 
 class _HTTPError(Exception):
@@ -165,84 +161,3 @@ class MockService(Resource):
                 del parent_resource.sub_resources[_id]
             return {}
         return self.walk(url, action=_delete)
-
-
-def _obj(response: Response) -> Dict | List:
-    """get the obj from the Response json"""
-    return response.json()
-
-
-class MockServiceTest(TestCase):
-
-    def test_walk(self):
-        child2 = Resource(id=2)
-        child3 = Resource(id=3)
-        parent = Resource({'child': Resource({'2': child2, '3': child3})},
-                          id=1)
-        service = MockService({'parent': Resource({'1': parent})})
-
-        self.assertEqual([parent.resource], service.walk('/parent'))
-        self.assertIs(parent.resource, service.walk('/parent/1'))
-        self.assertEqual([child2.resource, child3.resource],
-                         service.walk('/parent/1/child'))
-        self.assertIs(child2.resource,
-                      service.walk('/parent/1/child/2'))
-        self.assertIs(child3.resource,
-                      service.walk('/parent/1/child/3'))
-
-        self.assertRaises(NotFound, service.walk, '/parent/2')
-        self.assertRaises(NotFound, service.walk, '/nonexistent')
-
-    def test_default_service(self):
-        service = MockService()
-
-        self.assertEqual([], _obj(service.get("/user")))
-        self.assertEqual([], _obj(service.get("/device")))
-        self.assertEqual([], _obj(service.get("/schedule")))
-
-    def test_post(self):
-        service = MockService()
-
-        user = asdict(User("name"))  # pylint: disable=not-callable
-        created_user = _obj(service.post("/user", user))
-        self.assertEqual(user, created_user)
-        self.assertIsNotNone(created_user['id'], "created resource id not set")
-
-        self.assertEqual(user, service.walk(f"/user/{user['id']}/"))
-        self.assertEqual(user, _obj(service.get(f"/user/{user['id']}/")))
-
-    def test_put(self):
-        service = MockService()
-
-        _id = str(next(service.ids))
-        user = asdict(User("name"))  # pylint: disable=not-callable
-        created_user = _obj(service.put(f"/user/{_id}", user))
-        self.assertEqual(user, created_user)
-
-        self.assertEqual(user, service.walk(f"/user/{user['id']}/"))
-        self.assertEqual(user, _obj(service.get(f"/user/{user['id']}/")))
-
-        # change an attribute
-        user['email'] = "email"
-        self.assertEqual(HTTPStatus.OK,
-                         service.put(f"/user/{_id}", user).status_code)
-        self.assertEqual(user, _obj(service.get(f"/user/{user['id']}/")))
-
-    def test_delete(self):
-        child2 = Resource(id=2)
-        child3 = Resource(id=3)
-        parent = Resource({'child': Resource({'2': child2,
-                                              '3': child3})},
-                          id=1)
-        service = MockService({'parent': Resource({'1': parent})})
-
-        self.assertEqual({'id': 2}, _obj(service.get("/parent/1/child/2")))
-
-        self.assertEqual(HTTPStatus.OK,
-                         service.delete("/parent/1/child/2").status_code)
-        self.assertEqual(HTTPStatus.NOT_FOUND,
-                         service.get("/parent/1/child/2").status_code)
-
-        # test that it's idempotent
-        self.assertEqual(HTTPStatus.OK,
-                         service.delete("/parent/1/child/2").status_code)

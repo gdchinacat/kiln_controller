@@ -8,7 +8,8 @@ import logging
 from typing import List, Tuple, Dict
 import unittest
 
-from .helpers import trace, logger as helper_logger, detect_bad_url
+from kiln_controller.client.helpers import (trace, logger as helper_logger,
+                                            detect_bad_url)
 
 
 class Collector:
@@ -24,8 +25,9 @@ class Collector:
         self.func_called = True
 
 
-class TestHandler(logging.Handler):
+class _TestHandler(logging.Handler):
     """A logging Handler to use to test the default trace log_func"""
+    # TODO - update this to use pytest log collection functionality
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.emitted: List[Tuple[int, str]] = []
@@ -37,7 +39,7 @@ class TestHandler(logging.Handler):
     @staticmethod
     @contextmanager
     def temporary_handler(logger, level=None):
-        handler = TestHandler(logging.DEBUG)
+        handler = _TestHandler(logging.DEBUG)
         orig_level = logger.level
         logger.setLevel(level if level is not None else logging.DEBUG)
 
@@ -62,7 +64,7 @@ class TraceTest(unittest.TestCase):
 
     def test_bare_trace(self):
         # test success
-        with TestHandler.temporary_handler(helper_logger) as handler:
+        with _TestHandler.temporary_handler(helper_logger) as handler:
             trace(int)()
         self.assertEqual(handler.emitted,
                          [(logging.DEBUG, "int((), {})"),
@@ -72,7 +74,7 @@ class TraceTest(unittest.TestCase):
     def test_bare_trace_exception(self):
         TestException = type("TestException", (Exception, ), {})
         exc = None
-        with TestHandler.temporary_handler(helper_logger) as handler:
+        with _TestHandler.temporary_handler(helper_logger) as handler:
             def raises():
                 nonlocal exc
                 try:

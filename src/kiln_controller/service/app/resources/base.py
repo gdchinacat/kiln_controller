@@ -2,15 +2,20 @@
 Framework for application resources.
 '''
 
-from dataclasses import MISSING
+from abc import ABC
+from dataclasses import MISSING, fields as fields
+from datetime import datetime
 from functools import wraps
 from http import HTTPStatus
 from logging import getLogger
-from typing import Callable
+from typing import Callable, Dict
 
 from flask import current_app, request
-from flask_restful import Resource
+from flask_restful import Resource, marshal_with
+import flask_restful.fields
 from sqlalchemy.exc import NoResultFound
+
+from kiln_controller.client.client import DataclassBase
 
 
 __all__ = []
@@ -19,7 +24,8 @@ __all__ = []
 logger = getLogger("resource/base.py")
 
 
-def db(func):
+def db(func) -> Callable[[Callable], Callable]:
+    '''decorator to inject the database into wrapped calls as db_= kwarg'''
     @wraps(func)
     def wrap(*args, **kwargs):
         db_ = current_app.db  # @UndefinedVariable
@@ -27,13 +33,17 @@ def db(func):
     return wrap
 
 
-def error(msg):
+def error(msg: str) -> Dict[str, str]:
+    '''create a json error dict with error msg'''
     return {"message": msg}
 
 
 def validate_request_json(func):
+    '''
+    todo - validate_request_json is deprecated, use marshallers instead
+    '''
     @wraps(func)
-    def wrap(self, *args, **kwargs):
+    def wrap(self: "DataclassFieldJsonValidatorMixin", *args, **kwargs):
         errors = self.validate(request.json)
         if errors:
             return (error(errors),
@@ -44,11 +54,16 @@ def validate_request_json(func):
 
 class DataclassFieldJsonValidatorMixin: \
         # pylint: disable=too-few-public-methods
-    """validator for json representation of a dataclass"""
+    '''
+    validator for json representation of a dataclass
+
+    todo - validate_request_json is deprecated, use marshallers instead
+    '''
 
     TYPE: Callable = None  # class that this is mixed with must provide
 
-    def validate(self, obj_json):
+    def validate(self, obj_json) -> str:
+        '''validate the obj_json dict has the required fields for TYPE'''
         errors = []
         required_fields = [field.name for field in
                            self.TYPE.__dataclass_fields__.values()
@@ -70,18 +85,73 @@ class DataclassFieldJsonValidatorMixin: \
         return "; ".join(errors)
 
 
-class BaseResource(Resource, DataclassFieldJsonValidatorMixin):
+def dc_fields(dc: DataclassBase) -> Dict[str, type]:
+    """get mapping of {name: type} for the fields in dc"""
+    return {f.name: f.type
+            for f in fields(dc)}
+
+
+def fr_fields(dc_fields_: Dict[str, type]) -> Dict[str, ...]:
+    '''translate the python type to flask_restful.fields types'''
+    fr_types = {
+        int: flask_restful.fields.Integer,
+        str: flask_restful.fields.String,
+        datetime: flask_restful.fields.DateTime,
+        # todo - probably a few more
+        }
+    return {name: fr_types.get(type_, None)
+            for name, type_ in dc_fields_.items()}
+
+
+class dataclass_marshaller(marshal_with): \
+        # pylint: disable=invalid-name, too-few-public-methods
+    """
+    Decorator that marshals the fields based on the type of resource decorated
+    method is handling.
+
+    @dataclass_marshaller
+    def get(self, ....):
+        ...
+
+    """
+
+    def __call__(self, func):
+        logger.error("not implemented, {func=%s} undecorated", func)
+        return func
+
+    # def __init__(self):
+    #     super().__init__(fr_fields(dc_fields(client_type)))
+
+
+class BaseResource(Resource, DataclassFieldJsonValidatorMixin, ABC):
+    '''
+    Base class for resources (abstract).
+
+    Subclasses must override:
+        - TYPE: the ORM type this resource handles.
+        - marshalling data: todo how receive and present the TYPE instances in
+                            requests and responses.
+
+    Provides a way to _lookup() resources of its TYPE.
+    get(), post(), put(), and delete() endpoing methods to implement the CRUD
+    operations for TYPE.
+
+    endpoint methods are decorated with appropriate validation.
+    '''
     TYPE: Callable = None
 
-    def _lookup(self, db_, id_):
+    def _lookup(self, db_, id_: int) -> TYPE:
+        '''lookup the resource by id_'''
         try:
             return db_.session.execute(db_.select(self.TYPE)
                                        .filter_by(id=id_)).scalar_one()
         except NoResultFound:
             return None
 
+    @dataclass_marshaller
     @db
-    def get(self, id_, *, db_, **kwargs):
+    def get(self, id_: int, *, db_, **kwargs) -> Dict:
+        '''get the resource'''
         assert not kwargs, f"recieved unhandled {kwargs=}"
         orm = self._lookup(db_, id_)
         if not orm:
@@ -89,9 +159,10 @@ class BaseResource(Resource, DataclassFieldJsonValidatorMixin):
                     HTTPStatus.NOT_FOUND)
         return orm.asdict()
 
+    @dataclass_marshaller
     @validate_request_json
     @db
-    def put(self, id_, *, db_):
+    def put(self, id_: int, *, db_) -> Dict:
         """
         There is some debate in the REST community as to whether or not clients
         should be allowed to create resources with PUT since it gives the
@@ -148,6 +219,7 @@ class BaseResource(Resource, DataclassFieldJsonValidatorMixin):
 
     @db
     def delete(self, id_, *, db_):
+        '''delete the resource'''
         orm = self._lookup(db_, id_)
         if orm is not None:
             db_.session.delete(orm)
@@ -156,19 +228,32 @@ class BaseResource(Resource, DataclassFieldJsonValidatorMixin):
 
 
 class BaseListResource(Resource, DataclassFieldJsonValidatorMixin):
+    '''
+    Base class for list resources (abstract).
+
+    Subclasses must override:
+        - TYPE: the ORM type this resource handles.
+        - marshalling data: todo how receive and present the TYPE instances in
+                            requests and responses.
+
+    '''
     TYPE = None
 
+    @dataclass_marshaller
     @db
     def get(self, *, db_, **filters):
+        '''get the list of TYPE resources'''
         query = db_.select(self.TYPE)
         if filters:
             query = query.filter_by(**filters)
         orms = db_.session.execute(query).scalars()
         return [orm.asdict() for orm in orms]
 
+    @dataclass_marshaller
     @validate_request_json
     @db
     def post(self, db_):
+        '''create a resource of TYPE'''
         try:
             orm = self.TYPE(**request.json)  # pylint: disable=not-callable
             db_.session.add(orm)

@@ -36,11 +36,11 @@ def coerce(attr: str,
     The @coerce() decorator is used for translating request and response .json
     attributes using request_coerce() and response_coerce().
 
-    -param attr: name of the json attribute to coerce.
-    -param is_list: is the json expected to be a list, with the coercion
+    :param attr: name of the json attribute to coerce.
+    :param is_list: is the json expected to be a list, with the coercion
                      to be applied to each element of the list.
-    -param request_coerce: function to coerce request attributes
-    -param response_coerce: function to coerce response attributes
+    :param request_coerce: function to coerce request attributes
+    :param response_coerce: function to coerce response attributes
     """
     def dec(func):
         def wrap(*args, **kwargs):
@@ -61,22 +61,30 @@ def coerce(attr: str,
 
 
 class PhaseResource(BaseResource):
+    '''Flask resource for Phases'''
     TYPE = Phase
 
+    # todo - PhaseResource overloads these to add coercion...once
+    #        marshallers have been added these overloads should not be
+    #        necessary.
     @coerce('duration', False, None,
             lambda x: x.isoformat())
     def get(self, *args, **kwargs):
         return super().get(*args, **kwargs)
 
-    def delete(self, *args, schedule_id, **kwargs):
+    def delete(self, *args, schedule_id: int, **kwargs):
         logger.error("PhaseResource ignoring schedule_id=%i path parameter",
                      schedule_id)
         return super().delete(*args, **kwargs)
 
 
 class PhaseListResource(BaseListResource):
+    '''Flask list resource list for Phases'''
     TYPE = Phase
 
+    # todo - PhaseListResource overloads these to add coercion...once
+    #        marshallers have been added these overloads should not be
+    #        necessary.
     @coerce('duration', True, None,
             lambda x: x.isoformat() if x else None)
     def get(self, *args, **kwargs):

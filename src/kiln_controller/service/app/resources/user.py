@@ -1,4 +1,4 @@
-from kiln_controller.models import User
+from kiln_controller.service.models import User
 
 from .base import BaseResource, BaseListResource
 

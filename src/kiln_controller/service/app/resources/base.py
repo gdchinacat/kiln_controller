@@ -16,6 +16,7 @@ import flask_restful.fields
 from sqlalchemy.exc import NoResultFound
 
 from kiln_controller.client.client import DataclassBase
+from sqlalchemy.sql.functions import func
 
 
 __all__ = []
@@ -103,7 +104,7 @@ def fr_fields(dc_fields_: Dict[str, type]) -> Dict[str, ...]:
             for name, type_ in dc_fields_.items()}
 
 
-class dataclass_marshaller(marshal_with): \
+class dataclass_marshaller: \
         # pylint: disable=invalid-name, too-few-public-methods
     """
     Decorator that marshals the fields based on the type of resource decorated
@@ -116,11 +117,13 @@ class dataclass_marshaller(marshal_with): \
     """
 
     def __call__(self, func):
-        logger.error("not implemented, {func=%s} undecorated", func)
-        return func
+        @wraps(func)
+        def wrap(resource, *args, **kwargs):
+            fr_fields_ = fr_fields(dc_fields(fields(resource.TYPE)))
+            print(f"{fr_fields_=}")
 
-    # def __init__(self):
-    #     super().__init__(fr_fields(dc_fields(client_type)))
+            return func(resource, *args, **kwargs)
+        return wrap
 
 
 class BaseResource(Resource, DataclassFieldJsonValidatorMixin, ABC):
@@ -148,7 +151,7 @@ class BaseResource(Resource, DataclassFieldJsonValidatorMixin, ABC):
         except NoResultFound:
             return None
 
-    @dataclass_marshaller
+    @dataclass_marshaller()
     @db
     def get(self, id_: int, *, db_, **kwargs) -> Dict:
         '''get the resource'''
@@ -159,7 +162,7 @@ class BaseResource(Resource, DataclassFieldJsonValidatorMixin, ABC):
                     HTTPStatus.NOT_FOUND)
         return orm.asdict()
 
-    @dataclass_marshaller
+    @dataclass_marshaller()
     @validate_request_json
     @db
     def put(self, id_: int, *, db_) -> Dict:
@@ -217,6 +220,7 @@ class BaseResource(Resource, DataclassFieldJsonValidatorMixin, ABC):
         db_.session.commit()
         return orm.asdict()
 
+    @dataclass_marshaller()
     @db
     def delete(self, id_, *, db_):
         '''delete the resource'''
@@ -239,7 +243,7 @@ class BaseListResource(Resource, DataclassFieldJsonValidatorMixin):
     '''
     TYPE = None
 
-    @dataclass_marshaller
+    @dataclass_marshaller()
     @db
     def get(self, *, db_, **filters):
         '''get the list of TYPE resources'''
@@ -249,7 +253,7 @@ class BaseListResource(Resource, DataclassFieldJsonValidatorMixin):
         orms = db_.session.execute(query).scalars()
         return [orm.asdict() for orm in orms]
 
-    @dataclass_marshaller
+    @dataclass_marshaller()
     @validate_request_json
     @db
     def post(self, db_):

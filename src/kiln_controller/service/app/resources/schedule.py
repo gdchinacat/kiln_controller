@@ -10,7 +10,7 @@ from typing import Dict, Any, Callable
 from flask import request
 from flask_restful.utils import unpack
 
-from kiln_controller.models import Schedule, Phase
+from kiln_controller.service.models import Schedule, Phase
 
 from .base import BaseResource, BaseListResource
 

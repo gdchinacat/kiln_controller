@@ -2,7 +2,7 @@
 Device related Flask resources
 '''
 
-from kiln_controller.models import Device
+from kiln_controller.service.models import Device
 
 from .base import BaseResource, BaseListResource
 

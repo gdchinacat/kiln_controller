@@ -378,7 +378,7 @@ class DeviceBase(DataclassBase):
 
 @dataclass
 class ScheduleBase(DataclassBase):
-    phases: list = field(default_factory=list)
+    pass
 
 
 @dataclass

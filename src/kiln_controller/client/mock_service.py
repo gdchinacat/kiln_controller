@@ -17,7 +17,7 @@ class _HTTPError(Exception):
     status_code = None  # subclasses must override this
 
 
-live_service = bool(os.getenv('LIVE_SERVICE', False))
+live_service = os.getenv('LIVE_SERVICE', 'false').upper() == 'TRUE'
 
 
 class NotFound(_HTTPError):

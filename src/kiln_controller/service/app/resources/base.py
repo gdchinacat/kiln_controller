@@ -3,20 +3,15 @@ Framework for application resources.
 '''
 
 from abc import ABC
-from dataclasses import MISSING, fields as fields
-from datetime import datetime
+from dataclasses import MISSING
 from functools import wraps
 from http import HTTPStatus
 from logging import getLogger
 from typing import Callable, Dict
 
 from flask import current_app, request
-from flask_restful import Resource, marshal_with
-import flask_restful.fields
+from flask_restful import Resource
 from sqlalchemy.exc import NoResultFound
-
-from kiln_controller.client.client import DataclassBase
-from sqlalchemy.sql.functions import func
 
 
 __all__ = []
@@ -86,46 +81,6 @@ class DataclassFieldJsonValidatorMixin: \
         return "; ".join(errors)
 
 
-def dc_fields(dc: DataclassBase) -> Dict[str, type]:
-    """get mapping of {name: type} for the fields in dc"""
-    return {f.name: f.type
-            for f in fields(dc)}
-
-
-def fr_fields(dc_fields_: Dict[str, type]) -> Dict[str, ...]:
-    '''translate the python type to flask_restful.fields types'''
-    fr_types = {
-        int: flask_restful.fields.Integer,
-        str: flask_restful.fields.String,
-        datetime: flask_restful.fields.DateTime,
-        # todo - probably a few more
-        }
-    return {name: fr_types.get(type_, None)
-            for name, type_ in dc_fields_.items()}
-
-
-class dataclass_marshaller: \
-        # pylint: disable=invalid-name, too-few-public-methods
-    """
-    Decorator that marshals the fields based on the type of resource decorated
-    method is handling.
-
-    @dataclass_marshaller
-    def get(self, ....):
-        ...
-
-    """
-
-    def __call__(self, func):
-        @wraps(func)
-        def wrap(resource, *args, **kwargs):
-            fr_fields_ = fr_fields(dc_fields(fields(resource.TYPE)))
-            print(f"{fr_fields_=}")
-
-            return func(resource, *args, **kwargs)
-        return wrap
-
-
 class BaseResource(Resource, DataclassFieldJsonValidatorMixin, ABC):
     '''
     Base class for resources (abstract).
@@ -143,29 +98,27 @@ class BaseResource(Resource, DataclassFieldJsonValidatorMixin, ABC):
     '''
     TYPE: Callable = None
 
-    def _lookup(self, db_, id_: int) -> TYPE:
-        '''lookup the resource by id_'''
+    def _lookup(self, db_, id: int) -> TYPE:
+        '''lookup the resource by id'''
         try:
             return db_.session.execute(db_.select(self.TYPE)
-                                       .filter_by(id=id_)).scalar_one()
+                                       .filter_by(id=id)).scalar_one()
         except NoResultFound:
             return None
 
-    @dataclass_marshaller()
     @db
-    def get(self, id_: int, *, db_, **kwargs) -> Dict:
+    def get(self, id: int, *, db_, **kwargs) -> Dict:
         '''get the resource'''
         assert not kwargs, f"recieved unhandled {kwargs=}"
-        orm = self._lookup(db_, id_)
+        orm = self._lookup(db_, id)
         if not orm:
             return (error(f"{self.TYPE.__name__} with id={id} not found"),
                     HTTPStatus.NOT_FOUND)
         return orm.asdict()
 
-    @dataclass_marshaller()
     @validate_request_json
     @db
-    def put(self, id_: int, *, db_) -> Dict:
+    def put(self, id: int, *, db_) -> Dict:
         """
         There is some debate in the REST community as to whether or not clients
         should be allowed to create resources with PUT since it gives the
@@ -203,10 +156,10 @@ class BaseResource(Resource, DataclassFieldJsonValidatorMixin, ABC):
                clients will clobber existing entities.
         """
         j = request.json
-        orm = self._lookup(db_, id_)
+        orm = self._lookup(db_, id)
         if orm is None:
             orm = self.TYPE(**j)  # pylint: disable=not-callable
-            orm.id = id_
+            orm.id = id
             db_.session.add(orm)
         for attr in orm.asdict().keys():  # ('name', 'email', 'phone_number'):
             if attr in j:
@@ -220,11 +173,10 @@ class BaseResource(Resource, DataclassFieldJsonValidatorMixin, ABC):
         db_.session.commit()
         return orm.asdict()
 
-    @dataclass_marshaller()
     @db
-    def delete(self, id_, *, db_):
+    def delete(self, id, *, db_):
         '''delete the resource'''
-        orm = self._lookup(db_, id_)
+        orm = self._lookup(db_, id)
         if orm is not None:
             db_.session.delete(orm)
             db_.session.commit()
@@ -243,17 +195,15 @@ class BaseListResource(Resource, DataclassFieldJsonValidatorMixin):
     '''
     TYPE = None
 
-    @dataclass_marshaller()
     @db
     def get(self, *, db_, **filters):
         '''get the list of TYPE resources'''
         query = db_.select(self.TYPE)
         if filters:
             query = query.filter_by(**filters)
-        orms = db_.session.execute(query).scalars()
-        return [orm.asdict() for orm in orms]
+        return [orm.asdict() for orm in 
+                db_.session.execute(query).scalars()]
 
-    @dataclass_marshaller()
     @validate_request_json
     @db
     def post(self, db_):

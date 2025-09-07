@@ -10,6 +10,10 @@ from .base import Base
 
 class Device(Base):
     __tablename__ = 'devices'
+    PUBLIC_FIELDS = Base.PUBLIC_FIELDS | {'host': None,
+                                          'port': None,
+                                          'url': None,
+                                          'description': None}
 
     host: Mapped[str]
     port: Mapped[int]

@@ -18,6 +18,11 @@ class Phase(Base):
     A schedule is a definition of how a firing should be executed.
     """
     __tablename__ = "phases"
+    PUBLIC_FIELDS = Base.PUBLIC_FIELDS | {'type': None,
+                                          'duration': str,
+                                          'rate': None,
+                                          'schedule_id': None,
+                                          }
 
     type: Mapped[str]
     duration: Mapped[Optional[time]]
@@ -38,5 +43,7 @@ class Schedule(Base):  # pylint: disable=too-few-public-methods
     A schedule is a definition of how a firing should be executed.
     """
     __tablename__ = "schedules"
+    PUBLIC_FIELDS = Base.PUBLIC_FIELDS | {}
 
-    phases: Mapped[List["Phase"]] = relationship(back_populates="schedule")
+    phases: Mapped[List["Phase"]] = relationship(default_factory=list,
+                                                 back_populates="schedule")

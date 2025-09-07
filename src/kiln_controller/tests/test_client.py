@@ -1,6 +1,7 @@
 # pylint: disable=missing-class-docstring
 # pylint: disable=missing-function-docstring
 # pylint: disable=too-few-public-methods
+import pytest
 
 """
 Test the kiln_controller python client library.
@@ -267,3 +268,7 @@ class ClientTest(unittest.TestCase):
                                                   mock_service)
 
     # TODO - phase...all of it
+
+
+if __name__ == '__main__':
+    pytest.main()

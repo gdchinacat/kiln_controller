@@ -15,7 +15,7 @@ from skytap.fixtures import fixture, default_fixture_name, pass_self
 
 from kiln_controller.client.mock_service import MockService
 
-from kiln_controller.client import Client, User, Device, Schedule
+from kiln_controller.client import Client, User, Device, Schedule, Phase
 
 
 class ClientTest(unittest.TestCase):
@@ -57,6 +57,8 @@ class ClientTest(unittest.TestCase):
 
         with mock_service.patch():
             client = Client()
+            obj._set_client(client)  # todo - this should'nt be necessary
+
             _list = list_getter(client)
 
             # add it to the list
@@ -267,7 +269,17 @@ class ClientTest(unittest.TestCase):
         return self._test_delete_resource_by_list(client.schedules, schedule,
                                                   mock_service)
 
-    # TODO - phase...all of it
+    @fixture(_mock_service)
+    @fixture(_client)
+    @fixture(_resource, Schedule, "name", fixture_name='schedule')
+    def test_schedule_phases(self, client, schedule, mock_service):
+        self.assertEqual([], schedule.phases)
+
+        phase = Phase('name', 'type', None, 5)
+        with mock_service.patch():
+            schedule.phases += phase
+
+        self.assertEqual([phase], schedule.phases)
 
 
 if __name__ == '__main__':

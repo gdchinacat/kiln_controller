@@ -72,7 +72,7 @@ def detect_bad_url(func):
     TODO - only apply it when debug is enabled?
     """
     @wraps(func)
-    def wrap(self, url, *args, **kwargs):
+    def bad_url_filter(self, url, *args, **kwargs):
         validate_url(url)
         return func(self, url, *args, **kwargs)
-    return wrap
+    return bad_url_filter

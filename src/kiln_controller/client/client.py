@@ -1,6 +1,5 @@
 # The current implementation relies heavily on accessing "protected" members
 # pylint: disable=protected-access
-
 """
 A requests based client for interacting with the REST server
 
@@ -18,7 +17,7 @@ from abc import ABC
 from dataclasses import dataclass, field, asdict
 import dataclasses
 import datetime
-from functools import wraps
+from functools import wraps, partial
 from http import HTTPStatus
 import traceback
 from typing import SupportsIndex, Callable
@@ -41,13 +40,13 @@ def format_url(func):
     TODO - move this to a method on client
     """
     @wraps(func)
-    def wrap(self, url, *args, **kwargs):
-        obj = args[0] if args else {}
+    def _format_url(self, url, *args, **kwargs):
+        # obj = args[0] if args else {}
         url = f"{self.url}{url}/"
-        if obj:
-            url = url.format(**asdict(obj))
+        # if obj:
+        #     url = url.format(**asdict(obj))
         return func(self, url, *args, **kwargs)
-    return wrap
+    return _format_url
 
 
 class Resource(ABC):
@@ -88,6 +87,7 @@ class Resource(ABC):
         """update the resource attributes"""
         # probably a less sketchy way to do this, but it works for now
         super().__init__(**kwargs)
+        self._set_url()
 
     def _set_url(self):
         if self.id is not None:
@@ -124,14 +124,14 @@ class Resource(ABC):
         If specified, the clientl is *NOT* passed to the decorated method.
         """
         @wraps(func)
-        def wrap(self, client=None):
+        def client_injector(self, client=None):
             self._client = client or self._client \
               # pylint: disable=protected-access
             if not self._client:  # pylint: disable=protected-access
                 raise ValueError("must associate resources with a client "
                                  "before get'ing them")
             return func(self)
-        return wrap
+        return client_injector
 
     @_accepts_client
     @_requires_url
@@ -166,7 +166,7 @@ class ResourceList[A](list):
     Item deletion is intercepted to make REST calls to delete the entity
     on the server.
     """
-    def __init__(self, _type, client, url, iterable):
+    def __init__(self, _type, client, url, iterable=tuple()):
         self._type = _type
         self._client = client
         self._url = url
@@ -186,7 +186,7 @@ class ResourceList[A](list):
         caused it to Change.
         """
         @wraps(func)
-        def wrap(self, *args, **kwargs):
+        def refresh_after_call(self, *args, **kwargs):
             try:
                 return func(self, *args, **kwargs)
             except Exception as e:
@@ -196,7 +196,7 @@ class ResourceList[A](list):
                 raise
             finally:
                 self.refresh()
-        return wrap
+        return refresh_after_call
 
     @_refresh
     def __iadd__(self, obj: A) -> A:
@@ -218,8 +218,8 @@ class ResourceList[A](list):
 
         # update the object (a bit scary, lets see how this ages)
         obj.__init__(**resp)
-
         obj._set_client(self._client)
+
         return self
 
     def append(self, obj: A):
@@ -293,12 +293,12 @@ class BaseRestClient(ABC):
         is not json).
         """
         @wraps(func)
-        def wrap(*args, **kwargs):
+        def response_handler(*args, **kwargs):
             resp = func(*args, **kwargs)
             if resp.status_code == HTTPStatus.OK:
                 return resp.json()
             raise ClientException(resp.json()['message'])
-        return wrap
+        return response_handler
 
     @detect_bad_url
     @_response_handler
@@ -306,7 +306,7 @@ class BaseRestClient(ABC):
     @trace
     def post(self, url, obj, timeout=DEFAULT_TIMEOUT):
         """Post the obj to the url."""
-        return requests.post(url, json=asdict(obj), timeout=timeout)
+        return requests.post(url, json=obj.asdict(), timeout=timeout)
 
     @detect_bad_url
     @format_url
@@ -330,7 +330,7 @@ class BaseRestClient(ABC):
     @trace
     def put(self, url, obj, timeout=DEFAULT_TIMEOUT):
         """delete a resource at the url"""
-        return requests.put(url, json=asdict(obj), timeout=timeout)
+        return requests.put(url, json=obj.asdict(), timeout=timeout)
 
 ###############################################################################
 # The dataclasses for the resource types.
@@ -340,24 +340,29 @@ class BaseRestClient(ABC):
 ###############################################################################
 
 
-def foreign_key(cls, attr):
-    """return the type of the referenced cls.attr using annotation"""
-    for field_ in dataclasses.fields(cls):
-        if field_.name == attr:
-            return field_.type
-    raise ValueError(f"{cls.__name__}.{attr} does not exist")
-
-
 @dataclass
 class DataclassBase(ABC):
     """
-    Base class for mapped dataclasses
+    Base class for remote resource dataclasses.
     Contains the common attributes all model elements share:
       id - the primary key for the model instance (unique by mapped table)
       name - the primary key for the model instance (unique by mapped table)
     """
     id: int = field(default=None, kw_only=True)     # primary key
     name: str
+
+    concrete_type = None
+    '''
+    filled out when the concrete types are created, used by
+    ResourceListDescriptor
+    '''
+
+    def asdict(self):
+        '''
+        Get the json representation.
+        Defaults to using dataclasses.asdict, subclasses may override
+        '''
+        return asdict(self)
 
 
 @dataclass
@@ -372,13 +377,6 @@ class DeviceBase(DataclassBase):
     port: int
     url: str = "/"
     description: str = None
-    # user_ids: Sequence[foreign_key(Base, 'id')] = \
-    # field(default_factory=tuple)
-
-
-@dataclass
-class ScheduleBase(DataclassBase):
-    pass
 
 
 @dataclass
@@ -386,8 +384,63 @@ class PhaseBase(DataclassBase):
     type: str   # todo enum
     duration: datetime.time
     rate: int
-    _schedule_id: foreign_key(ScheduleBase, 'id')
-    # todo - add schedule: Schedule (not ScheduleBase)
+
+    _schedule_id: int | None = None
+    schedule: 'Schedule' = None
+
+
+class ResourceListDescriptor:
+    '''
+    Descriptor class for dataclass fields that are resource lists.
+
+    This is necessary since field(default_factory=) takes a zero arg callable
+    and the creation of the ResourceList requires the containing resource to
+    scope the ResourceList properly (through the containing resource's url.
+    '''
+    type_: DataclassBase = None
+    attr: str = None
+
+    def __init__(self, type_: DataclassBase):
+        self.type_ = type_
+
+    def __set_name__(self, owner, name):
+        self.attr = "_" + name
+
+    def __set__(self, obj, value):
+        setattr(obj, self.attr, value)
+
+    def __get__(self, parent, parent_type=None):
+        '''
+        Creates the ResourceList for self.type_ resources for parent.
+        The resource list is set on parent so subsequent accesses do not use
+        this descriptor.
+        '''
+        if parent is None:  # class attribute access
+            return None
+
+        if not parent._url:
+            raise ValueError("subresources require parent to have url"
+                             " (has it been created yet?)")
+
+        resource_list = getattr(parent, self.attr, None)
+        if resource_list is None:
+            resource_list = ResourceList(self.type_.concrete_type,
+                                         parent._client._client,
+                                         f"{parent._url}/phase"
+                                         if parent._url else None,
+                                         ())
+            setattr(parent, self.attr, resource_list)
+        return resource_list
+
+
+@dataclass
+class ScheduleBase(DataclassBase):
+
+    phases: ResourceList['Phase'] = ResourceListDescriptor(PhaseBase)
+
+    def asdict(self):
+        return {'id': self.id,
+                'name': self.name}
 
 ###############################################################################
 
@@ -412,6 +465,7 @@ class _Client(BaseRestClient):
         # create the resource class
         url = f"/{name}"
         resource = Resource.new(base, url)
+        base.concrete_type = resource
         resource_class_map[name.capitalize()] = resource
 
         # create a ResourceList

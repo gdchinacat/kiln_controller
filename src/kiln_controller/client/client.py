@@ -15,9 +15,8 @@ metaclasses will alleviate this problem.
 
 from abc import ABC
 from dataclasses import dataclass, field, asdict
-import dataclasses
 import datetime
-from functools import wraps, partial
+from functools import wraps
 from http import HTTPStatus
 import traceback
 from typing import SupportsIndex, Callable
@@ -41,18 +40,14 @@ def format_url(func):
     """
     @wraps(func)
     def _format_url(self, url, *args, **kwargs):
-        # obj = args[0] if args else {}
-        url = f"{self.url}{url}/"
-        # if obj:
-        #     url = url.format(**asdict(obj))
-        return func(self, url, *args, **kwargs)
+        return func(self, f"{self.url}{url}/", *args, **kwargs)
     return _format_url
 
 
 class Resource(ABC):
     """A resource associates a dataclass with a REST resource"""
     _URL: str  # format string for the url for this type of resource (class)
-    _url: str  # the url for a specific resource (instance)
+    _url: str = None  # the url for a specific resource (instance)
 
     _client: "_Client" = None  # associated through _set_client() or get()
 
@@ -79,9 +74,9 @@ class Resource(ABC):
         child_url = f"{cls._URL}/{{{cls.__name__.lower()}_id}}{url}"
         return cls.new(name, child_url)
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args, parent: "Resource" = None, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self._set_url()
+        self._set_url(parent=parent)
 
     def _update(self, **kwargs):
         """update the resource attributes"""
@@ -89,9 +84,12 @@ class Resource(ABC):
         super().__init__(**kwargs)
         self._set_url()
 
-    def _set_url(self):
+    def _set_url(self, parent: "Resource" = None):
+        if self._url:
+            return
         if self.id is not None:
-            url = f"{self._URL}/{self.id}"
+            parent_url = parent._url if parent else ''
+            url = f"{parent_url}{self._URL}/{self.id}"
             validate_url(url)
             self._url = url
         else:
@@ -166,17 +164,19 @@ class ResourceList[A](list):
     Item deletion is intercepted to make REST calls to delete the entity
     on the server.
     """
-    def __init__(self, _type, client, url, iterable=tuple()):
+    def __init__(self, _type, client, url, parent=None, iterable=tuple()):
         self._type = _type
         self._client = client
         self._url = url
+        self._parent = parent
         super().__init__(iterable)
 
     def refresh(self):
         """refresh the list of resources"""
         self.clear()
         self.extend(self.coerce(self._client, self._type,
-                                self._client.get(self._url)))
+                                self._client.get(self._url),
+                                parent=self._parent))
         return self
 
     @staticmethod
@@ -217,8 +217,12 @@ class ResourceList[A](list):
         resp = self._client.post(self._url, obj)
 
         # update the object (a bit scary, lets see how this ages)
-        obj.__init__(**resp)
+        # todo update the url to include the parent url
+        obj.__init__(parent=self._parent, **resp)
+
+        # Update the object now that it's part of a resource list:
         obj._set_client(self._client)
+        obj._set_url(self._parent)
 
         return self
 
@@ -239,7 +243,7 @@ class ResourceList[A](list):
             resource.delete()
 
     @classmethod
-    def coerce(cls, client, _type, data):
+    def coerce(cls, client, _type, data, parent=None):
         """
         convert json dicts that represent model elements in resp to instances
         of _type
@@ -248,12 +252,12 @@ class ResourceList[A](list):
             # todo - move list handling to different decorator (list_coerce?)
             resources = []
             for _data in data:
-                resource = _type(**_data)
+                resource = _type(parent=parent, **_data)
                 resource._set_client(client)
                 resources.append(resource)
             return resources
 
-        resource = _type(**data)
+        resource = _type(parent=parent, **data)
         resource._set_client(client)
         return resource
 
@@ -268,7 +272,7 @@ class ResourceList[A](list):
             # this class effectively becomes a method on Client
             data = client.get(url)
             resources = cls.coerce(client, _type, data)
-            return cls(_type, client, url, resources)
+            return cls(_type, client, url, None, resources)
         return _create_resource_list
 
 
@@ -398,13 +402,15 @@ class ResourceListDescriptor:
     scope the ResourceList properly (through the containing resource's url.
     '''
     type_: DataclassBase = None
+    name: str = None
     attr: str = None
 
     def __init__(self, type_: DataclassBase):
         self.type_ = type_
 
     def __set_name__(self, owner, name):
-        self.attr = "_" + name
+        self.name = name
+        self.attr = f"_{name}"
 
     def __set__(self, obj, value):
         setattr(obj, self.attr, value)
@@ -426,8 +432,9 @@ class ResourceListDescriptor:
         if resource_list is None:
             resource_list = ResourceList(self.type_.concrete_type,
                                          parent._client._client,
-                                         f"{parent._url}/phase"
+                                         f"{parent._url}/{self.name[:-1]}"
                                          if parent._url else None,
+                                         parent,
                                          ())
             setattr(parent, self.attr, resource_list)
         return resource_list

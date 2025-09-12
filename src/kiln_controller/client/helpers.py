@@ -21,7 +21,7 @@ def trace(func=None, /, *, log_func=trace_logger.debug):
       log_func - the log function to use (default: trace_logger.debug)
     """
     @wraps(func)
-    def wrap(*args, **kwargs):
+    def trace_(*args, **kwargs):
         log_func("%s(%s, %s)", func.__name__, args, kwargs)
         try:
             ret = func(*args, **kwargs)
@@ -32,12 +32,12 @@ def trace(func=None, /, *, log_func=trace_logger.debug):
             raise e
 
     if func is not None:
-        return wrap
+        return trace_
 
     def _wrap(_func):
         nonlocal func
         func = _func
-        return wrap
+        return trace_
     return _wrap
 
 

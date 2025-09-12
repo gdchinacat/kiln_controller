@@ -1,8 +1,6 @@
 # pylint: disable=missing-class-docstring
 # pylint: disable=missing-function-docstring
 # pylint: disable=too-few-public-methods
-import pytest
-
 """
 Test the kiln_controller python client library.
 """
@@ -11,11 +9,11 @@ from contextlib import contextmanager
 import random
 import unittest
 
+import pytest
 from skytap.fixtures import fixture, default_fixture_name, pass_self
 
-from kiln_controller.client.mock_service import MockService
-
 from kiln_controller.client import Client, User, Device, Schedule, Phase
+from kiln_controller.client.mock_service import MockService
 
 
 class ClientTest(unittest.TestCase):
@@ -57,7 +55,6 @@ class ClientTest(unittest.TestCase):
 
         with mock_service.patch():
             client = Client()
-            obj._set_client(client)  # todo - this should'nt be necessary
 
             _list = list_getter(client)
 
@@ -272,14 +269,24 @@ class ClientTest(unittest.TestCase):
     @fixture(_mock_service)
     @fixture(_client)
     @fixture(_resource, Schedule, "name", fixture_name='schedule')
-    def test_schedule_phases(self, client, schedule, mock_service):
+    def test_basic_schedule_phases_resource_list(self, client, schedule,
+                                                 mock_service):
+        '''basic test that schedule.phases ResourceList works'''
         self.assertEqual([], schedule.phases)
 
         phase = Phase('name', 'type', None, 5)
+        self.assertIsNone(phase._url)
         with mock_service.patch():
             schedule.phases += phase
-
         self.assertEqual([phase], schedule.phases)
+        self.assertEqual(f"{schedule._url}/phase/{phase.id}", phase._url)
+        self.assertEqual(f"{schedule._url}/phase/{phase.id}",
+                         schedule.phases[0]._url,
+                         'resource list element has url')
+
+        with mock_service.patch():
+            del schedule.phases[0]
+        self.assertEqual([], schedule.phases)
 
 
 if __name__ == '__main__':

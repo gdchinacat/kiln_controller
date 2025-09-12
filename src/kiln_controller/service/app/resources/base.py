@@ -61,14 +61,13 @@ class DataclassFieldJsonValidatorMixin: \
     def validate(self, obj_json) -> str:
         '''validate the obj_json dict has the required fields for TYPE'''
         errors = []
-        required_fields = [field.name for field in
+        required_fields = {field.name for field in
                            self.TYPE.__dataclass_fields__.values()
                            if (field.init
                                and field.default is MISSING
                                and field.default_factory is MISSING
-                               )]
-        missing_required = [x for x in required_fields
-                            if x not in obj_json]
+                               )}
+        missing_required = required_fields - set(obj_json)
         if missing_required:
             errors.append("required fields missing: "
                           f"{', '.join(missing_required)}")

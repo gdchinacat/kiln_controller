@@ -19,11 +19,12 @@ import datetime
 from functools import wraps
 from http import HTTPStatus
 import traceback
-from typing import SupportsIndex, Callable
+from typing import SupportsIndex, Callable, Tuple
 
 import requests
 
 from .helpers import logger, detect_bad_url, trace, validate_url
+
 
 DEFAULT_TIMEOUT = 5
 
@@ -122,7 +123,7 @@ class Resource(ABC):
         """
         decorator to allow decorated function to take a client kwarg to
         associate the resource with the client.
-        The only reason to accept client is because it is requred, this also
+        The only reason to accept client is because it is required, this also
         validates a client exists on self.
         If specified, the clientl is *NOT* passed to the decorated method.
         """
@@ -160,7 +161,8 @@ class Resource(ABC):
             raise AttributeError(
                 "refusing to POST resource with id (use put()?)")
         # post goes to the Class._URL
-        self._update(**self._client._client.post(self._URL, self))
+        json = self._client._client.post(self._URL, self)
+        self._update(**json)
 
 
 class ResourceList[A](list):

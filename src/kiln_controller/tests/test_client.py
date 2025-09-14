@@ -8,12 +8,14 @@ Test the kiln_controller python client library.
 from contextlib import contextmanager
 from functools import wraps
 import random
+from typing import Tuple, Callable, Any
 import unittest
 
 import pytest
 from skytap.fixtures import fixture, default_fixture_name, pass_self
 
 from kiln_controller.client import Client, User, Device, Schedule, Phase
+from kiln_controller.client.client import Resource
 from kiln_controller.client.mock_service import MockService, Call
 
 
@@ -196,11 +198,19 @@ class ClientTest(unittest.TestCase):
             pass
 
     @pass_self
-    def _resource(self, _type, *args, client, mock_service, **kwargs):
+    def _resource(self, _type, *args, client, mock_service,
+                  parent: Callable[[...], Resource] = lambda *_, **__: None,
+                  include_kwargs: Tuple[str] | None = None, **kwargs):
         """
         create a resource of the given _type using client.
+        - parent - callable that produces the parent resource, typically by
+                   extracting it from kwargs.
+        - include_kwargs - if not None the list of kwargs to pass to resource
         """
-        resource = _type(*args, **kwargs)
+        parent = parent(*args, **kwargs)
+        kwargs = {k: v for k, v in kwargs.items()
+                  if include_kwargs is None or k in include_kwargs}
+        resource = _type(*args, parent=parent, **kwargs)
         with mock_service.patch():
             resource.post(client)
         return resource
@@ -212,9 +222,9 @@ class ClientTest(unittest.TestCase):
         resource.delete()
 
         self.assertEqual([Call(mock_service.delete.__name__,
-                              (resource.full_url,),
-                              {'timeout': 5},
-                              return_={})],
+                               (resource.full_url,),
+                               {'timeout': 5},
+                               return_={})],
                          mock_service.calls)
         self.assertIsNone(resource.id)
 
@@ -316,8 +326,14 @@ class ClientTest(unittest.TestCase):
     @fixture(_mock_service)
     @fixture(_client)
     @fixture(_resource, Schedule, "name", fixture_name='schedule')
-    @fixture(_resource, Phase, "name", fixture_name='phase')
-    def _test_schedule_delete_deletes_phases(self, client, schedule, phase,
+    @fixture(_resource, Phase,
+             "name",  # name
+             "type",  # type
+             0,       # duration
+             0,      # rate
+             parent=lambda *args, **kwargs: kwargs.get('schedule'),
+             fixture_name='phase', include_kwargs=())
+    def test_schedule_delete_deletes_phases(self, client, schedule, phase,
                                                  mock_service):
         '''basic test that deleting a schedule deletes its phases'''
         with mock_service.patch():

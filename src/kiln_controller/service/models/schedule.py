@@ -29,7 +29,6 @@ class Phase(Base):
     rate:  Mapped[Optional[int]]  # degrees C per minute
 
     schedule_id: Mapped[int] = mapped_column(ForeignKey('schedules.id'))
-    schedule: Mapped["Schedule"] = relationship()  # back_populates="phases")
 
     def __setattr__(self, attr, value):
         if attr == "schedule":
@@ -45,5 +44,4 @@ class Schedule(Base):  # pylint: disable=too-few-public-methods
     __tablename__ = "schedules"
     PUBLIC_FIELDS = Base.PUBLIC_FIELDS | {}
 
-    phases: Mapped[List["Phase"]] = relationship(default_factory=list,
-                                                 back_populates="schedule")
+    phases: Mapped[List["Phase"]] = relationship(default_factory=list)

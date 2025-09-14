@@ -301,6 +301,7 @@ class BaseRestClient(ABC):
             resp = func(*args, **kwargs)
             if resp.status_code == HTTPStatus.OK:
                 return resp.json()
+            # todo - create ServerException for 500s
             raise ClientException(resp.json()['message'])
         return response_handler
 
@@ -389,8 +390,7 @@ class PhaseBase(DataclassBase):
     duration: datetime.time
     rate: int
 
-    _schedule_id: int | None = None
-    schedule: 'Schedule' = None
+    schedule_id: int | None = None
 
 
 class ResourceListDescriptor:

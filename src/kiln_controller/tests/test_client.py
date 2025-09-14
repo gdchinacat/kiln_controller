@@ -219,13 +219,15 @@ class ClientTest(unittest.TestCase):
         """test that Resource.delete() functions"""
         self.assertIsNotNone(resource.id)
 
+        resource_url = f"{resource._client._client.url}{resource._url}/"
         resource.delete()
 
-        self.assertEqual([Call(mock_service.delete.__name__,
-                               (resource.full_url,),
-                               {'timeout': 5},
-                               return_={})],
-                         mock_service.calls)
+        self.assertEqual([
+            Call(mock_service.delete.__name__,
+                 (resource_url,),
+                 {'timeout': 5},
+                 return_={})],
+            mock_service.calls)
         self.assertIsNone(resource.id)
 
     @fixture(_mock_service)
@@ -262,6 +264,7 @@ class ClientTest(unittest.TestCase):
 
             self.assertTrue(resource in resource_list)
 
+        resource_url = f"{resource._client._client.url}{resource._url}/"
         with mock_service.patch():
             idx = resource_list.index(resource)
             del resource_list[idx]
@@ -271,11 +274,12 @@ class ClientTest(unittest.TestCase):
         # failures when live_service=true.
         self.assertEqual(['delete', 'get'],
                          [call.method for call in mock_service.calls])
-        self.assertEqual(Call(mock_service.delete.__name__,
-                              (resource.full_url,),
-                              {'timeout': 5},
-                              return_={}),
-                         mock_service.calls[0])
+        self.assertEqual(
+            Call(mock_service.delete.__name__,
+                 (resource_url,),
+                 {'timeout': 5},
+                 return_={}),
+            mock_service.calls[0])
         self.assertFalse(resource in resource_list)
 
     @fixture(_mock_service)
@@ -309,8 +313,8 @@ class ClientTest(unittest.TestCase):
         '''basic test that schedule.phases ResourceList works'''
         self.assertEqual([], schedule.phases)
 
-        phase = Phase('name', 'type', None, 5)
-        self.assertIsNone(phase._url)
+        phase = Phase('name', 'type', None, 5, parent=schedule)
+        self.assertEqual(f"{schedule._url}/phase", phase._url)
         with mock_service.patch():
             schedule.phases += phase
         self.assertEqual([phase], schedule.phases)

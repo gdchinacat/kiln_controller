@@ -19,11 +19,11 @@ import datetime
 from functools import wraps
 from http import HTTPStatus
 import traceback
-from typing import SupportsIndex, Callable, Tuple
+from typing import SupportsIndex, Callable
 
 import requests
 
-from .helpers import logger, detect_bad_url, trace, validate_url
+from .helpers import logger, detect_bad_url, trace
 
 
 DEFAULT_TIMEOUT = 5
@@ -48,17 +48,12 @@ def format_url(func):
 class Resource(ABC):
     """A resource associates a dataclass with a REST resource"""
     _URL: str  # format string for the url for this type of resource (class)
-    _url: str = None  # the url for a specific resource (instance)
 
     _client: "_Client" = None  # associated through _set_client() or get()
+    _parent: "Resource" = None  # the parent resource, None for top-level
 
     id: int = None
     """the id for the resource"""
-
-    @property
-    def full_url(self):
-        # todo - unify with format_url()
-        return f"{self._client._client.url}{self._url}/"
 
     @classmethod
     def new(cls, base, url, _attrs=None):
@@ -74,49 +69,31 @@ class Resource(ABC):
         # create a new type that extends both base and cls
         return type(name, (cls, base), attrs)
 
-    @classmethod
-    def new_child(cls, name, url):
-        """Create a child resource of this Resource"""
-        child_url = f"{cls._URL}/{{{cls.__name__.lower()}_id}}{url}"
-        return cls.new(name, child_url)
-
     def __init__(self, *args, parent: "Resource" = None, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self._set_url(parent=parent)
+        self._parent = parent
 
     def _update(self, **kwargs):
         """update the resource attributes"""
         # probably a less sketchy way to do this, but it works for now
         super().__init__(**kwargs)
-        self._set_url()
 
-    def _set_url(self, parent: "Resource" = None):
-        if self._url:
-            return
+    @property
+    def _url(self):
+        '''
+        The url for the resource.
+        '''
+        parent_url = self._parent._url if self._parent else ""
         if self.id is not None:
-            parent_url = parent._url if parent else ''
-            url = f"{parent_url}{self._URL}/{self.id}"
-            validate_url(url)
-            self._url = url
+            return f"{parent_url}{self._URL}/{self.id}"
         else:
-            self._url = None
+            return f"{parent_url}{self._URL}"
 
     def _set_client(self, client):
         # this is separate from __init__ so that Resources can be created
         # without specifying their client, and are associated with the client
         # only once added to a list or refreshed.
         self._client = client
-
-    @staticmethod
-    def _requires_url(func):
-        """decorator to populate the _url if possible"""
-        @wraps(func)
-        def wrap(self, *args, **kwargs):
-            self._set_url()
-            if not self._url:
-                raise ValueError(f"{self} has no _url (no id)")
-            return func(self, *args, **kwargs)
-        return wrap
 
     @staticmethod
     def _accepts_client(func):
@@ -138,20 +115,17 @@ class Resource(ABC):
         return client_injector
 
     @_accepts_client
-    @_requires_url
     def get(self):
         self._update(**self._client._client.get(self._url))
         return self
 
     @_accepts_client
-    @_requires_url
     def delete(self):
         self._client._client.delete(self._url)
         self.id = None
         # TODO - if this resource came from a ResourceList refresh the list?
 
     @_accepts_client
-    @_requires_url
     def put(self):
         self._client._client.put(self._url, self)
 
@@ -177,11 +151,6 @@ class ResourceList[A](list):
         self._url = url
         self._parent = parent
         super().__init__(iterable)
-
-    @property
-    def full_url(self):
-        # todo - unify with format_url()
-        return f"{self._client._client.url}{self._url}/"
 
     def refresh(self):
         """refresh the list of resources"""
@@ -234,7 +203,6 @@ class ResourceList[A](list):
 
         # Update the object now that it's part of a resource list:
         obj._set_client(self._client)
-        obj._set_url(self._parent)
 
         return self
 

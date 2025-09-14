@@ -2,22 +2,20 @@
 Implements a mock service for use by unit testing.
 """
 from contextlib import contextmanager
+from dataclasses import dataclass
 from functools import wraps
 from http import HTTPStatus
 from itertools import count
 import os
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Callable
 from unittest.mock import patch
 from urllib.parse import urlparse
 
-from requests.models import Response
+import requests
 
 
 class _HTTPError(Exception):
     status_code = None  # subclasses must override this
-
-
-live_service = os.getenv('LIVE_SERVICE', 'false').upper() == 'TRUE'
 
 
 class NotFound(_HTTPError):
@@ -65,35 +63,80 @@ class ScheduleResource(Resource):
 Resource.TYPES['schedule'] = ScheduleResource
 
 
+@dataclass
+class Call:
+    '''a call to a mocked function'''
+    method: Callable
+    args: List[Any]
+    kwargs: Dict[str, Any]
+    return_: Any = None
+    exception: Exception = None
+
+
 class MockService(Resource):
+
+    calls: List[Call]
+
+    @staticmethod
+    def track_call(func):
+        '''decorator to append the call to the list of calls'''
+        @wraps(func)
+        def _track_call(self, *args, **kwargs):
+            call = Call(func.__name__, args, kwargs)
+            self.calls.append(call)
+            try:
+                ret = func(self, *args, **kwargs)
+                if self.live_service:
+                    call.return_ = ret.json()
+                else:
+                    call.return_ = ret
+                return ret
+            except Exception as exception:
+                call.exception = exception
+                raise
+        return _track_call
+
+    @staticmethod
+    def conditional_requests_mock(requests_func):
+        '''decorator that mocks requests_func only when live_service=false'''
+        def dec(mock_func):
+            @wraps(mock_func)
+            def _conditional_requests_mock(self, *args, **kwargs):
+                if self.live_service:
+                    return requests_func(*args, **kwargs)
+                else:
+                    return mock_func(self, *args, **kwargs)
+            return _conditional_requests_mock
+        return dec
 
     @contextmanager
     def patch(self):
         """
-        Context manager that patches client.requests to use an instance of
-        MockService rather than making request calls.
-
-        Since this patches client.requests *ALL* requests from the client
-        module will be routed to the MockService.
+        Context manager that patches client.requests to intercept calls for
+        call tracking. The mock functions should be decorated with
+        @conditional_requests_mock to permit tests to execute against a live service.
         """
-        if not live_service:
-            with patch('kiln_controller.client.client.requests', new=self):
-                yield self
-        else:
-            yield None
+        with patch('kiln_controller.client.client.requests', new=self):
+            self.calls = []  # only track calls in this with block
+            yield self
 
-    def __init__(self, sub_resources: Dict[str, Resource] = None):
+    def __init__(self, sub_resources: Dict[str, Resource] = None,
+                 live_service: bool = None):
         super().__init__()
         self['sub_resources'] = (sub_resources or
                                  {_type: Resource() for _type in
                                   ('user', 'device', 'schedule')})
         self.ids = count()
+        self.calls = []
+        self.live_service = (
+            os.getenv('LIVE_SERVICE', 'false').upper() == 'TRUE'
+            if live_service is None else live_service)
 
-    def response(self, status_code, obj: Dict = None) -> Response:
-        response = Response()
+    def response(self, status_code, obj: Dict = None) -> requests.Response:
+        response = requests.Response()
         response.status_code = status_code
         if obj is not None:
-            response.json = lambda: obj
+            response.json = lambda: obj 
         return response
 
     def walk(self, url: str, action=None):
@@ -139,18 +182,25 @@ class MockService(Resource):
         def wrap(self, *args, **kwargs):
             try:
                 ret = func(self, *args, **kwargs)
-                return self.response(HTTPStatus.OK, ret)
+                if self.live_service:
+                    return ret
+                else:
+                    return self.response(HTTPStatus.OK, ret)
             except _HTTPError as e:
                 return self.response(e.status_code,
                                      {'message': e.args[0]})
         return wrap
 
     @exception_to_response
-    def get(self, url, **_) -> Response:
+    @track_call
+    @conditional_requests_mock(requests.get)
+    def get(self, url, **_) -> requests.Response:
         return self.walk(url)
 
     @exception_to_response
-    def post(self, url: str, json: Dict[str, Any], **_) -> Response:
+    @track_call
+    @conditional_requests_mock(requests.post)
+    def post(self, url: str, json: Dict[str, Any], **_) -> requests.Response:
         json['id'] = next(self.ids)
 
         def create_resource(paths, parent):
@@ -162,7 +212,9 @@ class MockService(Resource):
         return self.walk(url, action=create_resource)
 
     @exception_to_response
-    def put(self, url: str, json: Dict[str, Any], **_) -> Response:
+    @track_call
+    @conditional_requests_mock(requests.put)
+    def put(self, url: str, json: Dict[str, Any], **_) -> requests.Response:
         # get the id from the url and store it on the obj
         paths = self.get_paths(url)
         json['id'] = int(paths[-1])
@@ -177,7 +229,9 @@ class MockService(Resource):
         return self.walk(url, action=_put)
 
     @exception_to_response
-    def delete(self, url: str, **_) -> Response:
+    @track_call
+    @conditional_requests_mock(requests.delete)
+    def delete(self, url: str, **_) -> requests.Response:
         # get the id from the url and store it on the obj
         paths = self.get_paths(url)
         _id = paths[-1]

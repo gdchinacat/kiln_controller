@@ -26,7 +26,8 @@ class MockServiceTest(TestCase):
         child3 = Resource(id=3)
         parent = Resource({'child': Resource({'2': child2, '3': child3})},
                           id=1)
-        service = MockService({'parent': Resource({'1': parent})})
+        service = MockService({'parent': Resource({'1': parent})},
+                              live_service=False)
 
         self.assertEqual([parent.resource], service.walk('/parent'))
         self.assertIs(parent.resource, service.walk('/parent/1'))
@@ -41,14 +42,14 @@ class MockServiceTest(TestCase):
         self.assertRaises(NotFound, service.walk, '/nonexistent')
 
     def test_default_service(self):
-        service = MockService()
+        service = MockService(live_service=False)
 
         self.assertEqual([], _obj(service.get("/user")))
         self.assertEqual([], _obj(service.get("/device")))
         self.assertEqual([], _obj(service.get("/schedule")))
 
     def test_post(self):
-        service = MockService()
+        service = MockService(live_service=False)
 
         user = asdict(User("name"))  # pylint: disable=not-callable
         created_user = _obj(service.post("/user", user))
@@ -59,7 +60,7 @@ class MockServiceTest(TestCase):
         self.assertEqual(user, _obj(service.get(f"/user/{user['id']}/")))
 
     def test_put(self):
-        service = MockService()
+        service = MockService(live_service=False)
 
         _id = str(next(service.ids))
         user = asdict(User("name"))  # pylint: disable=not-callable
@@ -81,7 +82,8 @@ class MockServiceTest(TestCase):
         parent = Resource({'child': Resource({'2': child2,
                                               '3': child3})},
                           id=1)
-        service = MockService({'parent': Resource({'1': parent})})
+        service = MockService({'parent': Resource({'1': parent})},
+                              live_service=False)
 
         self.assertEqual({'id': 2}, _obj(service.get("/parent/1/child/2")))
 

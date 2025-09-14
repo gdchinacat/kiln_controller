@@ -6,6 +6,7 @@ Test the kiln_controller python client library.
 """
 
 from contextlib import contextmanager
+from functools import wraps
 import random
 import unittest
 
@@ -13,11 +14,18 @@ import pytest
 from skytap.fixtures import fixture, default_fixture_name, pass_self
 
 from kiln_controller.client import Client, User, Device, Schedule, Phase
-from kiln_controller.client.mock_service import MockService
+from kiln_controller.client.mock_service import MockService, Call
 
 
 class ClientTest(unittest.TestCase):
-    """Test the kiln_controller Client"""
+    """
+    Test the kiln_controller Client
+
+    This test supports a LIVE_SERVICE=true environment variable to allow the
+    tests to be executed against a live service rather than mocks.
+    """
+
+    # maxDiff = None  # I really do want to see the error
 
     @default_fixture_name('mock_service')
     @pass_self
@@ -197,11 +205,17 @@ class ClientTest(unittest.TestCase):
             resource.post(client)
         return resource
 
-    def _test_delete_resource(self, resource):
+    def _test_delete_resource(self, resource, mock_service):
         """test that Resource.delete() functions"""
         self.assertIsNotNone(resource.id)
+
         resource.delete()
-        # todo - verify requests.delete(...) is called
+
+        self.assertEqual([Call(mock_service.delete.__name__,
+                              (resource.full_url,),
+                              {'timeout': 5},
+                              return_={})],
+                         mock_service.calls)
         self.assertIsNone(resource.id)
 
     @fixture(_mock_service)
@@ -210,7 +224,7 @@ class ClientTest(unittest.TestCase):
     def test_delete_user_resource(self, client, user, mock_service):
         del client
         with mock_service.patch():
-            return self._test_delete_resource(user)
+            return self._test_delete_resource(user, mock_service=mock_service)
 
     @fixture(_mock_service)
     @fixture(_client)
@@ -218,7 +232,7 @@ class ClientTest(unittest.TestCase):
     def test_delete_device_resource(self, client, device, mock_service):
         del client
         with mock_service.patch():
-            return self._test_delete_resource(device)
+            return self._test_delete_resource(device, mock_service=mock_service)
 
     @fixture(_mock_service)
     @fixture(_client)
@@ -226,7 +240,8 @@ class ClientTest(unittest.TestCase):
     def test_delete_schedule_resource(self, client, schedule, mock_service):
         del client
         with mock_service.patch():
-            return self._test_delete_resource(schedule)
+            return self._test_delete_resource(schedule,
+                                              mock_service=mock_service)
 
     def _test_delete_resource_by_list(self, resource_list, resource,
                                       mock_service):
@@ -237,18 +252,28 @@ class ClientTest(unittest.TestCase):
 
             self.assertTrue(resource in resource_list)
 
+        with mock_service.patch():
             idx = resource_list.index(resource)
             del resource_list[idx]
-            # todo - verify requests.delete(...) is called
 
-            self.assertFalse(resource in resource_list)
+        # Delete is followed by get to refresh the updated list.
+        # Don't validate the get call to avoid existing resources causing
+        # failures when live_service=true.
+        self.assertEqual(['delete', 'get'],
+                         [call.method for call in mock_service.calls])
+        self.assertEqual(Call(mock_service.delete.__name__,
+                              (resource.full_url,),
+                              {'timeout': 5},
+                              return_={}),
+                         mock_service.calls[0])
+        self.assertFalse(resource in resource_list)
 
     @fixture(_mock_service)
     @fixture(_client)
     @fixture(_resource, User, "name", fixture_name='user')
     def test_delete_user_resource_by_list(self, client, user, mock_service):
         return self._test_delete_resource_by_list(client.users, user,
-                                                  mock_service)
+                                                  mock_service=mock_service)
 
     @fixture(_mock_service)
     @fixture(_client)
@@ -256,7 +281,7 @@ class ClientTest(unittest.TestCase):
     def test_delete_device_resource_by_list(self, client, device,
                                             mock_service):
         return self._test_delete_resource_by_list(client.devices, device,
-                                                  mock_service)
+                                                  mock_service=mock_service)
 
     @fixture(_mock_service)
     @fixture(_client)
@@ -264,7 +289,7 @@ class ClientTest(unittest.TestCase):
     def test_delete_schedule_resource_by_list(self, client, schedule,
                                               mock_service):
         return self._test_delete_resource_by_list(client.schedules, schedule,
-                                                  mock_service)
+                                                  mock_service=mock_service)
 
     @fixture(_mock_service)
     @fixture(_client)
@@ -287,6 +312,19 @@ class ClientTest(unittest.TestCase):
         with mock_service.patch():
             del schedule.phases[0]
         self.assertEqual([], schedule.phases)
+
+    @fixture(_mock_service)
+    @fixture(_client)
+    @fixture(_resource, Schedule, "name", fixture_name='schedule')
+    @fixture(_resource, Phase, "name", fixture_name='phase')
+    def _test_schedule_delete_deletes_phases(self, client, schedule, phase,
+                                                 mock_service):
+        '''basic test that deleting a schedule deletes its phases'''
+        with mock_service.patch():
+            schedule.delete()
+
+            with self.assertRaises(NotImplemented):  # todo use proper exception
+                phase.refresh()
 
 
 if __name__ == '__main__':

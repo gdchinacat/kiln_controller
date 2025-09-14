@@ -54,6 +54,11 @@ class Resource(ABC):
     id: int = None
     """the id for the resource"""
 
+    @property
+    def full_url(self):
+        # todo - unify with format_url()
+        return f"{self._client._client.url}{self._url}/"
+
     @classmethod
     def new(cls, base, url, _attrs=None):
         """Create a new RESTEntity class"""
@@ -170,6 +175,11 @@ class ResourceList[A](list):
         self._url = url
         self._parent = parent
         super().__init__(iterable)
+
+    @property
+    def full_url(self):
+        # todo - unify with format_url()
+        return f"{self._client._client.url}{self._url}/"
 
     def refresh(self):
         """refresh the list of resources"""

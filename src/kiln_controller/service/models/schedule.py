@@ -33,7 +33,6 @@ class Phase(Base):
     def __setattr__(self, attr, value):
         if attr == "schedule":
             value = Schedule(**value)
-            print(f"using {value=}")
         super().__setattr__(attr, value)
 
 
@@ -44,4 +43,5 @@ class Schedule(Base):  # pylint: disable=too-few-public-methods
     __tablename__ = "schedules"
     PUBLIC_FIELDS = Base.PUBLIC_FIELDS | {}
 
-    phases: Mapped[List["Phase"]] = relationship(default_factory=list)
+    phases: Mapped[List["Phase"]] = relationship(default_factory=list,
+                                                 cascade="delete")

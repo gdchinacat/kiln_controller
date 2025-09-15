@@ -46,6 +46,16 @@ class ClientTest(unittest.TestCase):
             client = Client()
         self.assertIsNotNone(client)
 
+    def setUp(self):
+        unittest.TestCase.setUp(self)
+        self._cleanup = []
+
+    def tearDown(self):
+        unittest.TestCase.tearDown(self)
+        for mock_service, resource in self._cleanup:
+            with mock_service.patch():
+                resource.delete()
+
     @fixture(_mock_service)
     def _test_list_add(self, _type_list_getter, *args, iadd=False,
                        mock_service):
@@ -73,6 +83,7 @@ class ClientTest(unittest.TestCase):
                 _list += obj
             else:
                 _list.append(obj)
+            self._cleanup.append((mock_service, obj))
 
         # make sure the obj exists
         self.assertTrue(obj in _list, f"{obj} not in {_list}")
@@ -129,6 +140,8 @@ class ClientTest(unittest.TestCase):
 
             # test post success
             resource.post(client)
+
+            self._cleanup.append((mock_service, resource))
             self.assertIsNotNone(resource.id,
                                  "post failed to assign id to resource")
 
@@ -168,6 +181,8 @@ class ClientTest(unittest.TestCase):
             resource.name = name
             resource.put(client)
 
+            self._cleanup.append((mock_service, resource))
+
             # Verify name is updated by creating a new bare Resource with only
             # id and getting it with the client.
             resource2 = type(resource).__new__(type(resource))
@@ -200,7 +215,9 @@ class ClientTest(unittest.TestCase):
     @pass_self
     def _resource(self, _type, *args, client, mock_service,
                   parent: Callable[[...], Resource] = lambda *_, **__: None,
-                  include_kwargs: Tuple[str] | None = None, **kwargs):
+                  include_kwargs: Tuple[str] | None = None,
+                  skip_cleanup=False,
+                  **kwargs):
         """
         create a resource of the given _type using client.
         - parent - callable that produces the parent resource, typically by
@@ -213,6 +230,10 @@ class ClientTest(unittest.TestCase):
         resource = _type(*args, parent=parent, **kwargs)
         with mock_service.patch():
             resource.post(client)
+
+        if not skip_cleanup:
+            self._cleanup.append((mock_service, resource))
+
         return resource
 
     def _test_delete_resource(self, resource, mock_service):
@@ -232,7 +253,7 @@ class ClientTest(unittest.TestCase):
 
     @fixture(_mock_service)
     @fixture(_client)
-    @fixture(_resource, User, "name", fixture_name='user')
+    @fixture(_resource, User, "name", fixture_name='user', skip_cleanup=True)
     def test_delete_user_resource(self, client, user, mock_service):
         del client
         with mock_service.patch():
@@ -240,15 +261,18 @@ class ClientTest(unittest.TestCase):
 
     @fixture(_mock_service)
     @fixture(_client)
-    @fixture(_resource, Device, "name", "host", 5000, fixture_name='device')
+    @fixture(_resource, Device, "name", "host", 5000, fixture_name='device',
+             skip_cleanup=True)
     def test_delete_device_resource(self, client, device, mock_service):
         del client
         with mock_service.patch():
-            return self._test_delete_resource(device, mock_service=mock_service)
+            return self._test_delete_resource(device,
+                                              mock_service=mock_service)
 
     @fixture(_mock_service)
     @fixture(_client)
-    @fixture(_resource, Schedule, "name", fixture_name='schedule')
+    @fixture(_resource, Schedule, "name", fixture_name='schedule',
+             skip_cleanup=True)
     def test_delete_schedule_resource(self, client, schedule, mock_service):
         del client
         with mock_service.patch():
@@ -329,14 +353,16 @@ class ClientTest(unittest.TestCase):
 
     @fixture(_mock_service)
     @fixture(_client)
-    @fixture(_resource, Schedule, "name", fixture_name='schedule')
+    @fixture(_resource, Schedule, "name", fixture_name='schedule',
+             skip_cleanup=True)
     @fixture(_resource, Phase,
              "name",  # name
              "type",  # type
              None,    # duration
              5,       # rate
              parent=lambda *args, **kwargs: kwargs.get('schedule'),
-             fixture_name='phase', include_kwargs=())
+             fixture_name='phase', include_kwargs=(),
+             skip_cleanup=True)
     def test_schedule_delete_deletes_phases(self, client, schedule, phase,
                                                  mock_service):
         '''basic test that deleting a schedule deletes its phases'''

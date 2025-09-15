@@ -29,8 +29,23 @@ from .helpers import logger, detect_bad_url, trace
 DEFAULT_TIMEOUT = 5
 
 
-class ClientException(Exception):
+class HTTPStatusException(Exception):
+    """base class for exceptions for HTTP status errors"""
+
+
+class ServerException(HTTPStatusException):
+    """
+    Used to indicate the client received an error indicating a server
+    error.
+    """
+
+
+class ClientException(HTTPStatusException):
     """Used to indicate the client received an error http response"""
+
+
+class NotFoundException(ClientException):
+    """the resource is not found"""
 
 
 def format_url(func):
@@ -135,7 +150,7 @@ class Resource(ABC):
             raise AttributeError(
                 "refusing to POST resource with id (use put()?)")
         # post goes to the Class._URL
-        json = self._client._client.post(self._URL, self)
+        json = self._client._client.post(self._url, self)
         self._update(**json)
 
 
@@ -281,8 +296,13 @@ class BaseRestClient(ABC):
             resp = func(*args, **kwargs)
             if resp.status_code == HTTPStatus.OK:
                 return resp.json()
-            # todo - create ServerException for 500s
-            raise ClientException(resp.json()['message'])
+            match resp.status_code:
+                case HTTPStatus.NOT_FOUND:
+                    raise NotFoundException()
+                case server_error if 500 <= server_error <= 599:
+                    raise ServerException(resp.json()['message'])
+                case _:
+                    raise ClientException(resp.json()['message'])
         return response_handler
 
     @detect_bad_url

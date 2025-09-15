@@ -15,7 +15,7 @@ import pytest
 from skytap.fixtures import fixture, default_fixture_name, pass_self
 
 from kiln_controller.client import Client, User, Device, Schedule, Phase
-from kiln_controller.client.client import Resource
+from kiln_controller.client.client import Resource, NotFoundException
 from kiln_controller.client.mock_service import MockService, Call
 
 
@@ -333,8 +333,8 @@ class ClientTest(unittest.TestCase):
     @fixture(_resource, Phase,
              "name",  # name
              "type",  # type
-             0,       # duration
-             0,      # rate
+             None,    # duration
+             5,       # rate
              parent=lambda *args, **kwargs: kwargs.get('schedule'),
              fixture_name='phase', include_kwargs=())
     def test_schedule_delete_deletes_phases(self, client, schedule, phase,
@@ -343,8 +343,8 @@ class ClientTest(unittest.TestCase):
         with mock_service.patch():
             schedule.delete()
 
-            with self.assertRaises(NotImplemented):  # todo use proper exception
-                phase.refresh()
+            with self.assertRaises(NotFoundException):
+                phase.get()
 
 
 if __name__ == '__main__':

@@ -87,7 +87,9 @@ class MockService(Resource):
             try:
                 ret = func(self, *args, **kwargs)
                 if self.live_service:
-                    call.return_ = ret.json()
+                    if ret.status_code == HTTPStatus.OK:
+                        # todo - enhance to support not ok responses
+                        call.return_ = ret.json()
                 else:
                     call.return_ = ret
                 return ret

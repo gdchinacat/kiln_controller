@@ -1,11 +1,9 @@
-from typing import Annotated
+'''
+Base class for mapped resources.
+'''
 from sqlalchemy import String
 from sqlalchemy.orm import (DeclarativeBase, MappedAsDataclass, mapped_column,
                             Mapped)
-
-
-primary_key = Annotated[int, mapped_column(primary_key=True)]
-name_field = Annotated[str, mapped_column(String(30))]
 
 
 class Base(MappedAsDataclass, DeclarativeBase):
@@ -21,10 +19,10 @@ class Base(MappedAsDataclass, DeclarativeBase):
     means marshal as is.
     """
 
-    name: Mapped[name_field]
+    name: Mapped[str] = mapped_column(String(30))
     """all model dataclasses contain a name"""
 
-    id: Mapped[primary_key] = mapped_column(primary_key=True, default=None,
+    id: Mapped[int] = mapped_column(primary_key=True, default=None,
                                             kw_only=True)
     """all model dataclasses contain a primary key named id"""
 

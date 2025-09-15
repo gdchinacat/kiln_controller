@@ -8,3 +8,37 @@ There are multiple components:
            firings. It is a minimal REST API primarily for conducting an active
            firing and reporting metrics
   hardware - the physical stuff necessary for integrating with a device.
+
+Data Model:
+	Users model individual people that use the service:
+		- devices
+		- schedules
+		- firing
+	Schedules
+		- phases
+			There are two types of phases, one that maintains the temperature
+			and one that changes it. Phases that change temperature can be
+			specified by the user to change the temperature over a set period
+			of time or at a specific rate. For simplicity, the model only
+			supports the later, phases to accomplish the former must calculate
+			the rate necessary to achieve the desired duration. Rates may be
+			unset to indicate 'as fast as possible' (heaters always on/off).
+			- type: how the phase operates
+				- ramp: change the temperature
+				- constant: hold the temperature
+			- temperature: the target temperature
+				- for ramp phases the temperature at which the phase ends
+				- for constant phases the temperature to maintain
+				- may be unset to indicate ambient temperature
+			- duration: how long the phase should take
+				- not set for type==ramp
+			- rate: the rate at which temperature is changed
+			Invariants:
+				The phases produce a continuous temperature.
+				- phase[n].type == constant:
+					- phase[n-1].type == rate
+					- phase[n-1].temperature == phase[n].temperature
+				- phase[n].type == ramp:
+					- phase[n].duration is unset
+					- phase[n].rate != 0 (but may be unset to indicate ASAP)
+				

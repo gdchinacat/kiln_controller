@@ -11,7 +11,7 @@ from typing import Callable, Dict
 
 from flask import current_app, request
 from flask_restful import Resource
-from sqlalchemy.exc import NoResultFound
+from sqlalchemy.exc import NoResultFound, IntegrityError
 
 
 __all__ = []
@@ -212,9 +212,18 @@ class BaseListResource(Resource, DataclassFieldJsonValidatorMixin):
         '''create a resource of TYPE'''
         try:
             orm = self.TYPE(**request.json)  # pylint: disable=not-callable
-            db_.session.add(orm)
-            db_.session.commit()
+            with db_.session.begin() as session:
+                session.session.expire_on_commit = False  # don't refresh orm
+                db_.session.add(orm)
+            return orm.asdict()
+        except IntegrityError:
+            # todo - implement and use generic IntegrityError handler to
+            #        extract the constraint violation and expose it to client
+            #        in appropriate manner. For now, just report as client
+            #        error.
+            return (error(f"user already exists"),
+                    HTTPStatus.UNPROCESSABLE_ENTITY)
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.exception(e)
+            # todo - don't expose internal details (e) to client
             return error(f"{e}"), HTTPStatus.INTERNAL_SERVER_ERROR
-        return orm.asdict()

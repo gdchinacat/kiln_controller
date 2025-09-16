@@ -132,28 +132,32 @@ class Resource(ABC):
         return client_injector
 
     @_accepts_client
-    def get(self):
+    def get(self) -> "Resource":
         self._update(**self._client._client.get(self._url))
         return self
+    refresh = get
 
     @_accepts_client
-    def delete(self):
+    def delete(self) -> "Resource":
         self._client._client.delete(self._url)
         self.id = None
         # TODO - if this resource came from a ResourceList refresh the list?
+        return self
 
     @_accepts_client
-    def put(self):
+    def put(self) -> "Resource":
         self._client._client.put(self._url, self)
+        return self
 
     @_accepts_client
-    def post(self):
+    def post(self) -> "Resource":
         if self.id is not None:
             raise AttributeError(
                 "refusing to POST resource with id (use put()?)")
         # post goes to the Class._URL
         json = self._client._client.post(self._url, self)
         self._update(**json)
+        return self
 
 
 class ResourceList[A](list):
@@ -169,7 +173,7 @@ class ResourceList[A](list):
         self._parent = parent
         super().__init__(iterable)
 
-    def refresh(self):
+    def refresh(self) -> "ResourceList[A]":
         """refresh the list of resources"""
         self.clear()
         self.extend(self.coerce(self._client, self._type,
@@ -336,7 +340,7 @@ class BaseRestClient(ABC):
     @_response_handler
     @trace
     def put(self, url, obj, timeout=DEFAULT_TIMEOUT):
-        """delete a resource at the url"""
+        """PUT the resource at the url"""
         return requests.put(url, json=obj.asdict(), timeout=timeout)
 
 ###############################################################################
@@ -533,8 +537,9 @@ class Client:  # pylint: disable=too-few-public-methods
         self._client = _Client(*args, **kwargs)
         self.refresh()
 
-    def refresh(self):
+    def refresh(self) -> "Client":
         # copy the top level ResourceLists from the real client.
         self.users = self._client.users
         self.devices = self._client.devices
         self.schedules = self._client.schedules
+        return self

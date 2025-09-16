@@ -51,7 +51,7 @@ class MockServiceTest(TestCase):
     def test_post(self):
         service = MockService(live_service=False)
 
-        user = asdict(User("name"))  # pylint: disable=not-callable
+        user = asdict(User("name", "username"))  # pylint: disable=not-callable
         created_user = _obj(service.post("/user", user))
         self.assertEqual(user, created_user)
         self.assertIsNotNone(created_user['id'], "created resource id not set")
@@ -63,7 +63,7 @@ class MockServiceTest(TestCase):
         service = MockService(live_service=False)
 
         _id = str(next(service.ids))
-        user = asdict(User("name"))  # pylint: disable=not-callable
+        user = asdict(User("name", "username"))  # pylint: disable=not-callable
         created_user = _obj(service.put(f"/user/{_id}", user))
         self.assertEqual(user, created_user)
 

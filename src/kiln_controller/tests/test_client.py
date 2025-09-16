@@ -6,9 +6,8 @@ Test the kiln_controller python client library.
 """
 
 from contextlib import contextmanager
-from functools import wraps
 import random
-from typing import Tuple, Callable, Any
+from typing import Tuple, Callable
 import unittest
 
 import pytest
@@ -17,7 +16,11 @@ from skytap.fixtures import fixture, default_fixture_name, pass_self
 from kiln_controller.client import Client, User, Device, Schedule, Phase
 from kiln_controller.client.client import Resource, NotFoundException
 from kiln_controller.client.mock_service import MockService, Call
+from kiln_controller.common.enums import PhaseType
 
+
+# throwaway ids to make arg lists readable
+USER_ID = 1
 
 class ClientTest(unittest.TestCase):
     """
@@ -97,12 +100,12 @@ class ClientTest(unittest.TestCase):
     def test_append_user_to_list(self):
         return self._test_list_add((User, lambda client: client.users), \
                                    # pylint: disable=missing-kwoa
-                                   "name")
+                                   "username", "name")
 
     def test_add_user_to_list(self):
         return self._test_list_add((User, lambda client: client.users), \
                                    # pylint: disable=missing-kwoa
-                                   "name", iadd=True)
+                                   "username", "name", iadd=True)
 
     def test_add_device_to_list(self):
         return self._test_list_add((Device, lambda client: client.devices), \
@@ -119,13 +122,13 @@ class ClientTest(unittest.TestCase):
         return self._test_list_add((Schedule, \
                                    # pylint: disable=missing-kwoa
                                     lambda client: client.schedules),
-                                   "name", iadd=True)
+                                   "name", 1, iadd=True)
 
     def test_append_schedule_to_list(self):
         return self._test_list_add((Schedule, \
                                    # pylint: disable=missing-kwoa
                                     lambda client: client.schedules),
-                                   "name")
+                                   "name", 1)
 
     @fixture(_mock_service)
     def _test_post(self, resource, mock_service):
@@ -149,15 +152,15 @@ class ClientTest(unittest.TestCase):
             self.assertRaises(AttributeError, resource.post, client)
 
     def test_post_user(self):
-        return self._test_post(User("name")) \
+        return self._test_post(User("name", "username")) \
             # pylint: disable=no-value-for-parameter,not-callable
 
     def test_post_device(self):
-        return self._test_post(Device("name", "host", 5000)) \
+        return self._test_post(Device("name", USER_ID, "host", 5000)) \
             # pylint: disable=no-value-for-parameter,not-callable
 
     def test_post_schedule(self):
-        return self._test_post(Schedule("name")) \
+        return self._test_post(Schedule("name", USER_ID)) \
             # pylint: disable=no-value-for-parameter,not-callable
 
     @fixture(_mock_service)
@@ -192,15 +195,15 @@ class ClientTest(unittest.TestCase):
             self.assertEqual(name, resource2.name, "name not updated in put")
 
     def test_put_user(self):
-        return self._test_put(User("name")) \
+        return self._test_put(User("name", "username")) \
             # pylint: disable=no-value-for-parameter,not-callable
 
     def test_put_device(self):
-        return self._test_put(Device("name", "host", 5000)) \
+        return self._test_put(Device("name", USER_ID, "host", 5000)) \
             # pylint: disable=no-value-for-parameter,not-callable
 
     def test_put_schedule(self):
-        return self._test_put(Schedule("name")) \
+        return self._test_put(Schedule("name", USER_ID)) \
             # pylint: disable=no-value-for-parameter,not-callable
 
     @contextmanager
@@ -253,7 +256,8 @@ class ClientTest(unittest.TestCase):
 
     @fixture(_mock_service)
     @fixture(_client)
-    @fixture(_resource, User, "name", fixture_name='user', skip_cleanup=True)
+    @fixture(_resource, User, "name", "username", fixture_name='user',
+             skip_cleanup=True)
     def test_delete_user_resource(self, client, user, mock_service):
         del client
         with mock_service.patch():
@@ -261,8 +265,8 @@ class ClientTest(unittest.TestCase):
 
     @fixture(_mock_service)
     @fixture(_client)
-    @fixture(_resource, Device, "name", "host", 5000, fixture_name='device',
-             skip_cleanup=True)
+    @fixture(_resource, Device, "name", USER_ID, "host", 5000,
+             fixture_name='device', skip_cleanup=True)
     def test_delete_device_resource(self, client, device, mock_service):
         del client
         with mock_service.patch():
@@ -271,7 +275,7 @@ class ClientTest(unittest.TestCase):
 
     @fixture(_mock_service)
     @fixture(_client)
-    @fixture(_resource, Schedule, "name", fixture_name='schedule',
+    @fixture(_resource, Schedule, "name", USER_ID, fixture_name='schedule',
              skip_cleanup=True)
     def test_delete_schedule_resource(self, client, schedule, mock_service):
         del client
@@ -308,14 +312,15 @@ class ClientTest(unittest.TestCase):
 
     @fixture(_mock_service)
     @fixture(_client)
-    @fixture(_resource, User, "name", fixture_name='user')
+    @fixture(_resource, User, "name", "username", fixture_name='user')
     def test_delete_user_resource_by_list(self, client, user, mock_service):
         return self._test_delete_resource_by_list(client.users, user,
                                                   mock_service=mock_service)
 
     @fixture(_mock_service)
     @fixture(_client)
-    @fixture(_resource, Device, "name", "host", 5000, fixture_name='device')
+    @fixture(_resource, Device, "name", USER_ID, "host", 5000,
+             fixture_name='device', skip_cleanup=True)
     def test_delete_device_resource_by_list(self, client, device,
                                             mock_service):
         return self._test_delete_resource_by_list(client.devices, device,
@@ -323,7 +328,7 @@ class ClientTest(unittest.TestCase):
 
     @fixture(_mock_service)
     @fixture(_client)
-    @fixture(_resource, Schedule, "name", fixture_name='schedule')
+    @fixture(_resource, Schedule, "name", USER_ID, fixture_name='schedule')
     def test_delete_schedule_resource_by_list(self, client, schedule,
                                               mock_service):
         return self._test_delete_resource_by_list(client.schedules, schedule,
@@ -331,13 +336,13 @@ class ClientTest(unittest.TestCase):
 
     @fixture(_mock_service)
     @fixture(_client)
-    @fixture(_resource, Schedule, "name", fixture_name='schedule')
+    @fixture(_resource, Schedule, "name", USER_ID, fixture_name='schedule')
     def test_basic_schedule_phases_resource_list(self, client, schedule,
                                                  mock_service):
         '''basic test that schedule.phases ResourceList works'''
         self.assertEqual([], schedule.phases)
 
-        phase = Phase('name', 'type', None, 5, parent=schedule)
+        phase = Phase('name', 1, PhaseType.RAMP, None, 5, parent=schedule)
         self.assertEqual(f"{schedule._url}/phase", phase._url)
         with mock_service.patch():
             schedule.phases += phase
@@ -353,13 +358,14 @@ class ClientTest(unittest.TestCase):
 
     @fixture(_mock_service)
     @fixture(_client)
-    @fixture(_resource, Schedule, "name", fixture_name='schedule',
+    @fixture(_resource, Schedule, "name", USER_ID, fixture_name='schedule',
              skip_cleanup=True)
     @fixture(_resource, Phase,
-             "name",  # name
-             "type",  # type
-             None,    # duration
-             5,       # rate
+             "name",        # name
+             1,             # ordinal
+             PhaseType.RAMP,
+             None,          # duration
+             5,             # rate
              parent=lambda *args, **kwargs: kwargs.get('schedule'),
              fixture_name='phase', include_kwargs=(),
              skip_cleanup=True)

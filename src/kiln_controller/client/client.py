@@ -19,9 +19,11 @@ import datetime
 from functools import wraps
 from http import HTTPStatus
 import traceback
-from typing import SupportsIndex, Callable
+from typing import SupportsIndex, Callable, Dict
 
 import requests
+
+from kiln_controller.common import PhaseType
 
 from .helpers import logger, detect_bad_url, trace
 
@@ -372,12 +374,14 @@ class DataclassBase(ABC):
 
 @dataclass
 class UserBase(DataclassBase):
+    username: str
     email: str = None
     phone_number: str = None
 
 
 @dataclass
 class DeviceBase(DataclassBase):
+    user_id: int
     host: str
     port: int
     url: str = "/"
@@ -386,11 +390,23 @@ class DeviceBase(DataclassBase):
 
 @dataclass
 class PhaseBase(DataclassBase):
-    type: str   # todo enum
-    duration: datetime.time
-    rate: int
-
+    ordinal: int
+    phase_type: PhaseType
+    duration: datetime.time = None
+    rate: int = None
+    temperature: int = None
     schedule_id: int | None = None
+
+    def asdict(self) -> Dict:
+        ret = super().asdict()
+        ret['phase_type'] = self.phase_type.name
+        return ret
+
+    def __post_init__(self):
+        '''convert the phase_type to enum element if it make sense to do so'''
+
+        if isinstance(self.phase_type, str):
+            self.phase_type = getattr(PhaseType, self.phase_type)
 
 
 class ResourceListDescriptor:
@@ -443,11 +459,13 @@ class ResourceListDescriptor:
 @dataclass
 class ScheduleBase(DataclassBase):
 
+    user_id: int
     phases: ResourceList['Phase'] = ResourceListDescriptor(PhaseBase)
 
     def asdict(self):
         return {'id': self.id,
-                'name': self.name}
+                'name': self.name,
+                'user_id': self.user_id}
 
 ###############################################################################
 

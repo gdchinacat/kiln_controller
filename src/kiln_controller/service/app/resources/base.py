@@ -31,6 +31,7 @@ def db(func) -> Callable[[Callable], Callable]:
 
 def error(msg: str) -> Dict[str, str]:
     '''create a json error dict with error msg'''
+    # TODO - don't expose internal error messages (500 returns sql error)
     return {"message": msg}
 
 
@@ -195,12 +196,14 @@ class BaseListResource(Resource, DataclassFieldJsonValidatorMixin):
     TYPE = None
 
     @db
-    def get(self, *, db_, **filters):
+    def get(self, *, db_, order_by=None, **filters):
         '''get the list of TYPE resources'''
         query = db_.select(self.TYPE)
         if filters:
             query = query.filter_by(**filters)
-        return [orm.asdict() for orm in 
+            if order_by:
+                query = query.order_by(order_by)
+        return [orm.asdict() for orm in
                 db_.session.execute(query).scalars()]
 
     @validate_request_json

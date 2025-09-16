@@ -8,6 +8,14 @@ from .resources import (UserResource, UserListResource,
                         ScheduleResource, ScheduleListResource,
                         PhaseResource, PhaseListResource,
                         )
+from sqlalchemy.orm.mapper import configure_mappers
+
+# debug
+import logging
+logging.basicConfig()
+logging.getLogger('sqlalchemy.engine').setLevel(logging.DEBUG)
+# end debug
+
 app = Flask(__name__)
 api = Api(app)
 
@@ -35,6 +43,7 @@ api.add_resource(PhaseResource,
 api.add_resource(PhaseListResource, "/schedule/<string:schedule_id>/phase/")
 
 with app.app_context() as ctx:
+    configure_mappers()  # do this proactively rather than when app is started
     db.create_all()
     current_app.db = db
 

@@ -69,6 +69,8 @@ class PhaseResource(BaseResource):
     #        necessary.
     @coerce('duration', False, None,
             lambda x: x.isoformat())
+    @coerce('phase_type', False, None,
+            lambda x: x.name if x else None)
     def get(self, *args, **kwargs):
         return super().get(*args, **kwargs)
 
@@ -82,19 +84,20 @@ class PhaseListResource(BaseListResource):
     '''Flask list resource list for Phases'''
     TYPE = Phase
 
-    # todo - PhaseListResource overloads these to add coercion...once
-    #        marshallers have been added these overloads should not be
-    #        necessary.
     @coerce('duration', True, None,
             lambda x: x.isoformat() if x else None)
+    @coerce('phase_type', True, None,
+            lambda x: x.name if x else None)
     def get(self, *args, **kwargs):
-        ret = super().get(*args, **kwargs)
+        ret = super().get(*args, order_by=Phase.ordinal, **kwargs)
         return ret
 
     @populate('schedule_id', int)
     @coerce('duration', False,
             lambda x: datetime.strptime(x, "%H:%M:%S").time(),
             lambda x: x.isoformat() if x else None)
+    @coerce('phase_type', False, None,
+            lambda x: x.name if x else None)
     def post(self, *args, **kwargs):
         return super().post(*args, **kwargs)
 

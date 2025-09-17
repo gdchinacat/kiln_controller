@@ -18,7 +18,7 @@ from kiln_controller.client.client import Resource, NotFoundException
 from kiln_controller.client.mock_service import Call
 from kiln_controller.common.enums import PhaseType
 
-from .fixtures import mock_service
+from .fixtures import mock_service, client
 
 # throwaway ids to make arg lists readable
 USER_ID = 1
@@ -33,12 +33,6 @@ class ClientTest(unittest.TestCase):
     """
 
     # maxDiff = None  # I really do want to see the error
-
-    @default_fixture_name('client')
-    @pass_self
-    def _client(self, mock_service, **_):
-        with mock_service.patch():
-            return Client()
 
     @fixture(mock_service)
     def test_client_init(self, mock_service):
@@ -253,7 +247,7 @@ class ClientTest(unittest.TestCase):
         self.assertIsNone(resource.id)
 
     @fixture(mock_service)
-    @fixture(_client)
+    @fixture(client)
     @fixture(_resource, User, "name", "username", fixture_name='user',
              skip_cleanup=True)
     def test_delete_user_resource(self, client, user, mock_service):
@@ -262,7 +256,7 @@ class ClientTest(unittest.TestCase):
             return self._test_delete_resource(user, mock_service=mock_service)
 
     @fixture(mock_service)
-    @fixture(_client)
+    @fixture(client)
     @fixture(_resource, Device, "name", USER_ID, "host", 5000,
              fixture_name='device', skip_cleanup=True)
     def test_delete_device_resource(self, client, device, mock_service):
@@ -272,7 +266,7 @@ class ClientTest(unittest.TestCase):
                                               mock_service=mock_service)
 
     @fixture(mock_service)
-    @fixture(_client)
+    @fixture(client)
     @fixture(_resource, Schedule, "name", USER_ID, fixture_name='schedule',
              skip_cleanup=True)
     def test_delete_schedule_resource(self, client, schedule, mock_service):
@@ -309,14 +303,14 @@ class ClientTest(unittest.TestCase):
         self.assertFalse(resource in resource_list)
 
     @fixture(mock_service)
-    @fixture(_client)
+    @fixture(client)
     @fixture(_resource, User, "name", "username", fixture_name='user')
     def test_delete_user_resource_by_list(self, client, user, mock_service):
         return self._test_delete_resource_by_list(client.users, user,
                                                   mock_service=mock_service)
 
     @fixture(mock_service)
-    @fixture(_client)
+    @fixture(client)
     @fixture(_resource, Device, "name", USER_ID, "host", 5000,
              fixture_name='device', skip_cleanup=True)
     def test_delete_device_resource_by_list(self, client, device,
@@ -325,7 +319,7 @@ class ClientTest(unittest.TestCase):
                                                   mock_service=mock_service)
 
     @fixture(mock_service)
-    @fixture(_client)
+    @fixture(client)
     @fixture(_resource, Schedule, "name", USER_ID, fixture_name='schedule')
     def test_delete_schedule_resource_by_list(self, client, schedule,
                                               mock_service):
@@ -333,7 +327,7 @@ class ClientTest(unittest.TestCase):
                                                   mock_service=mock_service)
 
     @fixture(mock_service)
-    @fixture(_client)
+    @fixture(client)
     @fixture(_resource, Schedule, "name", USER_ID, fixture_name='schedule')
     def test_basic_schedule_phases_resource_list(self, client, schedule,
                                                  mock_service):
@@ -355,7 +349,7 @@ class ClientTest(unittest.TestCase):
         self.assertEqual([], schedule.phases)
 
     @fixture(mock_service)
-    @fixture(_client)
+    @fixture(client)
     @fixture(_resource, Schedule, "name", USER_ID, fixture_name='schedule',
              skip_cleanup=True)
     @fixture(_resource, Phase,

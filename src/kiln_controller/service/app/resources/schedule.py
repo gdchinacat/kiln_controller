@@ -13,6 +13,7 @@ from flask_restful.utils import unpack
 from kiln_controller.service.models import Schedule, Phase
 
 from .base import BaseResource, BaseListResource
+from kiln_controller.common.enums import PhaseType
 
 
 logger = logging.getLogger(__name__)
@@ -97,7 +98,7 @@ class PhaseListResource(BaseListResource):
             lambda x: datetime.strptime(x, "%H:%M:%S").time(),
             lambda x: x.isoformat() if x else None)
     @coerce('phase_type', False, None,
-            lambda x: x.name if x else None)
+            lambda x: x.name if isinstance(x, PhaseType) else x)
     def post(self, *args, **kwargs):
         return super().post(*args, **kwargs)
 

@@ -11,9 +11,9 @@ from .resources import (UserResource, UserListResource,
 from sqlalchemy.orm.mapper import configure_mappers
 
 # debug
-import logging
-logging.basicConfig()
-logging.getLogger('sqlalchemy.engine').setLevel(logging.DEBUG)
+# import logging
+# logging.basicConfig()
+# logging.getLogger('sqlalchemy.engine').setLevel(logging.DEBUG)
 # end debug
 
 app = Flask(__name__)

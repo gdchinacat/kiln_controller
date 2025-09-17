@@ -110,13 +110,14 @@ class ClientTest(unittest.TestCase):
     def test_add_device_to_list(self):
         return self._test_list_add((Device, lambda client: client.devices), \
                                    # pylint: disable=missing-kwoa
-                                   "name", "host", 5000, 'description',
-                                   iadd=True)
+                                   "name", USER_ID, "host", 5000,
+                                   'description', iadd=True)
 
     def test_append_device_to_list(self):
         return self._test_list_add((Device, lambda client: client.devices), \
                                    # pylint: disable=missing-kwoa
-                                   "name", "host", 5000, 'description')
+                                   "name", USER_ID, "host", 5000,
+                                   'description')
 
     def test_add_schedule_to_list(self):
         return self._test_list_add((Schedule, \

@@ -6,8 +6,9 @@ Common fixtures for tests.
 
 
 from functools import wraps
-from unittest import TestCase
+import os
 from random import randint
+from unittest import TestCase
 
 from skytap.fixtures.fixtures import (default_fixture_name, pass_self,
                                       get_default_fixture_name)
@@ -30,6 +31,9 @@ class CleanupTestCase(TestCase):
     Primarily used by fixtures to remove resources created for tests, but test
     cases can also register resources for cleanup directly by calling:
     self.cleanup(mock_service, resource)
+
+    SKIP_CLEANUP=true environment variable can be used to skip cleanup to allow
+    inspection of the resources after the test completes.
     """
     def setUp(self):
         super().setUp()
@@ -42,7 +46,8 @@ class CleanupTestCase(TestCase):
                 resource.delete()
 
     def cleanup(self, mock_service, resource):
-        self._cleanup.append((mock_service, resource))
+        if os.getenv('SKIP_CLEANUP', 'false').upper() != 'TRUE':
+            self._cleanup.append((mock_service, resource))
 
 
 def cleanup(func):

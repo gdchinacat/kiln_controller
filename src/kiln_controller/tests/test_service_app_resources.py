@@ -45,14 +45,21 @@ class TestPhases(CleanupTestCase):
     @fixture(client_fixture)
     @fixture(user_fixture)
     @fixture(schedule_fixture)
-    @fixture(schedule_fixture)
     def test_phase_order(self,
                          schedule_kwarg=get_default_fixture_name(
                              schedule_fixture),
                          **kwargs):
-        """test that phases are ordered by ordinal rather than insert order"""
+        """
+        Test that phases are ordered by ordinal rather than insert order.
+
+        This doesn't really test that the get() orders by ordinal since there
+        is a unique constraint on (schedule_id, ordinal). The index for this
+        constraint is the only one for schedule, so he natural order of phases
+        by schedule includes ordinal. I have manually verified that changing
+        the order_by for that query to Phase.ordinal.desc() changes correctly
+        changes the order and causes this test to fail.
+        """
         schedule = kwargs[schedule_kwarg]
-        self.assertIsNotNone(schedule)
 
         phase2 = Phase('phase2', 2, PhaseType.CONSTANT, temperature=950)
         phase1 = Phase('phase1', 1, PhaseType.RAMP, temperature=950)

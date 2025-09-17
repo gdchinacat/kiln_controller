@@ -116,7 +116,8 @@ class MockService(Resource):
         """
         Context manager that patches client.requests to intercept calls for
         call tracking. The mock functions should be decorated with
-        @conditional_requests_mock to permit tests to execute against a live service.
+        @conditional_requests_mock to permit tests to execute against a live
+        service.
         """
         with patch('kiln_controller.client.client.requests', new=self):
             self.calls = []  # only track calls in this with block

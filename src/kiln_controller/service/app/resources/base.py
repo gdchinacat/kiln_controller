@@ -221,7 +221,7 @@ class BaseListResource(Resource, DataclassFieldJsonValidatorMixin):
             #        extract the constraint violation and expose it to client
             #        in appropriate manner. For now, just report as client
             #        error.
-            return (error(f"user already exists"),
+            return (error("user already exists"),
                     HTTPStatus.UNPROCESSABLE_ENTITY)
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.exception(e)

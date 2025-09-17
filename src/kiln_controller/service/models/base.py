@@ -23,7 +23,7 @@ class Base(MappedAsDataclass, DeclarativeBase):
     """all model dataclasses contain a name"""
 
     id: Mapped[int] = mapped_column(primary_key=True, default=None,
-                                            kw_only=True)
+                                    kw_only=True)
     """all model dataclasses contain a primary key named id"""
 
     def asdict(self):

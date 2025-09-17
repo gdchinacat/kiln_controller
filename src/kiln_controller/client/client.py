@@ -510,10 +510,10 @@ class _Client(BaseRestClient):
 
 
 # make linters happy (overridden below)
-User: Callable = None
-Device: Callable = None
-Schedule: Callable = None
-Phase: Callable = None
+User: Callable = lambda *_, **__: None
+Device: Callable = lambda *_, **__: None
+Schedule: Callable = lambda *_, **__: None
+Phase: Callable = lambda *_, **__: None
 
 
 # copy these classes to the module from the client

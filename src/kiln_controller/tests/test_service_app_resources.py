@@ -2,10 +2,19 @@
 # pylint: disable=missing-class-docstring
 # pylint: disable=missing-function-docstring
 # pylint: disable=too-few-public-methods
+# pylint: disable=unused-argument
 
 from unittest import TestCase
 from unittest.mock import MagicMock
+
+from skytap.fixtures.fixtures import (fixture, get_default_fixture_name)
+
+from kiln_controller.common import PhaseType
+from kiln_controller.client import Phase
 from kiln_controller.service.app.resources.base import BaseResource
+
+from .fixtures import mock_service_fixture, client_fixture
+from .fixtures import (CleanupTestCase, user_fixture, schedule_fixture)
 
 
 class _ResourceType:
@@ -23,7 +32,32 @@ class TestResources(TestCase):
         resource = _Resource()
         db = MagicMock()
         _id = 0
-        resource._lookup(db, _id)
+        resource._lookup(db, _id)  # pylint: disable=protected-access
 
         query = db.select(_ResourceType).filter_by(id=_id)
         db.session.execute.assert_has_calls(query)
+
+
+class TestPhases(CleanupTestCase):
+    """Test phases"""
+
+    @fixture(mock_service_fixture)
+    @fixture(client_fixture)
+    @fixture(user_fixture)
+    @fixture(schedule_fixture)
+    @fixture(schedule_fixture)
+    def test_phase_order(self,
+                         schedule_kwarg=get_default_fixture_name(
+                             schedule_fixture),
+                         **kwargs):
+        """test that phases are ordered by ordinal rather than insert order"""
+        schedule = kwargs[schedule_kwarg]
+        self.assertIsNotNone(schedule)
+
+        phase2 = Phase('phase2', 2, PhaseType.CONSTANT, temperature=950)
+        phase1 = Phase('phase1', 1, PhaseType.RAMP, temperature=950)
+
+        schedule.phases += phase2
+        schedule.phases += phase1
+
+        self.assertEqual([phase1, phase2], schedule.phases)

@@ -8,7 +8,6 @@ Test the kiln_controller python client library.
 from contextlib import contextmanager
 import random
 from typing import Tuple, Callable
-import unittest
 
 import pytest
 from skytap.fixtures import fixture, pass_self
@@ -18,14 +17,14 @@ from kiln_controller.client.client import Resource, NotFoundException
 from kiln_controller.client.mock_service import Call
 from kiln_controller.common.enums import PhaseType
 
-from .fixtures import mock_service_fixture, client_fixture
+from .fixtures import CleanupTestCase, mock_service_fixture, client_fixture
 
 
 # throwaway ids to make arg lists readable
 USER_ID = 1
 
 
-class ClientTest(unittest.TestCase):
+class ClientTest(CleanupTestCase):
     """
     Test the kiln_controller Client
 
@@ -40,16 +39,6 @@ class ClientTest(unittest.TestCase):
         with mock_service.patch():
             client = Client()
         self.assertIsNotNone(client)
-
-    def setUp(self):
-        unittest.TestCase.setUp(self)
-        self._cleanup = []
-
-    def tearDown(self):
-        unittest.TestCase.tearDown(self)
-        for mock_service, resource in self._cleanup:
-            with mock_service.patch():
-                resource.delete()
 
     @fixture(mock_service_fixture)
     def _test_list_add(self, _type_list_getter, *args, iadd=False,
@@ -363,7 +352,7 @@ class ClientTest(unittest.TestCase):
              fixture_name='phase', include_kwargs=(),
              skip_cleanup=True)
     def test_schedule_delete_deletes_phases(self, client, schedule, phase,
-                                                 mock_service):
+                                            mock_service):
         '''basic test that deleting a schedule deletes its phases'''
         with mock_service.patch():
             schedule.delete()

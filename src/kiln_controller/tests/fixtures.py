@@ -1,5 +1,15 @@
 """
 Common fixtures for tests.
+
+Fixture implementations are encouraged to use Resource.post(client) rather than
+creating them through resource lists. This is to avoid unnecessary requests
+to populate the list on access and refresh the list after adding resources to
+them. This has the drawback of allowing the resource lists on the client and
+resources becoming stale. ResourceList.refresh() should be used to update the
+resource lists when necessary. This is ameliorated by deferring population of
+resource lists until first access, *but* only if fixture implementations follow
+the recommendation to create resources through Resource.post() rather than
+resource lists.
 """
 # pylint: disable=unused-argument
 # pylint: disable=redefined-outer-name
@@ -13,15 +23,17 @@ from unittest import TestCase
 from skytap.fixtures.fixtures import (default_fixture_name, pass_self,
                                       get_default_fixture_name)
 
-from kiln_controller.client import Client, User, Schedule
+from kiln_controller.client import Client, User, Schedule, Phase, Device
 from kiln_controller.client.mock_service import MockService
+from kiln_controller.common.enums import PhaseType
 
 
 __all__ = ['CleanupTestCase',
            'mock_service_fixture',
            'client_fixture',
            'user_fixture',
-           'schedule_fixture']
+           'schedule_fixture',
+           'phase_fixture']
 
 
 class CleanupTestCase(TestCase):
@@ -51,12 +63,20 @@ class CleanupTestCase(TestCase):
 
 
 def cleanup(func):
-    '''fixture to cleanup the return value of the decorated fixture function'''
+    '''
+    Fixture to cleanup the return value of the decorated fixture function.
+
+    Fixture functions decorated with this accept a skip_cleanup kwarg that is
+    intercepted by this fixture. If skip_cleanup is true-ish no cleanup will
+    be performed by the fixture for the resource. This is useful for tests that
+    delete a resource provided by a fixture.
+    '''
     @wraps(func)
-    def _cleanup(self, *, mock_service, **kwargs):
+    def _cleanup(self, *, mock_service, skip_cleanup=None, **kwargs):
         '''wrapper to call func and register its return for cleanup'''
         resource = func(self, mock_service=mock_service, **kwargs)
-        self.cleanup(mock_service, resource)
+        if not skip_cleanup:
+            self.cleanup(mock_service, resource)
         return resource
     return _cleanup
 
@@ -79,7 +99,8 @@ def client_fixture(self, mock_service, **_):
 @pass_self
 @default_fixture_name('user')
 @cleanup
-def user_fixture(self, client, name='name', username=None, **kwargs):
+def user_fixture(self, mock_service, client,
+                 name='name', username=None, **kwargs):
     '''
     Create a user.
 
@@ -89,18 +110,56 @@ def user_fixture(self, client, name='name', username=None, **kwargs):
     '''
     username = username or f"username{randint(1000, 9999)}"
     user = User(name, username)
-    client.users += user
+    with mock_service.patch():
+        user.post(client)
     return user
+
+
+@pass_self
+@default_fixture_name('device')
+@cleanup
+def device_fixture(self, mock_service, client,
+                   name='name', host='host', port=5000, url='/',
+                   user_kwarg=get_default_fixture_name(user_fixture),
+                   **kwargs):
+    user = kwargs[user_kwarg]
+    device = Device(name, user.id, host, port, url)
+    with mock_service.patch():
+        device.post(client)
+    return device
 
 
 @pass_self
 @default_fixture_name('schedule')
 @cleanup
-def schedule_fixture(self, client,
+def schedule_fixture(self, mock_service, client,
                      user_kwarg=get_default_fixture_name(user_fixture),
                      name='name', **kwargs):
     user = kwargs[user_kwarg]
     schedule = Schedule(name=name, user_id=user.id)
-    client.schedules += schedule
+    with mock_service.patch():
+        schedule.post(client)
     return schedule
 
+
+@pass_self
+@default_fixture_name('phase')
+def phase_fixture(self, mock_service, client,
+                  schedule_kwarg=get_default_fixture_name(schedule_fixture),
+                  name='name', ordinal=0, phase_type=PhaseType.CONSTANT,
+                  duration=60, temperature=1000, rate=None, **kwargs):
+    '''
+    Fixture to create a phase.
+
+    By default, the phase is a 1 hour long 1000C constant phase with ordinal 0.
+
+    Cleanup is managed by the schedule, phases from this fixture are not
+    scheduled for cleanup.
+    '''
+
+    schedule = kwargs[schedule_kwarg]
+    phase = Phase(name=name, ordinal=ordinal, phase_type=phase_type,
+                  temperature=temperature, rate=rate, parent=schedule)
+    with mock_service.patch():
+        phase.post(client)
+    return phase

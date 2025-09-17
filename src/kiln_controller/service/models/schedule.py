@@ -42,6 +42,7 @@ class Phase(Base):
     """
     __tablename__ = "phases"
     __table_args__ = (
+        UniqueConstraint('schedule_id', 'name'),
         UniqueConstraint('schedule_id', 'ordinal'),
     )
 
@@ -82,7 +83,7 @@ class Phase(Base):
 
     duration: Mapped[Optional[time]]
     '''
-    How long the phase lasts.
+    How long the phase lasts in minutes.
 
     duration is unset for type==RAMP
     '''
@@ -109,7 +110,3 @@ class Phase(Base):
                                               lazy=True)
     '''the schedule the phase is part of'''
 
-    # def __setattr__(self, attr, value):
-    #     if attr == "schedule":
-    #         value = Schedule(**value)
-    #     super().__setattr__(attr, value)

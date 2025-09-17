@@ -76,7 +76,7 @@ class PhaseResource(BaseResource):
         return super().get(*args, **kwargs)
 
     def delete(self, *args, schedule_id: int, **kwargs):
-        logger.error("PhaseResource ignoring schedule_id=%i path parameter",
+        logger.error("PhaseResource ignoring schedule_id=%s path parameter",
                      schedule_id)
         return super().delete(*args, **kwargs)
 

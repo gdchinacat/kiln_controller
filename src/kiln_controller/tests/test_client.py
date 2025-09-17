@@ -1,9 +1,10 @@
-# pylint: disable=missing-class-docstring
-# pylint: disable=missing-function-docstring
-# pylint: disable=too-few-public-methods
 """
 Test the kiln_controller python client library.
 """
+# pylint: disable=missing-class-docstring
+# pylint: disable=missing-function-docstring
+# pylint: disable=too-few-public-methods
+# pylint: disable=unused-argument
 
 from contextlib import contextmanager
 import random
@@ -16,8 +17,11 @@ from kiln_controller.client import Client, User, Device, Schedule, Phase
 from kiln_controller.client.client import Resource, NotFoundException
 from kiln_controller.client.mock_service import Call
 from kiln_controller.common.enums import PhaseType
+from kiln_controller.tests.fixtures import user_fixture, schedule_fixture, \
+    phase_fixture
 
-from .fixtures import CleanupTestCase, mock_service_fixture, client_fixture
+from .fixtures import (CleanupTestCase, mock_service_fixture, client_fixture,
+                       device_fixture)
 
 
 # throwaway ids to make arg lists readable
@@ -197,30 +201,6 @@ class ClientTest(CleanupTestCase):
         finally:
             pass
 
-    @pass_self
-    def _resource(self, _type, *args, client, mock_service,
-                  parent: Callable[[...], Resource] = lambda *_, **__: None,
-                  include_kwargs: Tuple[str] | None = None,
-                  skip_cleanup=False,
-                  **kwargs):
-        """
-        create a resource of the given _type using client.
-        - parent - callable that produces the parent resource, typically by
-                   extracting it from kwargs.
-        - include_kwargs - if not None the list of kwargs to pass to resource
-        """
-        parent = parent(*args, **kwargs)
-        kwargs = {k: v for k, v in kwargs.items()
-                  if include_kwargs is None or k in include_kwargs}
-        resource = _type(*args, parent=parent, **kwargs)
-        with mock_service.patch():
-            resource.post(client)
-
-        if not skip_cleanup:
-            self._cleanup.append((mock_service, resource))
-
-        return resource
-
     def _test_delete_resource(self, resource, mock_service):
         """test that Resource.delete() functions"""
         self.assertIsNotNone(resource.id)
@@ -238,18 +218,18 @@ class ClientTest(CleanupTestCase):
 
     @fixture(mock_service_fixture)
     @fixture(client_fixture)
-    @fixture(_resource, User, "name", "username", fixture_name='user',
-             skip_cleanup=True)
-    def test_delete_user_resource(self, client, user, mock_service):
+    @fixture(user_fixture, skip_cleanup=True)
+    def test_delete_user_resource(self, client, user, mock_service, **kwargs):
         del client
         with mock_service.patch():
             return self._test_delete_resource(user, mock_service=mock_service)
 
     @fixture(mock_service_fixture)
     @fixture(client_fixture)
-    @fixture(_resource, Device, "name", USER_ID, "host", 5000,
-             fixture_name='device', skip_cleanup=True)
-    def test_delete_device_resource(self, client, device, mock_service):
+    @fixture(user_fixture)
+    @fixture(device_fixture, skip_cleanup=True)
+    def test_delete_device_resource(self, client, device, mock_service,
+                                    **kwargs):
         del client
         with mock_service.patch():
             return self._test_delete_resource(device,
@@ -257,9 +237,10 @@ class ClientTest(CleanupTestCase):
 
     @fixture(mock_service_fixture)
     @fixture(client_fixture)
-    @fixture(_resource, Schedule, "name", USER_ID, fixture_name='schedule',
-             skip_cleanup=True)
-    def test_delete_schedule_resource(self, client, schedule, mock_service):
+    @fixture(user_fixture)
+    @fixture(schedule_fixture, skip_cleanup=True)
+    def test_delete_schedule_resource(self, client, schedule, mock_service,
+                                      **kwargs):
         del client
         with mock_service.patch():
             return self._test_delete_resource(schedule,
@@ -294,33 +275,36 @@ class ClientTest(CleanupTestCase):
 
     @fixture(mock_service_fixture)
     @fixture(client_fixture)
-    @fixture(_resource, User, "name", "username", fixture_name='user')
-    def test_delete_user_resource_by_list(self, client, user, mock_service):
+    @fixture(user_fixture)
+    def test_delete_user_resource_by_list(self, client, user, mock_service,
+                                          **kwargs):
         return self._test_delete_resource_by_list(client.users, user,
                                                   mock_service=mock_service)
 
     @fixture(mock_service_fixture)
     @fixture(client_fixture)
-    @fixture(_resource, Device, "name", USER_ID, "host", 5000,
-             fixture_name='device', skip_cleanup=True)
+    @fixture(user_fixture)
+    @fixture(device_fixture)
     def test_delete_device_resource_by_list(self, client, device,
-                                            mock_service):
+                                            mock_service, **kwargs):
         return self._test_delete_resource_by_list(client.devices, device,
                                                   mock_service=mock_service)
 
     @fixture(mock_service_fixture)
     @fixture(client_fixture)
-    @fixture(_resource, Schedule, "name", USER_ID, fixture_name='schedule')
+    @fixture(user_fixture)
+    @fixture(schedule_fixture)
     def test_delete_schedule_resource_by_list(self, client, schedule,
-                                              mock_service):
+                                              mock_service, **kwargs):
         return self._test_delete_resource_by_list(client.schedules, schedule,
                                                   mock_service=mock_service)
 
     @fixture(mock_service_fixture)
     @fixture(client_fixture)
-    @fixture(_resource, Schedule, "name", USER_ID, fixture_name='schedule')
-    def test_basic_schedule_phases_resource_list(self, client, schedule,
-                                                 mock_service):
+    @fixture(user_fixture)
+    @fixture(schedule_fixture)
+    def test_basic_schedule_phases_resource_list(self, schedule,
+                                                 mock_service, **kwargs):
         '''basic test that schedule.phases ResourceList works'''
         self.assertEqual([], schedule.phases)
 
@@ -340,19 +324,23 @@ class ClientTest(CleanupTestCase):
 
     @fixture(mock_service_fixture)
     @fixture(client_fixture)
-    @fixture(_resource, Schedule, "name", USER_ID, fixture_name='schedule',
-             skip_cleanup=True)
-    @fixture(_resource, Phase,
-             "name",        # name
-             1,             # ordinal
-             PhaseType.RAMP,
-             None,          # duration
-             5,             # rate
-             parent=lambda *args, **kwargs: kwargs.get('schedule'),
-             fixture_name='phase', include_kwargs=(),
-             skip_cleanup=True)
+    @fixture(user_fixture)
+    @fixture(schedule_fixture)
+    @fixture(phase_fixture)
+    def test_schedule_phases_resource_list_auto_populates(self, schedule,
+                                                          phase,
+                                                          mock_service,
+                                                          **kwargs):
+        '''basic test that schedule.phases ResourceList works'''
+        #self.assertEqual([], schedule.phases)
+
+    @fixture(mock_service_fixture)
+    @fixture(client_fixture)
+    @fixture(user_fixture)
+    @fixture(schedule_fixture, skip_cleanup=True)
+    @fixture(phase_fixture, skip_cleanup=True)
     def test_schedule_delete_deletes_phases(self, client, schedule, phase,
-                                            mock_service):
+                                            mock_service, **kwargs):
         '''basic test that deleting a schedule deletes its phases'''
         with mock_service.patch():
             schedule.delete()

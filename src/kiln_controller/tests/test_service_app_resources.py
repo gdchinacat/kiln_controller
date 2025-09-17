@@ -45,7 +45,7 @@ class TestPhases(CleanupTestCase):
     @fixture(client_fixture)
     @fixture(user_fixture)
     @fixture(schedule_fixture)
-    def test_phase_order(self,
+    def test_phase_order(self, mock_service,
                          schedule_kwarg=get_default_fixture_name(
                              schedule_fixture),
                          **kwargs):
@@ -64,7 +64,8 @@ class TestPhases(CleanupTestCase):
         phase2 = Phase('phase2', 2, PhaseType.CONSTANT, temperature=950)
         phase1 = Phase('phase1', 1, PhaseType.RAMP, temperature=950)
 
-        schedule.phases += phase2
-        schedule.phases += phase1
+        with mock_service.patch():
+            schedule.phases += phase2
+            schedule.phases += phase1
 
         self.assertEqual([phase1, phase2], schedule.phases)

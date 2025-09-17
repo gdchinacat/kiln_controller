@@ -11,7 +11,7 @@ from typing import Tuple, Callable
 import unittest
 
 import pytest
-from skytap.fixtures import fixture, default_fixture_name, pass_self
+from skytap.fixtures import fixture, pass_self
 
 from kiln_controller.client import Client, User, Device, Schedule, Phase
 from kiln_controller.client.client import Resource, NotFoundException
@@ -19,6 +19,7 @@ from kiln_controller.client.mock_service import Call
 from kiln_controller.common.enums import PhaseType
 
 from .fixtures import mock_service_fixture, client_fixture
+
 
 # throwaway ids to make arg lists readable
 USER_ID = 1

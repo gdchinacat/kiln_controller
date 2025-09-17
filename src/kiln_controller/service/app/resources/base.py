@@ -201,7 +201,7 @@ class BaseListResource(Resource, DataclassFieldJsonValidatorMixin):
         query = db_.select(self.TYPE)
         if filters:
             query = query.filter_by(**filters)
-            if order_by:
+            if order_by is not None:
                 query = query.order_by(order_by)
         return [orm.asdict() for orm in
                 db_.session.execute(query).scalars()]

@@ -22,6 +22,21 @@ class NotFound(_HTTPError):
     status_code = HTTPStatus.NOT_FOUND
 
 
+def sort(order_by: Dict[type, Callable]) -> List:
+    '''decorator to sort the return values'''
+    def dec(func):
+        @wraps(func)
+        def _sort(self, url, *args, **kwargs):
+            ret = func(self, url, *args, **kwargs)
+            type_ = url.split('/')[-2]
+            key = order_by.get(type_, None)
+            if key:
+                ret = sorted(ret, key=key)
+            return ret
+        return _sort
+    return dec
+
+
 class Resource(dict):
     """
     Resource is used to build the mock resource model. It is a node in a tree.
@@ -197,6 +212,7 @@ class MockService(Resource):
     @exception_to_response
     @track_call
     @conditional_requests_mock(requests.get)
+    @sort({'phase': lambda phase: int(phase['ordinal'])})
     def get(self, url, **_) -> requests.Response:
         return self.walk(url)
 

@@ -242,10 +242,18 @@ class ResourceList[A](list):
     sort = _unexpire(list.sort)
     index = _unexpire(list.index)
     reverse = _unexpire(list.reverse)
-    __eq__ = _unexpire(list.__eq__)
     __contains__ = _unexpire(list.__contains__)
+    __eq__ = _unexpire(list.__eq__)
     __getitem__ = _unexpire(list.__getitem__)
     __iter__ = _unexpire(list.__iter__)
+
+    # unexpiring these causes logging messages to refresh, likely at "bad"
+    # times, so they are disabled. This means you may see weird results in
+    # the REPL. For example, client.schedules will display phases=[], but
+    # actually accessing client.schedules will refresh and you will see them.
+    # todo - should fix this, but not obvious how
+    # __repr__ = _unexpire(list.__repr__)
+    # __str__ = _unexpire(list.__str__)
 
     ###########################################################################
     # Overridden list methods to raise NotImplementedError when called.
@@ -483,6 +491,9 @@ class PhaseBase(DataclassBase):
 
         if isinstance(self.phase_type, str):
             self.phase_type = getattr(PhaseType, self.phase_type)
+        if isinstance(self.duration, str):
+            self.duration = datetime.datetime.strptime(
+                self.duration, "%H:%M:%S").time() 
 
 
 class ResourceListDescriptor:

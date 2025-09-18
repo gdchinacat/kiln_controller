@@ -216,13 +216,12 @@ class BaseListResource(Resource, DataclassFieldJsonValidatorMixin):
                 session.session.expire_on_commit = False  # don't refresh orm
                 db_.session.add(orm)
             return orm.asdict()
-        except IntegrityError:
+        except IntegrityError as e:
             # todo - implement and use generic IntegrityError handler to
             #        extract the constraint violation and expose it to client
             #        in appropriate manner. For now, just report as client
             #        error.
-            return (error("user already exists"),
-                    HTTPStatus.UNPROCESSABLE_ENTITY)
+            return error(f"{e}"), HTTPStatus.UNPROCESSABLE_ENTITY
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.exception(e)
             # todo - don't expose internal details (e) to client

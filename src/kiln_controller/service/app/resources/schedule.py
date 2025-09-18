@@ -31,8 +31,7 @@ def populate(attr, coerce_func=lambda x: x):
 
 def coerce(attr: str,
            is_list: bool,
-           request_coerce: Callable[[Dict], Any],
-           response_coerce: Callable[[Dict], Any]):
+           request_coerce: Callable[[Dict], Any]):
     """
     The @coerce() decorator is used for translating request and response .json
     attributes using request_coerce() and response_coerce().
@@ -41,21 +40,14 @@ def coerce(attr: str,
     :param is_list: is the json expected to be a list, with the coercion
                      to be applied to each element of the list.
     :param request_coerce: function to coerce request attributes
-    :param response_coerce: function to coerce response attributes
     """
     def dec(func):
         def wrap(*args, **kwargs):
             if request_coerce:
-                if request.json.get(attr, None):  # @UndefinedVariable
-                    request.json[attr] = request_coerce(request.json[attr])
+                if v := request.json.get(attr, None):  # @UndefinedVariable
+                    request.json[attr] = request_coerce(v)
             ret = func(*args, **kwargs)
             (data, code, _) = ret = unpack(ret)
-            if code == HTTPStatus.OK and response_coerce:
-                if is_list:
-                    for item in data:
-                        item[attr] = response_coerce(item[attr])
-                elif attr in data:
-                    data[attr] = response_coerce(data[attr])
             return ret
         return wrap
     return dec
@@ -64,16 +56,6 @@ def coerce(attr: str,
 class PhaseResource(BaseResource):
     '''Flask resource for Phases'''
     TYPE = Phase
-
-    # todo - PhaseResource overloads these to add coercion...once
-    #        marshallers have been added these overloads should not be
-    #        necessary.
-    @coerce('duration', False, None,
-            lambda x: x.isoformat())
-    @coerce('phase_type', False, None,
-            lambda x: x.name if x else None)
-    def get(self, *args, **kwargs):
-        return super().get(*args, **kwargs)
 
     def delete(self, *args, schedule_id: int, **kwargs):
         logger.error("PhaseResource ignoring schedule_id=%s path parameter",
@@ -85,20 +67,16 @@ class PhaseListResource(BaseListResource):
     '''Flask list resource list for Phases'''
     TYPE = Phase
 
-    @coerce('duration', True, None,
-            lambda x: x.isoformat() if x else None)
-    @coerce('phase_type', True, None,
-            lambda x: x.name if x else None)
     def get(self, *args, **kwargs):
+        '''get the phases, ordered by ordinal'''
         ret = super().get(*args, order_by=Phase.ordinal, **kwargs)
         return ret
 
     @populate('schedule_id', int)
     @coerce('duration', False,
-            lambda x: datetime.strptime(x, "%H:%M:%S").time(),
-            lambda x: x.isoformat() if x else None)
-    @coerce('phase_type', False, None,
-            lambda x: x.name if isinstance(x, PhaseType) else x)
+            lambda x: datetime.strptime(x, "%H:%M:%S").time() if x else None)
+    @coerce('phase_type', False,
+            lambda x: PhaseType[x])
     def post(self, *args, **kwargs):
         return super().post(*args, **kwargs)
 

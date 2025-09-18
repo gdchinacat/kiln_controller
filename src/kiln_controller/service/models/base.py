@@ -5,7 +5,6 @@ from sqlalchemy import String
 from sqlalchemy.orm import (DeclarativeBase, MappedAsDataclass, mapped_column,
                             Mapped)
 
-
 class Base(MappedAsDataclass, DeclarativeBase):
     """subclasses will be converted to dataclasses"""
 
@@ -28,4 +27,5 @@ class Base(MappedAsDataclass, DeclarativeBase):
 
     def asdict(self):
         '''marshal the model as a json dict'''
-        return {name: getattr(self, name) for name in self.PUBLIC_FIELDS}
+        return {name: (marshaler or (lambda x: x))(getattr(self, name))
+                for (name, marshaler) in self.PUBLIC_FIELDS.items()}

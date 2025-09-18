@@ -13,18 +13,17 @@ import pytest
 from skytap.fixtures import fixture
 
 from kiln_controller.client import Client, User, Device, Schedule, Phase
-from kiln_controller.client.client import NotFoundException
+from kiln_controller.client.client import NotFoundException, DEFAULT_TIMEOUT
 from kiln_controller.client.mock_service import Call
 from kiln_controller.common.enums import PhaseType
-from kiln_controller.tests.fixtures import (user_fixture, schedule_fixture,
-                                            phase_fixture)
 
 from .fixtures import (CleanupTestCase, mock_service_fixture, client_fixture,
-                       device_fixture)
-from random import randint
+                       device_fixture, user_fixture, schedule_fixture,
+                       phase_fixture)
 
 
 # throwaway ids to make arg lists readable
+# todo - get rid of USER_ID, use actual resources
 USER_ID = 1
 
 
@@ -218,7 +217,7 @@ class ClientTest(CleanupTestCase):
         self.assertEqual([
             Call(mock_service.delete.__name__,
                  (resource_url,),
-                 {'timeout': 5},
+                 {'timeout': DEFAULT_TIMEOUT},
                  return_={})],
             mock_service.calls)
         self.assertIsNone(resource.id)
@@ -270,7 +269,7 @@ class ClientTest(CleanupTestCase):
         self.assertEqual([
             Call(mock_service.delete.__name__,
                  (resource_url,),
-                 {'timeout': 5},
+                 {'timeout': DEFAULT_TIMEOUT},
                  return_={})],
             mock_service.calls)
 
@@ -352,7 +351,7 @@ class ClientTest(CleanupTestCase):
         self.assertEqual([
             Call(mock_service.get.__name__,
                  (f"{client._client.url}{schedule._url}/phase/",),
-                 {'timeout': 5},
+                 {'timeout': DEFAULT_TIMEOUT},
                  return_=[phase.asdict()])],
             mock_service.calls)
 

@@ -28,7 +28,8 @@ from kiln_controller.common import PhaseType
 from .helpers import logger, detect_bad_url, trace
 
 
-DEFAULT_TIMEOUT = 5
+# DEFAULT_TIMEOUT = 5
+DEFAULT_TIMEOUT = None
 
 
 class HTTPStatusException(Exception):
@@ -474,6 +475,7 @@ class PhaseBase(DataclassBase):
     def asdict(self) -> Dict:
         ret = super().asdict()
         ret['phase_type'] = self.phase_type.name
+        ret['duration'] = str(self.duration) if self.duration else None
         return ret
 
     def __post_init__(self):

@@ -46,13 +46,14 @@ class Phase(Base):
         UniqueConstraint('schedule_id', 'ordinal'),
     )
 
-    PUBLIC_FIELDS = Base.PUBLIC_FIELDS | {'phase_type': None,
-                                          'duration': str,
-                                          'rate': None,
-                                          'temperature': None,
-                                          'ordinal': None,
-                                          'schedule_id': None,
-                                          }
+    PUBLIC_FIELDS = (Base.PUBLIC_FIELDS |
+                     {'phase_type': lambda x: x.name if x else None,
+                      'duration': lambda x: x.isoformat() if x else None,
+                      'rate': None,
+                      'temperature': None,
+                      'ordinal': None,
+                      'schedule_id': None,
+                     })
 
     ordinal: Mapped[int]
     '''

@@ -166,41 +166,106 @@ class ResourceList[A](list):
     Item deletion is intercepted to make REST calls to delete the entity
     on the server.
     """
-    def __init__(self, _type, client, url, parent=None, iterable=tuple()):
-        self._type = _type
+    def __init__(self, type_, client, url, parent=None, iterable=tuple()):
+        self._type = type_
         self._client = client
         self._url = url
         self._parent = parent
+        self._expired = True  # does the list need to be refreshed on access
         super().__init__(iterable)
 
+    ###########################################################################
+    # Expiration defers calls to refresh() until methods to access the elements
+    # of the list are called.
+    # Lists are _expired=True upon initialization. Calls to any of the
+    # unexpire(...) functions below will invoke a refresh() when called with
+    # expired=True.
+    # refresh() populates the list from the server and sets expired=True.
+    ###########################################################################
+    def expire(self) -> None:
+        '''
+        Expire the list, causing it to be refresh()ed upon next access.
+        '''
+        self._expired = True
+        super().clear()
+
     def refresh(self) -> "ResourceList[A]":
-        """refresh the list of resources"""
-        self.clear()
-        self.extend(self.coerce(self._client, self._type,
-                                self._client.get(self._url),
-                                parent=self._parent))
+        """refresh the list of resources, expired becomes False"""
+        super().clear()
+        super().extend(self.coerce(self._client, self._type,
+                                   self._client.get(self._url),
+                                   parent=self._parent))
+        self._expired = False
         return self
 
+    def clear(self):
+        '''
+        TODO - The semantics of this may not be all that great. The issue is
+        that when using a python list the way you remove all elements from it
+        is to call clear(). The 'resource mapping' equivalent is 'del self[:]',
+        but that *is not* what is done, instead clear() is essentially hijacked
+        to semantically mean 'refresh from server on next access', *very*
+        different from the 'delete all' or 'remove all references to' semantics
+        of the base class. Hmmm....
+        '''
+        self.expire()
+
     @staticmethod
-    def _refresh(func):
+    def _expire(func):
         """
         Decorator to refresh the resource list after a method may have
         caused it to Change.
         """
         @wraps(func)
-        def refresh_after_call(self, *args, **kwargs):
+        def expire_after_call(self, *args, **kwargs):
             try:
                 return func(self, *args, **kwargs)
-            except Exception as e:
-                logger.debug(  # pylint: disable=logging-fstring-interpolation
-                    f"refresh: {func.__name__}({args}, {kwargs} "
-                    f"raised:{''.join(traceback.format_exception(e))})")
-                raise
             finally:
-                self.refresh()
-        return refresh_after_call
+                self.expire()
+        return expire_after_call
 
-    @_refresh
+    @staticmethod
+    def _unexpire(func):
+        '''decorator to refresh before calling func if the list is expired'''
+        @wraps(func)
+        def _unexpire(self, *args, **kwargs):
+            if self._expired:
+                self.refresh()
+            return func(self, *args, **kwargs)
+        return _unexpire
+
+    ###########################################################################
+    # The access methods that need to be unexpired when called.
+    ###########################################################################
+    sort = _unexpire(list.sort)
+    index = _unexpire(list.index)
+    reverse = _unexpire(list.reverse)
+    __eq__ = _unexpire(list.__eq__)
+    __contains__ = _unexpire(list.__contains__)
+    __getitem__ = _unexpire(list.__getitem__)
+    __iter__ = _unexpire(list.__iter__)
+
+    ###########################################################################
+    # Overridden list methods to raise NotImplementedError when called.
+    ###########################################################################
+
+    def _not_implemented(self, *args, **kwargs):
+        raise NotImplementedError()
+
+    # The list functionality that is not supported.
+    # these aren't implemented simply because they aren't used right now. The
+    # implementations are likely pretty trivial, just use the __iadd__
+    # functionality to add the element on the server. Be safe and disallowA
+    # these rather than let someone chase their tail figuring out they don't
+    # actually work.
+    copy = _not_implemented    # no use case, unclear semantics
+    count = _not_implemented   # not use case, more than one in list not useful
+    extend = _not_implemented  # not implemented - override extend to post()
+    insert = _not_implemented  # resource list order is defined by service
+    pop = _not_implemented     # not implemented - implement or use del
+    remove = _not_implemented  # not implemented - implement or use del
+
+    @_expire
     def __iadd__(self, obj: A) -> A:
         """
         implement the "+=" operator to create a new resource on the server.
@@ -213,13 +278,19 @@ class ResourceList[A](list):
              obj = Resource(parent_id=1, ...
              ...
              client.post(url="/parent/1/child", ...
+
+        This *does not* use unexpire() because there is no need since the list
+        is not accessed prior to creating the resource no refresh is necessary.
+        This method uses _expire() to ensure a refresh occurs before the next
+        access method.
         """
         assert isinstance(obj, (self._type)), \
             f"{type(obj)} is not an instance of {self._type}"
+
+        # create the resource
         resp = self._client.post(self._url, obj)
 
         # update the object (a bit scary, lets see how this ages)
-        # todo update the url to include the parent url
         obj.__init__(parent=self._parent, **resp)
 
         # Update the object now that it's part of a resource list:
@@ -230,7 +301,7 @@ class ResourceList[A](list):
     def append(self, obj: A):
         self += obj
 
-    @_refresh
+    @_expire
     def __delitem__(self, key: SupportsIndex | slice) -> None:
         """
         Implement "del list[key|slice]".
@@ -271,9 +342,7 @@ class ResourceList[A](list):
         """
         def _create_resource_list(client):
             # this class effectively becomes a method on Client
-            data = client.get(url)
-            resources = cls.coerce(client, _type, data)
-            return cls(_type, client, url, None, resources)
+            return cls(_type, client, url)
         return _create_resource_list
 
 
@@ -535,11 +604,14 @@ class Client:  # pylint: disable=too-few-public-methods
 
     def __init__(self, *args, **kwargs):
         self._client = _Client(*args, **kwargs)
-        self.refresh()
 
-    def refresh(self) -> "Client":
         # copy the top level ResourceLists from the real client.
         self.users = self._client.users
         self.devices = self._client.devices
         self.schedules = self._client.schedules
+
+    def expire(self) -> "Client":
+        self.users.expire()
+        self.devices.expire()
+        self.schedules.expire()
         return self

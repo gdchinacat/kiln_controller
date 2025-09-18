@@ -8,20 +8,20 @@ Test the kiln_controller python client library.
 
 from contextlib import contextmanager
 import random
-from typing import Tuple, Callable
 
 import pytest
-from skytap.fixtures import fixture, pass_self
+from skytap.fixtures import fixture
 
 from kiln_controller.client import Client, User, Device, Schedule, Phase
-from kiln_controller.client.client import Resource, NotFoundException
+from kiln_controller.client.client import NotFoundException
 from kiln_controller.client.mock_service import Call
 from kiln_controller.common.enums import PhaseType
-from kiln_controller.tests.fixtures import user_fixture, schedule_fixture, \
-    phase_fixture
+from kiln_controller.tests.fixtures import (user_fixture, schedule_fixture,
+                                            phase_fixture)
 
 from .fixtures import (CleanupTestCase, mock_service_fixture, client_fixture,
                        device_fixture)
+from random import randint
 
 
 # throwaway ids to make arg lists readable
@@ -73,14 +73,15 @@ class ClientTest(CleanupTestCase):
                 _list.append(obj)
             self._cleanup.append((mock_service, obj))
 
-        # make sure the obj exists
-        self.assertTrue(obj in _list, f"{obj} not in {_list}")
+            # make sure the obj exists in the resource list
+            self.assertTrue(obj in _list, f"{obj} not in {_list}")
 
         # get a new client, make sure it exists there as well
         with mock_service.patch():
             client = Client()
             _list = list_getter(client)
-        self.assertTrue(obj in _list)
+
+            self.assertTrue(obj in _list)
 
     def test_append_user_to_list(self):
         return self._test_list_add((User, lambda client: client.users), \
@@ -138,11 +139,15 @@ class ClientTest(CleanupTestCase):
             self.assertRaises(AttributeError, resource.post, client)
 
     def test_post_user(self):
-        return self._test_post(User("name", "username")) \
+        username = f"username{randint(1000, 9999)}"
+        return self._test_post(User("name", username)) \
             # pylint: disable=no-value-for-parameter,not-callable
 
-    def test_post_device(self):
-        return self._test_post(Device("name", USER_ID, "host", 5000)) \
+    @fixture(mock_service_fixture)
+    @fixture(client_fixture)
+    @fixture(user_fixture)
+    def test_post_device(self, user, **kwargs):
+        return self._test_post(Device("name", user.id, "host", 5000)) \
             # pylint: disable=no-value-for-parameter,not-callable
 
     def test_post_schedule(self):
@@ -251,7 +256,7 @@ class ClientTest(CleanupTestCase):
         """test that Resource.delete() functions"""
 
         with mock_service.patch():
-            resource_list.refresh()  # ensure the view is in sync with resource
+            resource_list.expire()  # ensure the view is in sync with resource
 
             self.assertTrue(resource in resource_list)
 
@@ -260,17 +265,13 @@ class ClientTest(CleanupTestCase):
             idx = resource_list.index(resource)
             del resource_list[idx]
 
-        # Delete is followed by get to refresh the updated list.
-        # Don't validate the get call to avoid existing resources causing
-        # failures when live_service=true.
-        self.assertEqual(['delete', 'get'],
-                         [call.method for call in mock_service.calls])
-        self.assertEqual(
+        self.assertEqual([
             Call(mock_service.delete.__name__,
                  (resource_url,),
                  {'timeout': 5},
-                 return_={}),
-            mock_service.calls[0])
+                 return_={})],
+            mock_service.calls)
+
         self.assertFalse(resource in resource_list)
 
     @fixture(mock_service_fixture)
@@ -306,13 +307,14 @@ class ClientTest(CleanupTestCase):
     def test_basic_schedule_phases_resource_list(self, schedule,
                                                  mock_service, **kwargs):
         '''basic test that schedule.phases ResourceList works'''
-        self.assertEqual([], schedule.phases)
+        with mock_service.patch() as calls:
+            self.assertEqual([], schedule.phases)
 
         phase = Phase('name', 1, PhaseType.RAMP, None, 5, parent=schedule)
         self.assertEqual(f"{schedule._url}/phase", phase._url)
         with mock_service.patch():
             schedule.phases += phase
-        self.assertEqual([phase], schedule.phases)
+            self.assertEqual([phase], schedule.phases)
         self.assertEqual(f"{schedule._url}/phase/{phase.id}", phase._url)
         self.assertEqual(f"{schedule._url}/phase/{phase.id}",
                          schedule.phases[0]._url,
@@ -327,12 +329,30 @@ class ClientTest(CleanupTestCase):
     @fixture(user_fixture)
     @fixture(schedule_fixture)
     @fixture(phase_fixture)
-    def test_schedule_phases_resource_list_auto_populates(self, schedule,
-                                                          phase,
-                                                          mock_service,
-                                                          **kwargs):
+    def test_schedule_phases_resource_list_clear_get(self, schedule, phase,
+                                                     client, mock_service,
+                                                     **kwargs):
         '''basic test that schedule.phases ResourceList works'''
-        #self.assertEqual([], schedule.phases)
+
+        with mock_service.patch():
+            # clear the phases to force a reload
+            self.assertEqual([], mock_service.calls)
+            schedule.phases.clear()
+            self.assertEqual([], mock_service.calls)
+
+            # Access the resource list twice, only the first should generate a
+            # call.
+            phases = [phase for phase in schedule.phases]
+            _ = [phase for phase in schedule.phases]
+
+        self.assertEqual([phase], phases)
+
+        self.assertEqual([
+            Call(mock_service.get.__name__,
+                 (f"{client._client.url}{schedule._url}/phase/",),
+                 {'timeout': 5},
+                 return_=[phase.asdict()])],
+            mock_service.calls)
 
     @fixture(mock_service_fixture)
     @fixture(client_fixture)

@@ -68,4 +68,4 @@ class TestPhases(CleanupTestCase):
             schedule.phases += phase2
             schedule.phases += phase1
 
-        self.assertEqual([phase1, phase2], schedule.phases)
+            self.assertEqual([phase1, phase2], schedule.phases)

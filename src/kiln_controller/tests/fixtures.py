@@ -5,11 +5,8 @@ Fixture implementations are encouraged to use Resource.post(client) rather than
 creating them through resource lists. This is to avoid unnecessary requests
 to populate the list on access and refresh the list after adding resources to
 them. This has the drawback of allowing the resource lists on the client and
-resources becoming stale. ResourceList.refresh() should be used to update the
-resource lists when necessary. This is ameliorated by deferring population of
-resource lists until first access, *but* only if fixture implementations follow
-the recommendation to create resources through Resource.post() rather than
-resource lists.
+resources becoming stale. ResourceList.expire() should be used to indicate the
+resource lists should be refreshed on next access.
 """
 # pylint: disable=unused-argument
 # pylint: disable=redefined-outer-name

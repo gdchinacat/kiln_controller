@@ -308,7 +308,7 @@ class ClientTest(CleanupTestCase):
     def test_basic_schedule_phases_resource_list(self, schedule,
                                                  mock_service, **kwargs):
         '''basic test that schedule.phases ResourceList works'''
-        with mock_service.patch() as calls:
+        with mock_service.patch():
             self.assertEqual([], schedule.phases)
 
         phase = Phase('name', 1, PhaseType.RAMP, None, 5, parent=schedule)

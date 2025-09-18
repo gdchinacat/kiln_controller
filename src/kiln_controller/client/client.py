@@ -188,6 +188,7 @@ class ResourceList[A](list):
         '''
         self._expired = True
         super().clear()
+        return self
 
     def refresh(self) -> "ResourceList[A]":
         """refresh the list of resources, expired becomes False"""

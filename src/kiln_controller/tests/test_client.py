@@ -45,8 +45,9 @@ class ClientTest(CleanupTestCase):
         self.assertIsNotNone(client)
 
     @fixture(mock_service_fixture)
+    @fixture(client_fixture)
     def _test_list_add(self, _type_list_getter, *args, iadd=False,
-                       mock_service):
+                       mock_service, client):
         """
         helper to add an object.
         _type_list_getter: (_type, list_getter)
@@ -62,8 +63,6 @@ class ClientTest(CleanupTestCase):
         obj = _type(*args)
 
         with mock_service.patch():
-            client = Client()
-
             _list = list_getter(client)
 
             # add it to the list
@@ -83,15 +82,19 @@ class ClientTest(CleanupTestCase):
 
             self.assertTrue(obj in _list)
 
-    def test_append_user_to_list(self):
+    @fixture(mock_service_fixture)
+    @fixture(user_fixture, skip_create=True, skip_cleanup=True)
+    def test_append_user_to_list(self, user, **_):
         return self._test_list_add((User, lambda client: client.users), \
                                    # pylint: disable=missing-kwoa
-                                   "username", "name")
+                                   user.name, user.username)
 
-    def test_add_user_to_list(self):
+    @fixture(mock_service_fixture)
+    @fixture(user_fixture, skip_create=True, skip_cleanup=True)
+    def test_add_user_to_list(self, user, **_):
         return self._test_list_add((User, lambda client: client.users), \
                                    # pylint: disable=missing-kwoa
-                                   "username", "name", iadd=True)
+                                   user.name, user.username, iadd=True)
 
     def test_add_device_to_list(self):
         return self._test_list_add((Device, lambda client: client.devices), \
@@ -118,7 +121,8 @@ class ClientTest(CleanupTestCase):
                                    "name", 1)
 
     @fixture(mock_service_fixture)
-    def _test_post(self, resource, mock_service):
+    @fixture(client_fixture)
+    def _test_post(self, resource, mock_service, client):
         """
         test that resources of type _type can be created using
         Resource.post(client)
@@ -126,8 +130,6 @@ class ClientTest(CleanupTestCase):
         self.assertIsNone(resource.id)  # precondition check
 
         with mock_service.patch():
-            client = Client()
-
             # test post success
             resource.post(client)
 
@@ -138,9 +140,9 @@ class ClientTest(CleanupTestCase):
             # test post with resource.id fails
             self.assertRaises(AttributeError, resource.post, client)
 
-    def test_post_user(self):
-        username = f"username{randint(1000, 9999)}"
-        return self._test_post(User("name", username)) \
+    @fixture(user_fixture, skip_create=True, skip_cleanup=True)
+    def test_post_user(self, user, **_):
+        return self._test_post(user) \
             # pylint: disable=no-value-for-parameter,not-callable
 
     @fixture(mock_service_fixture)
@@ -155,14 +157,13 @@ class ClientTest(CleanupTestCase):
             # pylint: disable=no-value-for-parameter,not-callable
 
     @fixture(mock_service_fixture)
-    def _test_put(self, resource, mock_service):
+    @fixture(client_fixture)
+    def _test_put(self, resource, mock_service, client):
         """
         test that resources of type _type can be created and updated using
         Resource.put(client)
         """
         with mock_service.patch():
-            client = Client()
-
             # test put create success
             # good chance this won't collide...right?
             resource.id = int(random.random() * 1000000)
@@ -171,7 +172,7 @@ class ClientTest(CleanupTestCase):
                                  "put failed to assign id to resource")
 
             # test put with resource.id succeeds, attribute changes
-            name = f"{resource.name}{resource.name}"
+            name = resource.name * 2
             resource.name = name
             resource.put(client)
 
@@ -185,8 +186,9 @@ class ClientTest(CleanupTestCase):
 
             self.assertEqual(name, resource2.name, "name not updated in put")
 
-    def test_put_user(self):
-        return self._test_put(User("name", "username")) \
+    @fixture(user_fixture, skip_create=True, skip_cleanup=True)
+    def test_put_user(self, user, **_):
+        return self._test_put(user) \
             # pylint: disable=no-value-for-parameter,not-callable
 
     def test_put_device(self):

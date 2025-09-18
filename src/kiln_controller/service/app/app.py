@@ -20,6 +20,7 @@ app = Flask(__name__)
 api = Api(app)
 
 app.config["SQLALCHEMY_DATABASE_URI"] = 'sqlite:///kiln_controller.db'
+# app.config["SQLALCHEMY_DATABASE_URI"] = 'sqlite:///:memory:'
 db = SQLAlchemy(model_class=Base)
 db.init_app(app)
 

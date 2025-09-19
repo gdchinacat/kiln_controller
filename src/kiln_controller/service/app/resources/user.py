@@ -13,7 +13,8 @@ class UserResource(BaseResource):
         super()._validate_delete(user)
 
         if user.schedules:
-            raise ValidationError(ValidationErrors.USER_HAS_SCHEDULES)
+            raise ValidationError(ValidationErrors.USER_HAS_SCHEDULES,
+                                  "user has schedules")
         #if user.devices.has():
         #    raise ValidationError(ValidationErrors.USER_HAS_SCHEDULES)
 

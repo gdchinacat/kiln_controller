@@ -51,7 +51,8 @@ class ValidationError(Exception):
         '''get the json representation of this error'''
         return {'error_type': type(self).__name__,
                 'validation_error': self.error.name,
-                'args': tuple(str(arg) for arg in self.args)}
+                'args': (tuple(str(arg) for arg in self.args)
+                         if self.args else (self.error.name,))}
 
 
 class ScheduleValidator:

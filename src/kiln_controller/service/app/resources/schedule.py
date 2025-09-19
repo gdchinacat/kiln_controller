@@ -10,10 +10,10 @@ from typing import Dict, Any, Callable
 from flask import request
 from flask_restful.utils import unpack
 
+from kiln_controller.common.enums import PhaseType
 from kiln_controller.service.models import Schedule, Phase
 
 from .base import BaseResource, BaseListResource
-from kiln_controller.common.enums import PhaseType
 
 
 logger = logging.getLogger(__name__)

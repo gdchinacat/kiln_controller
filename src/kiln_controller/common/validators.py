@@ -15,10 +15,11 @@ class ValidationErrors(Enum):
 
     GENERIC = 0  # non-specific, unspecified, or unknown errors
     FIRST_PHASE_NOT_RAMP = 1
-    TEMPERATURE_NOT_CONTINOUS = 2
+    TEMPERATURE_NOT_CONTINUOUS = 2
     SEQUENTIAL_CONSTANT_PHASES = 3
     DUPLICATE_RAMP_TEMPERATURES = 4
     USER_HAS_SCHEDULES = 5
+    USER_MANAGES_DEVICES = 6
 
 
 _ValidationError = TypeVar("_ValidationError", bound='ValidationError')
@@ -55,11 +56,49 @@ class ValidationError(Exception):
                          if self.args else (self.error.name,))}
 
 
-class ScheduleValidator:
+class ValidatorMixinBase:
+    '''
+    Base class for resource validators.
+
+    This is a mixin class to add validation functionality to:
+        - mapped classes in the service
+        - unit test dataclasses to unit test the validator functionality.
+    '''
+    def validate_create_or_update(self):
+        '''validate the state of the new or updated resource'''
+
+    def validate_delete(self):
+        '''validate the resource can be deleted'''
+
+
+class UserValidator(ValidatorMixinBase):
+    '''user validation'''
+
+    schedules: List
+    devices: List
+
+    def validate_delete(self):
+        '''validate the user can be deleted'''
+        super().validate_delete()
+        if self.schedules:
+            raise ValidationError(ValidationErrors.USER_HAS_SCHEDULES,
+                                  "user has schedules")
+
+        if self.devices:
+            raise ValidationError(ValidationErrors.USER_MANAGES_DEVICES,
+                                  "user manages devices")
+
+
+class DeviceValidator(ValidatorMixinBase):
+    '''device validation'''
+
+
+class ScheduleValidator(ValidatorMixinBase):
+    '''schedule validation'''
 
     phases: List
 
-    def validate(self):
+    def validate_create_or_update(self):
         '''
         Validate the schedule is valid.
 
@@ -73,9 +112,7 @@ class ScheduleValidator:
             - A CONSTANT phase temperature must be the temperature of the
               preceeding phase.
         '''
-        super().validate()  # pylint: disable=no-member
-
-        # Validate the phases.
+        super().validate_create_or_update()
         phases = self.phases
         if phases:
             # First phase must be a RAMP.
@@ -89,7 +126,7 @@ class ScheduleValidator:
                         phase.phase_type == PhaseType.CONSTANT and
                         phases[i-1].temperature != phase.temperature):
                     raise ValidationError(
-                        ValidationErrors.TEMPERATURE_NOT_CONTINOUS,
+                        ValidationErrors.TEMPERATURE_NOT_CONTINUOUS,
                         "CONSTANT phase temperature different than preceeding "
                         "phase temperature")
 
@@ -118,3 +155,12 @@ class ScheduleValidator:
             #        users when totally cooled down. Later...
             # if phases[-1].phase_type != PhaseType.RAMP:
             #     raise Exception("last phase in schedule must be a ramp")
+
+
+class PhaseValidator(ValidatorMixinBase):
+    '''phase validation'''
+    schedule = None
+
+    def validate_create_or_update(self):
+        super().validate_create_or_update()
+        self.schedule.validate_create_or_update()

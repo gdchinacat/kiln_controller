@@ -8,8 +8,7 @@ from typing import List, Optional
 from sqlalchemy import ForeignKey, UniqueConstraint, Enum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from kiln_controller.common import PhaseType, ScheduleValidator
-
+from ...common import PhaseType, ScheduleValidator, PhaseValidator
 from .base import Base
 from .users import User
 
@@ -37,7 +36,7 @@ class Schedule(ScheduleValidator, Base):  # pylint: disable=too-few-public-metho
                                                  lazy=True)
 
 
-class Phase(Base):
+class Phase(PhaseValidator, Base):
     """
     A schedule is a definition of how a firing should be executed.
     """

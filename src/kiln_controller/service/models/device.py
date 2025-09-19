@@ -8,9 +8,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
 from .users import User
+from ...common import DeviceValidator
 
 
-class Device(Base):
+class Device(DeviceValidator, Base):
     __tablename__ = 'devices'
     PUBLIC_FIELDS = Base.PUBLIC_FIELDS | {'host': None,
                                           'port': None,
@@ -22,7 +23,8 @@ class Device(Base):
     port: Mapped[int]
     url: Mapped[Optional[str]]
     user_id: Mapped[int] = mapped_column(ForeignKey(User.id))
-    user: Mapped[User] = relationship(viewonly=True, default=None)
+    user: Mapped[User] = relationship(viewonly=True, default=None,
+                                      back_populates='devices')
     '''
     The user that manages the device (not the users with access to the device).
     '''

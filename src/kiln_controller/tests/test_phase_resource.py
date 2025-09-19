@@ -15,9 +15,9 @@ import os
 import pytest
 from skytap.fixtures import fixture
 
-from ..client import Phase, ClientException
+from ..client import Phase
 from ..client.mock_service import LIVE_SERVICE
-from ..common import PhaseType
+from ..common import PhaseType, ValidationError, ValidationErrors
 from .fixtures import (CleanupTestCase, mock_service_fixture, client_fixture,
                        user_fixture, schedule_fixture)
 
@@ -94,11 +94,11 @@ class PhaseTest(CleanupTestCase):
         '''
         phases = self.phase_generator(schedule)
         with mock_service.patch():
-            with self.assertRaises(ClientException) as ce:  # todo proper error check
+            with self.assertRaises(ValidationError) as ve:
                 schedule.phases += phases.send(_constant())
 
-        self.assertIn("first phase in schedule must be a ramp",
-                      ce.exception.args[0])
+        self.assertEqual(ValidationErrors.FIRST_PHASE_NOT_RAMP,
+                         ve.exception.error)
 
     @pytest.mark.skipif(not LIVE_SERVICE,
                         reason="mocks do not perform validation")
@@ -113,12 +113,12 @@ class PhaseTest(CleanupTestCase):
         '''
         phases = self.phase_generator(schedule)
         with mock_service.patch():
-            with self.assertRaises(ClientException) as ce:  # todo proper error check
+            with self.assertRaises(ValidationError) as ve:
                 schedule.phases += phases.send(_ramp())
                 schedule.phases += phases.send(_ramp())
 
-        self.assertIn("sequential RAMP must have different temperatures",
-                      ce.exception.args[0])
+        self.assertEqual(ValidationErrors.DUPLICATE_RAMP_TEMPERATURES,
+                         ve.exception.error)
 
     @pytest.mark.skipif(not LIVE_SERVICE,
                         reason="mocks do not perform validation")
@@ -140,13 +140,13 @@ class PhaseTest(CleanupTestCase):
         '''
         phases = self.phase_generator(schedule)
         with mock_service.patch():
-            with self.assertRaises(ClientException) as ce:  # todo proper error check
+            with self.assertRaises(ValidationError) as ve:
                 schedule.phases += phases.send(_ramp())  # satisfy constraints
                 schedule.phases += phases.send(_constant())
                 schedule.phases += phases.send(_constant())
 
-        self.assertIn("sequential CONSTANT phases not permitted",
-                      ce.exception.args[0])
+        self.assertEqual(ValidationErrors.SEQUENTIAL_CONSTANT_PHASES,
+                         ve.exception.error)
 
     @pytest.mark.skipif(not LIVE_SERVICE,
                         reason="mocks do not perform validation")
@@ -159,12 +159,12 @@ class PhaseTest(CleanupTestCase):
         '''test the requirement that phases temperature must be continuous'''
         phases = self.phase_generator(schedule)
         with mock_service.patch():
-            with self.assertRaises(ClientException) as ce:  # todo proper error check
+            with self.assertRaises(ValidationError) as ve:
                 schedule.phases += phases.send(_ramp(temperature=500))
                 schedule.phases += phases.send(_constant(temperature=1000))
 
-        # todo - improve exception validation (the exception itself needs work)
-        self.assertIn("phase temperature different", ce.exception.args[0])
+        self.assertEqual(ValidationErrors.TEMPERATURE_NOT_CONTINUOUS,
+                         ve.exception.error)
 
 
 if __name__ == '__main__':

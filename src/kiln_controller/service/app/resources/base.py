@@ -190,20 +190,13 @@ class BaseResource(Resource, DataclassFieldJsonValidatorMixin, ABC):
         db_.session.commit()
         return orm.asdict()
 
-    def _validate_delete(self, resource: "BaseResource"):
-        '''
-        subclasses may override this to perform validation the orm can be
-        deleted.
-        '''
-        pass
-
     @db
     @_validation_error_response_handler
     def delete(self, id, *, db_):
         '''delete the resource'''
         orm = self._lookup(db_, id)
         if orm is not None:
-            self._validate_delete(orm)
+            orm.validate_delete()
             db_.session.delete(orm)
             db_.session.commit()
         return {}
@@ -232,20 +225,6 @@ class BaseListResource(Resource, DataclassFieldJsonValidatorMixin):
         return [orm.asdict() for orm in
                 db_.session.execute(query).scalars()]
 
-    def _post_pre_commit(self, db_, resource):
-        '''
-        Called when resource has been created.
-
-        raises ValidationError
-        '''
-
-        # flush the INSERT and expire the resource so all the relationships
-        # will be refreshed.
-        db_.session.flush()
-        db_.session.expire(resource)
-
-        resource.validate()
-
     @validate_request_json
     @BaseResource._validation_error_response_handler
     @db
@@ -256,10 +235,12 @@ class BaseListResource(Resource, DataclassFieldJsonValidatorMixin):
             with db_.session.begin() as session:
                 session.session.expire_on_commit = False  # don't refresh orm
                 db_.session.add(orm)
-                self._post_pre_commit(db_, orm)
+                db_.session.flush()
+                db_.session.expire(orm)
+                orm.validate_create_or_update()
             return orm.asdict()
-        except ValidationError as e:
-            return error(f"{e}"), HTTPStatus.UNPROCESSABLE_ENTITY
+        except ValidationError:
+            raise  # let decorator handle it
         except IntegrityError as e:
             # todo - we should not be getting IntegrityErrors from the database
             #        since that indicates validation was lacking. But...that's

@@ -13,6 +13,8 @@ from flask import current_app, request
 from flask_restful import Resource
 from sqlalchemy.exc import NoResultFound, IntegrityError
 
+from kiln_controller.common import ValidationError
+
 
 __all__ = []
 
@@ -206,6 +208,20 @@ class BaseListResource(Resource, DataclassFieldJsonValidatorMixin):
         return [orm.asdict() for orm in
                 db_.session.execute(query).scalars()]
 
+    def _post_pre_commit(self, db_, resource):
+        '''
+        Called when resource has been created.
+
+        raises ValidationError
+        '''
+
+        # flush the INSERT and expire the resource so all the relationships
+        # will be refreshed.
+        db_.session.flush()
+        db_.session.expire(resource)
+
+        resource.validate()
+
     @validate_request_json
     @db
     def post(self, db_):
@@ -215,12 +231,16 @@ class BaseListResource(Resource, DataclassFieldJsonValidatorMixin):
             with db_.session.begin() as session:
                 session.session.expire_on_commit = False  # don't refresh orm
                 db_.session.add(orm)
+                self._post_pre_commit(db_, orm)
             return orm.asdict()
+        except ValidationError as e:
+            return error(f"{e}"), HTTPStatus.UNPROCESSABLE_ENTITY
         except IntegrityError as e:
-            # todo - implement and use generic IntegrityError handler to
-            #        extract the constraint violation and expose it to client
-            #        in appropriate manner. For now, just report as client
-            #        error.
+            # todo - we should not be getting IntegrityErrors from the database
+            #        since that indicates validation was lacking. But...that's
+            #        going to happen, so handle it as a *client* error since
+            #        the model is simple enough to make that a good assumption.
+            # todo - don't expose internal details (e) to client
             return error(f"{e}"), HTTPStatus.UNPROCESSABLE_ENTITY
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.exception(e)

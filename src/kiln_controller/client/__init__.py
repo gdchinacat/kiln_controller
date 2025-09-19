@@ -1,4 +1,6 @@
 
-from .client import Client, User, Device, Schedule, Phase, PhaseType
+from .client import (Client, User, Device, Schedule, Phase, PhaseType,
+                     ClientException)
 
-__all__ = ['Client', 'User', 'Device', 'Schedule', 'Phase', 'PhaseType']
+__all__ = ['Client', 'User', 'Device', 'Schedule', 'Phase', 'PhaseType',
+           'ClientException']

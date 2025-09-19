@@ -151,8 +151,8 @@ def schedule_fixture(self, mock_service, client,
 @default_fixture_name('phase')
 def phase_fixture(self, mock_service, client,
                   schedule_kwarg=get_default_fixture_name(schedule_fixture),
-                  name='name', ordinal=0, phase_type=PhaseType.CONSTANT,
-                  duration=60, temperature=1000, rate=None, **kwargs):
+                  name='name', ordinal=0, phase_type=PhaseType.RAMP,
+                  duration=None, temperature=1000, rate=100, **kwargs):
     '''
     Fixture to create a phase.
 

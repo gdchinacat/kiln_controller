@@ -61,8 +61,8 @@ class TestPhases(CleanupTestCase):
         """
         schedule = kwargs[schedule_kwarg]
 
-        phase2 = Phase('phase2', 2, PhaseType.CONSTANT, temperature=950)
-        phase1 = Phase('phase1', 1, PhaseType.RAMP, temperature=950)
+        phase2 = Phase('phase2', 2, PhaseType.RAMP, temperature=950)
+        phase1 = Phase('phase1', 1, PhaseType.RAMP, temperature=1000)
 
         with mock_service.patch():
             schedule.phases += phase2

@@ -13,6 +13,8 @@ from urllib.parse import urlparse
 
 import requests
 
+from kiln_controller.common import ValidationError, ScheduleValidator
+
 
 class _HTTPError(Exception):
     status_code = None  # subclasses must override this
@@ -68,8 +70,12 @@ class Resource(dict):
     def sub_resources(self):
         return self['sub_resources']
 
+    def validate(self): ...
 
-class ScheduleResource(Resource):
+
+class ScheduleResource(
+        # ScheduleValidator,  # not yet!!!!
+        Resource):
     def __init__(self, *args, **kwargs):
         sub_resources = {'phase': Resource()}
         super().__init__(*args, sub_resources=sub_resources, **kwargs)
@@ -168,10 +174,12 @@ class MockService(Resource):
         paths: List[str] = self.get_paths(url)
 
         resource = self
+        resources = []
         for path in paths:
             if path not in resource.sub_resources:
                 raise NotFound(url)
             resource = resource.sub_resources[path]
+            resources.append(resource)
 
         # If the resource attributes contains 'id' then we found an actual
         # resource. If not, it's a collection of resources.
@@ -181,7 +189,7 @@ class MockService(Resource):
                 ret = action(ret)
             return ret
         if action:
-            return action(paths, resource)
+            return action(paths, resources, resource)
         return [x.resource for x in
                 resource.sub_resources.values()]
 
@@ -222,11 +230,20 @@ class MockService(Resource):
     def post(self, url: str, json: Dict[str, Any], **_) -> requests.Response:
         json['id'] = next(self.ids)
 
-        def create_resource(paths, parent):
+        def create_resource(paths, resources, parent):
             resource_type = paths[-1]
             assert resource_type, f"{resource_type=}"
-            parent.sub_resources[str(json['id'])] = Resource.create(
-                resource_type, **json)
+            resource = Resource.create(resource_type, **json)
+            parent.sub_resources[str(json['id'])] = resource
+            try:
+                # call validate on parent because...implementation details and
+                # it works. Change to validate the resource if necessary.
+                if len(resources) >= 2:
+                    resources[-2].validate()
+            except ValidationError:
+                del parent.sub_resources[str(json['id'])]
+                raise
+
             return json
         return self.walk(url, action=create_resource)
 
@@ -241,7 +258,7 @@ class MockService(Resource):
         # find the parent, makes handling not existing easier
         url = "/".join(paths[:-1])
 
-        def _put(paths, parent_resource):
+        def _put(paths, resources, parent_resource):
             # todo - whatever post does to create typed resources
             parent_resource.sub_resources[str(json['id'])] = Resource(**json)
             return json
@@ -258,7 +275,7 @@ class MockService(Resource):
         # find the parent, it's the one that needs updating
         url = "/".join(paths[:-1])
 
-        def _delete(paths, parent_resource):
+        def _delete(paths, resources, parent_resource):
             if _id in parent_resource.sub_resources:
                 del parent_resource.sub_resources[_id]
             return {}

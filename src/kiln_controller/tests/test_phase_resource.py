@@ -15,7 +15,7 @@ import os
 import pytest
 from skytap.fixtures import fixture
 
-from kiln_controller.client import Phase
+from kiln_controller.client import Phase, ClientException
 from kiln_controller.common.enums import PhaseType
 
 from .fixtures import (CleanupTestCase, mock_service_fixture, client_fixture,
@@ -92,8 +92,29 @@ class PhaseTest(CleanupTestCase):
         '''
         phases = self.phase_generator(schedule)
         with mock_service.patch():
-            with self.assertRaises(Exception):  # todo proper error check
+            with self.assertRaises(ClientException) as ce:  # todo proper error check
                 schedule.phases += phases.send(_constant())
+
+        self.assertIn("first phase in schedule must be a ramp",
+                      ce.exception.args[0])
+
+    @fixture(mock_service_fixture)
+    @fixture(client_fixture)
+    @fixture(user_fixture)
+    @fixture(schedule_fixture)
+    def test_sequential_ramp_different_temperature(self, schedule,
+                                                   mock_service, **_):
+        '''
+        test that sequential RAMP can't have same temperature
+        '''
+        phases = self.phase_generator(schedule)
+        with mock_service.patch():
+            with self.assertRaises(ClientException) as ce:  # todo proper error check
+                schedule.phases += phases.send(_ramp())
+                schedule.phases += phases.send(_ramp())
+
+        self.assertIn("sequential RAMP must have different temperatures",
+                      ce.exception.args[0])
 
     @fixture(mock_service_fixture)
     @fixture(client_fixture)
@@ -113,9 +134,13 @@ class PhaseTest(CleanupTestCase):
         '''
         phases = self.phase_generator(schedule)
         with mock_service.patch():
-            with self.assertRaises(Exception):  # todo proper error check
+            with self.assertRaises(ClientException) as ce:  # todo proper error check
+                schedule.phases += phases.send(_ramp())  # satisfy constraints
                 schedule.phases += phases.send(_constant())
                 schedule.phases += phases.send(_constant())
+
+        self.assertIn("sequential CONSTANT phases not permitted",
+                      ce.exception.args[0])
 
     @fixture(mock_service_fixture)
     @fixture(client_fixture)
@@ -126,9 +151,12 @@ class PhaseTest(CleanupTestCase):
         '''test the requirement that phases temperature must be continuous'''
         phases = self.phase_generator(schedule)
         with mock_service.patch():
-            with self.assertRaises(Exception):  # todo proper error check
+            with self.assertRaises(ClientException) as ce:  # todo proper error check
                 schedule.phases += phases.send(_ramp(temperature=500))
                 schedule.phases += phases.send(_constant(temperature=1000))
+
+        # todo - improve exception validation (the exception itself needs work)
+        self.assertIn("phase temperature different", ce.exception.args[0])
 
 
 if __name__ == '__main__':

@@ -4,15 +4,26 @@ Validation logic for model elements.
 It exists in this package so that it can be used by both the server and client
 mocks.
 '''
+from enum import Enum
 from typing import List
 
 from .enums import PhaseType
 
 
+class ValidationErrorEnum(Enum):
+    '''specific validation errors'''
+
+    FIRST_PHASE_NOT_RAMP = 1
+    TEMPERATURE_NOT_CONTINOUS = 2
+    SEQUENTIAL_CONSTANT_PHASES = 3
+    DUPLICATE_RAMP_TEMPERATURES = 4
+
+
 class ValidationError(Exception):
     '''Exception indicating a validation error has occurred.'''
-    # todo - stick this in Common and have some mapping between client and
-    #        server?
+    def __init__(self, error: ValidationErrorEnum, *args):
+        super().__init__(*args)
+        self.error = error
 
 
 class ScheduleValidator:
@@ -40,14 +51,16 @@ class ScheduleValidator:
         if phases:
             # First phase must be a RAMP.
             if phases[0].phase_type != PhaseType.RAMP:
-                raise ValidationError("first phase in schedule must be a ramp")
+                raise ValidationError(ValidationErrorEnum.FIRST_PHASE_NOT_RAMP,
+                                      "first phase in schedule must be a ramp")
 
             for i, phase in enumerate(phases):
-                # CONSTANT phases have same temperature as preceeding phase
+                # CONSTANT phases have same temperature as preceding phase
                 if (i > 0 and
                         phase.phase_type == PhaseType.CONSTANT and
                         phases[i-1].temperature != phase.temperature):
                     raise ValidationError(
+                        ValidationErrorEnum.TEMPERATURE_NOT_CONTINOUS,
                         "CONSTANT phase temperature different than preceeding "
                         "phase temperature")
 
@@ -56,6 +69,7 @@ class ScheduleValidator:
                         phases[i-1].phase_type == PhaseType.CONSTANT and
                         phase.phase_type == PhaseType.CONSTANT):
                     raise ValidationError(
+                        ValidationErrorEnum.SEQUENTIAL_CONSTANT_PHASES,
                         "sequential CONSTANT phases not permitted")
 
                 # Sequential RAMP must have different temperatures.
@@ -64,6 +78,7 @@ class ScheduleValidator:
                         phase.phase_type == PhaseType.RAMP and 
                         phase.temperature == phases[i-1].temperature):
                     raise ValidationError(
+                        ValidationErrorEnum.DUPLICATE_RAMP_TEMPERATURES,
                         "sequential RAMP must have different temperatures")
 
             # Last phase must be a RAMP (disabled)

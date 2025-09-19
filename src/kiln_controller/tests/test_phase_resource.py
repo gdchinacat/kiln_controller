@@ -15,7 +15,7 @@ import os
 import pytest
 from skytap.fixtures import fixture
 
-from kiln_controller.client import Phase, ClientException
+from kiln_controller.client import Phase, ClientException, mock_service
 from kiln_controller.common.enums import PhaseType
 
 from .fixtures import (CleanupTestCase, mock_service_fixture, client_fixture,
@@ -79,6 +79,8 @@ class PhaseTest(CleanupTestCase):
                                  parent=schedule,
                                  **kwargs)
 
+    @pytest.mark.skipif(not mock_service.LIVE_SERVICE,
+                        reason="mocks do not perform validation")
     @fixture(mock_service_fixture)
     @fixture(client_fixture)
     @fixture(user_fixture)
@@ -98,6 +100,8 @@ class PhaseTest(CleanupTestCase):
         self.assertIn("first phase in schedule must be a ramp",
                       ce.exception.args[0])
 
+    @pytest.mark.skipif(not mock_service.LIVE_SERVICE,
+                        reason="mocks do not perform validation")
     @fixture(mock_service_fixture)
     @fixture(client_fixture)
     @fixture(user_fixture)
@@ -116,6 +120,8 @@ class PhaseTest(CleanupTestCase):
         self.assertIn("sequential RAMP must have different temperatures",
                       ce.exception.args[0])
 
+    @pytest.mark.skipif(not mock_service.LIVE_SERVICE,
+                        reason="mocks do not perform validation")
     @fixture(mock_service_fixture)
     @fixture(client_fixture)
     @fixture(user_fixture)
@@ -142,6 +148,8 @@ class PhaseTest(CleanupTestCase):
         self.assertIn("sequential CONSTANT phases not permitted",
                       ce.exception.args[0])
 
+    @pytest.mark.skipif(not mock_service.LIVE_SERVICE,
+                        reason="mocks do not perform validation")
     @fixture(mock_service_fixture)
     @fixture(client_fixture)
     @fixture(user_fixture)

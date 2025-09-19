@@ -13,7 +13,8 @@ from urllib.parse import urlparse
 
 import requests
 
-from kiln_controller.common import ValidationError, ScheduleValidator
+
+LIVE_SERVICE = os.getenv('LIVE_SERVICE', 'false').upper() == 'TRUE'
 
 
 class _HTTPError(Exception):
@@ -70,12 +71,8 @@ class Resource(dict):
     def sub_resources(self):
         return self['sub_resources']
 
-    def validate(self): ...
 
-
-class ScheduleResource(
-        # ScheduleValidator,  # not yet!!!!
-        Resource):
+class ScheduleResource(Resource):
     def __init__(self, *args, **kwargs):
         sub_resources = {'phase': Resource()}
         super().__init__(*args, sub_resources=sub_resources, **kwargs)
@@ -95,8 +92,31 @@ class Call:
 
 
 class MockService(Resource):
+    '''
+    Mock service to stub HTTP requests to the service.
+
+    Supports LIVE_SERVICE=true environment variable to enable tests to execute
+    against a real service. Specific tests can disable this by specifying
+    live_service=False when creating the MockService, but are not allowed to
+    force live_service to avoid tests executing against a real service when
+    user does not explicitly configure it.
+    '''
 
     calls: List[Call]
+
+    def __init__(self, sub_resources: Dict[str, Resource] = None,
+                 live_service: bool = None):
+        assert live_service is None or live_service is False, \
+               'tests are not permitted to force live_service=True'
+
+        super().__init__()
+        self['sub_resources'] = (sub_resources or
+                                 {_type: Resource() for _type in
+                                  ('user', 'device', 'schedule')})
+        self.ids = count()
+        self.calls = []
+        self.live_service = (
+            LIVE_SERVICE if live_service is None else live_service)
 
     @staticmethod
     def track_call(func):
@@ -144,18 +164,6 @@ class MockService(Resource):
             self.calls = []  # only track calls in this with block
             yield self
 
-    def __init__(self, sub_resources: Dict[str, Resource] = None,
-                 live_service: bool = None):
-        super().__init__()
-        self['sub_resources'] = (sub_resources or
-                                 {_type: Resource() for _type in
-                                  ('user', 'device', 'schedule')})
-        self.ids = count()
-        self.calls = []
-        self.live_service = (
-            os.getenv('LIVE_SERVICE', 'false').upper() == 'TRUE'
-            if live_service is None else live_service)
-
     def response(self, status_code, obj: Dict = None) -> requests.Response:
         response = requests.Response()
         response.status_code = status_code
@@ -189,7 +197,7 @@ class MockService(Resource):
                 ret = action(ret)
             return ret
         if action:
-            return action(paths, resources, resource)
+            return action(paths, resource)
         return [x.resource for x in
                 resource.sub_resources.values()]
 
@@ -230,20 +238,11 @@ class MockService(Resource):
     def post(self, url: str, json: Dict[str, Any], **_) -> requests.Response:
         json['id'] = next(self.ids)
 
-        def create_resource(paths, resources, parent):
+        def create_resource(paths, parent):
             resource_type = paths[-1]
             assert resource_type, f"{resource_type=}"
             resource = Resource.create(resource_type, **json)
             parent.sub_resources[str(json['id'])] = resource
-            try:
-                # call validate on parent because...implementation details and
-                # it works. Change to validate the resource if necessary.
-                if len(resources) >= 2:
-                    resources[-2].validate()
-            except ValidationError:
-                del parent.sub_resources[str(json['id'])]
-                raise
-
             return json
         return self.walk(url, action=create_resource)
 
@@ -258,7 +257,7 @@ class MockService(Resource):
         # find the parent, makes handling not existing easier
         url = "/".join(paths[:-1])
 
-        def _put(paths, resources, parent_resource):
+        def _put(paths, parent_resource):
             # todo - whatever post does to create typed resources
             parent_resource.sub_resources[str(json['id'])] = Resource(**json)
             return json
@@ -275,7 +274,7 @@ class MockService(Resource):
         # find the parent, it's the one that needs updating
         url = "/".join(paths[:-1])
 
-        def _delete(paths, resources, parent_resource):
+        def _delete(paths, parent_resource):
             if _id in parent_resource.sub_resources:
                 del parent_resource.sub_resources[_id]
             return {}

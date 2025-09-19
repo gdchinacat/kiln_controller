@@ -26,6 +26,7 @@ class Schedule(ScheduleValidator, Base):  # pylint: disable=too-few-public-metho
 
     user_id: Mapped[int] = mapped_column(ForeignKey(User.id))
     user: Mapped[User] = relationship(User,
+                                      back_populates='schedules',
                                       viewonly=True,
                                       default=None,
                                       lazy=True)

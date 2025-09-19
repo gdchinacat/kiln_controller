@@ -2,7 +2,9 @@
 Datatypes commont to the client and server
 '''
 
-__all__ = ['PhaseType', 'ValidationError', 'ScheduleValidator']
+__all__ = ['PhaseType',
+           'ValidationError', 'ValidationErrors',
+           'ScheduleValidator']
 
 from .enums import PhaseType
-from .validators import ValidationError, ScheduleValidator
+from .validators import ValidationError, ValidationErrors, ScheduleValidator

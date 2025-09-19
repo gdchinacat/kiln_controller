@@ -18,14 +18,12 @@ from dataclasses import dataclass, field, asdict
 import datetime
 from functools import wraps
 from http import HTTPStatus
-import traceback
 from typing import SupportsIndex, Callable, Dict
 
 import requests
 
-from kiln_controller.common import PhaseType
-
-from .helpers import logger, detect_bad_url, trace
+from ..common import PhaseType, ValidationError, ValidationErrors
+from .helpers import detect_bad_url, trace
 
 
 # DEFAULT_TIMEOUT = 5
@@ -384,6 +382,12 @@ class BaseRestClient(ABC):
             match resp.status_code:
                 case HTTPStatus.NOT_FOUND:
                     raise NotFoundException()
+                case HTTPStatus.UNPROCESSABLE_ENTITY:
+                    json = resp.json()
+                    validation_error = ValidationError.from_json(json)
+                    if validation_error:
+                        raise validation_error
+                    raise ClientException(resp.json()['message'])
                 case server_error if 500 <= server_error <= 599:
                     raise ServerException(resp.json()['message'])
                 case _:

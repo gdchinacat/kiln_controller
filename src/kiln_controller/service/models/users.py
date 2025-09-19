@@ -1,10 +1,10 @@
 '''
 Users ORM
 '''
-from typing import Optional
+from typing import Optional, List
 
 from sqlalchemy import String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
 
@@ -21,3 +21,6 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(16), unique=True)
     email: Mapped[Optional[str]] = mapped_column(default=None)
     phone_number: Mapped[Optional[str]] = mapped_column(default=None)
+
+    schedules: Mapped[List["Schedule"]] = relationship(default_factory=list,
+                                                       lazy=True)

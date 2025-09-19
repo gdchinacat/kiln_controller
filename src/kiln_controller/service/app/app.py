@@ -1,6 +1,8 @@
 from flask import Flask, render_template, current_app
 from flask_restful import Api
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.orm import configure_mappers
+
 from kiln_controller.service.models import Base
 
 from .resources import (UserResource, UserListResource,
@@ -8,19 +10,21 @@ from .resources import (UserResource, UserListResource,
                         ScheduleResource, ScheduleListResource,
                         PhaseResource, PhaseListResource,
                         )
-from sqlalchemy.orm.mapper import configure_mappers
+
 
 # debug
 #import logging
 #logging.basicConfig()
 #logging.getLogger('sqlalchemy.engine').setLevel(logging.DEBUG)
 # end debug
-
 app = Flask(__name__)
 api = Api(app)
 
+# todo - LIVE_SERVICE=true unit tests are much slower if backed by persistent
+#        storage. Add the ability for tests to start an app instance that uses
+#        a memory backing rather than persistent database.
+# app.config["SQLALCHEMY_DATABASE_URI"] = 'sqlite://'
 app.config["SQLALCHEMY_DATABASE_URI"] = 'sqlite:///kiln_controller.db'
-# app.config["SQLALCHEMY_DATABASE_URI"] = 'sqlite:///:memory:'
 db = SQLAlchemy(model_class=Base)
 db.init_app(app)
 

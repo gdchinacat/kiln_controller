@@ -12,7 +12,7 @@ from kiln_controller.common import PhaseType
 
 from kiln_controller.common import ScheduleValidator, ValidationError
 from skytap.fixtures.fixtures import default_fixture_name, fixture, pass_self
-from kiln_controller.common.validators import ValidationErrorEnum
+from kiln_controller.common.validators import ValidationErrors
 
 
 __all__ = []
@@ -79,7 +79,7 @@ def _constant(schedule, temperature=1000, ordinal=None, **kwargs):
 class _ValidatorTestCase(TestCase):
 
     @pass_self
-    def assertInvalid(self, resource: _Base, error: ValidationErrorEnum,
+    def assertInvalid(self, resource: _Base, error: ValidationErrors,
                       **kwargs):
         '''
         assert resource.validate() raises ValidationError with type error.
@@ -96,14 +96,14 @@ class TestScheduleValidator(_ValidatorTestCase):
     @fixture(_constant)
     def test_first_phase_must_be_ramp(self, schedule, **_):
         self.assertInvalid(schedule,
-                           ValidationErrorEnum.FIRST_PHASE_NOT_RAMP)
+                           ValidationErrors.FIRST_PHASE_NOT_RAMP)
 
     @fixture(_schedule)
     @fixture(_ramp, temperature=1000)
     @fixture(_constant, temperature=1500)
     def test_temperature_must_be_continous(self, schedule, **_):
         self.assertInvalid(schedule,
-                           ValidationErrorEnum.TEMPERATURE_NOT_CONTINOUS)
+                           ValidationErrors.TEMPERATURE_NOT_CONTINOUS)
 
     @fixture(_schedule)
     @fixture(_ramp)
@@ -111,11 +111,11 @@ class TestScheduleValidator(_ValidatorTestCase):
     @fixture(_constant)
     def test_no_sequential_constant_phases(self, schedule, **_):
         self.assertInvalid(schedule,
-                           ValidationErrorEnum.SEQUENTIAL_CONSTANT_PHASES)
+                           ValidationErrors.SEQUENTIAL_CONSTANT_PHASES)
 
     @fixture(_schedule)
     @fixture(_ramp)
     @fixture(_ramp)
     def test_no_dupliate_ramp_temperatures(self, schedule, **_):
         self.assertInvalid(schedule,
-                           ValidationErrorEnum.DUPLICATE_RAMP_TEMPERATURES)
+                           ValidationErrors.DUPLICATE_RAMP_TEMPERATURES)

@@ -5,6 +5,7 @@ Test the kiln_controller python client library.
 # pylint: disable=missing-function-docstring
 # pylint: disable=too-few-public-methods
 # pylint: disable=unused-argument
+# pylint: disable=too-many-public-methods
 
 from contextlib import contextmanager
 import random
@@ -69,7 +70,7 @@ class ClientTest(CleanupTestCase):
                 _list += obj
             else:
                 _list.append(obj)
-            self._cleanup.append((mock_service, obj))
+            self.cleanup(mock_service, obj)
 
             # make sure the obj exists in the resource list
             self.assertTrue(obj in _list, f"{obj} not in {_list}")
@@ -132,7 +133,7 @@ class ClientTest(CleanupTestCase):
             # test post success
             resource.post(client)
 
-            self._cleanup.append((mock_service, resource))
+            self.cleanup(mock_service, resource)
             self.assertIsNotNone(resource.id,
                                  "post failed to assign id to resource")
 
@@ -175,7 +176,7 @@ class ClientTest(CleanupTestCase):
             resource.name = name
             resource.put(client)
 
-            self._cleanup.append((mock_service, resource))
+            self.cleanup(mock_service, resource)
 
             # Verify name is updated by creating a new bare Resource with only
             # id and getting it with the client.

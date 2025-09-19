@@ -118,7 +118,22 @@ class BaseResource(Resource, DataclassFieldJsonValidatorMixin, ABC):
                     HTTPStatus.NOT_FOUND)
         return orm.asdict()
 
+    @staticmethod
+    def _validation_error_response_handler(func):
+        '''decorator to convert ValidationError into HTTP response'''
+        @wraps(func)
+        def validation_error_response_handler(*args, **kwargs):
+            '''
+            Convert ValidationEerror raised by func into HTTP response.
+            '''
+            try:
+                return func(*args, **kwargs)
+            except ValidationError as ve:
+                return ve.json(), HTTPStatus.UNPROCESSABLE_ENTITY
+        return validation_error_response_handler
+
     @validate_request_json
+    @_validation_error_response_handler
     @db
     def put(self, id: int, *, db_) -> Dict:
         """
@@ -175,11 +190,20 @@ class BaseResource(Resource, DataclassFieldJsonValidatorMixin, ABC):
         db_.session.commit()
         return orm.asdict()
 
+    def _validate_delete(self, resource: "BaseResource"):
+        '''
+        subclasses may override this to perform validation the orm can be
+        deleted.
+        '''
+        pass
+
     @db
+    @_validation_error_response_handler
     def delete(self, id, *, db_):
         '''delete the resource'''
         orm = self._lookup(db_, id)
         if orm is not None:
+            self._validate_delete(orm)
             db_.session.delete(orm)
             db_.session.commit()
         return {}
@@ -223,6 +247,7 @@ class BaseListResource(Resource, DataclassFieldJsonValidatorMixin):
         resource.validate()
 
     @validate_request_json
+    @BaseResource._validation_error_response_handler
     @db
     def post(self, db_):
         '''create a resource of TYPE'''

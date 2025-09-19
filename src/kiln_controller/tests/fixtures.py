@@ -51,7 +51,7 @@ class CleanupTestCase(TestCase):
 
     def tearDown(self):
         super().tearDown()
-        for mock_service, resource in self._cleanup:
+        for mock_service, resource in reversed(self._cleanup):
             with mock_service.patch():
                 resource.delete()
 

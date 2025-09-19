@@ -1,8 +1,10 @@
 
 from ..common import ValidationErrors, ValidationError
 from .client import (Client, User, Device, Schedule, Phase, PhaseType,
-                     ClientException)
+                     ClientException, NotFoundException)
 
-__all__ = ['Client', 'User', 'Device', 'Schedule', 'Phase', 'PhaseType',
-           'ClientException',
-           'ValidationErrors', 'ValidationError']
+__all__ = ['Client',
+           'ClientException', 'NotFoundException', 'ValidationError',
+           'ValidationErrors',
+           'User', 'Device', 'Schedule', 'Phase', 'PhaseType',
+           ]

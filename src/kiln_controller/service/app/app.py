@@ -1,10 +1,14 @@
+'''
+The flask application for the kiln_controller service.
+
+Implements the resource model used by the UI and the devices.
+'''
 from flask import Flask, render_template, current_app
 from flask_restful import Api
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import configure_mappers
 
-from kiln_controller.service.models import Base
-
+from ..models import Base
 from .resources import (UserResource, UserListResource,
                         DeviceResource, DeviceListResource,
                         ScheduleResource, ScheduleListResource,

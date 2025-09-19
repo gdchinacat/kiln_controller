@@ -13,11 +13,11 @@ import random
 import pytest
 from skytap.fixtures import fixture
 
-from kiln_controller.client import Client, User, Device, Schedule, Phase
-from kiln_controller.client.client import NotFoundException, DEFAULT_TIMEOUT
-from kiln_controller.client.mock_service import Call
-from kiln_controller.common.enums import PhaseType
-
+from ..client import (Client, User, Device, Schedule, Phase, NotFoundException,
+                      )
+from ..client.client import DEFAULT_TIMEOUT
+from ..client.mock_service import Call
+from ..common.enums import PhaseType
 from .fixtures import (CleanupTestCase, mock_service_fixture, client_fixture,
                        device_fixture, user_fixture, schedule_fixture,
                        phase_fixture)
@@ -274,7 +274,16 @@ class ClientTest(CleanupTestCase):
                  return_={})],
             mock_service.calls)
 
-        self.assertFalse(resource in resource_list)
+        with mock_service.patch():
+            self.assertFalse(resource in resource_list)
+
+        self.assertEqual([
+            Call(mock_service.get.__name__,
+                 (f"{resource._client._client.url}{resource._URL}/",),
+                 {'timeout': DEFAULT_TIMEOUT},
+                 return_=[])],
+            mock_service.calls)
+
 
     @fixture(mock_service_fixture)
     @fixture(client_fixture)
@@ -324,7 +333,7 @@ class ClientTest(CleanupTestCase):
 
         with mock_service.patch():
             del schedule.phases[0]
-        self.assertEqual([], schedule.phases)
+            self.assertEqual([], schedule.phases)
 
     @fixture(mock_service_fixture)
     @fixture(client_fixture)

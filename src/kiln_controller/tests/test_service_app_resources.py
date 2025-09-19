@@ -9,12 +9,11 @@ from unittest.mock import MagicMock
 
 from skytap.fixtures.fixtures import (fixture, get_default_fixture_name)
 
-from kiln_controller.common import PhaseType
-from kiln_controller.client import Phase
-from kiln_controller.service.app.resources.base import BaseResource
-
-from .fixtures import mock_service_fixture, client_fixture
+from ..client import Phase
+from ..common import PhaseType
+from ..service.app.resources.base import BaseResource
 from .fixtures import (CleanupTestCase, user_fixture, schedule_fixture)
+from .fixtures import mock_service_fixture, client_fixture
 
 
 class _ResourceType:

@@ -3,16 +3,14 @@ Application resources for schedule and related objects.
 '''
 
 from datetime import datetime
-from http import HTTPStatus
 import logging
 from typing import Dict, Any, Callable
 
 from flask import request
 from flask_restful.utils import unpack
 
-from kiln_controller.common.enums import PhaseType
-from kiln_controller.service.models import Schedule, Phase
-
+from ....common.enums import PhaseType
+from ...models import Schedule, Phase
 from .base import BaseResource, BaseListResource
 
 

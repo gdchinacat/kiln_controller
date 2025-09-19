@@ -11,9 +11,7 @@ from unittest import TestCase
 
 from skytap.fixtures.fixtures import default_fixture_name, fixture, pass_self
 
-from kiln_controller.common import PhaseType
-
-from ..common import (ValidationError, ValidationErrors,
+from ..common import (ValidationError, ValidationErrors, PhaseType,
                       UserValidator, ScheduleValidator, DeviceValidator)
 from .helpers import SortedList
 

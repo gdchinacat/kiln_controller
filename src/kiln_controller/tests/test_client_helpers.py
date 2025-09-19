@@ -8,8 +8,7 @@ import logging
 from typing import List, Tuple, Dict
 import unittest
 
-from kiln_controller.client.helpers import (trace, logger as helper_logger,
-                                            detect_bad_url)
+from ..client.helpers import (trace, logger as helper_logger, detect_bad_url)
 
 
 class Collector:

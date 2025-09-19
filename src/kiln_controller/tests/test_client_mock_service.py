@@ -9,9 +9,8 @@ from unittest import TestCase
 
 from requests.models import Response
 
-from kiln_controller.client import User
-from kiln_controller.client.mock_service import (MockService, Resource,
-                                                 NotFound)
+from ..client import User
+from ..client.mock_service import (MockService, Resource, NotFound)
 
 
 def _obj(response: Response) -> Dict | List:

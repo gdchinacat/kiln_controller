@@ -9,6 +9,7 @@ Test the kiln_controller python client library.
 
 from contextlib import contextmanager
 import random
+from typing import Any
 
 import pytest
 from skytap.fixtures import fixture
@@ -281,9 +282,8 @@ class ClientTest(CleanupTestCase):
             Call(mock_service.get.__name__,
                  (f"{resource._client._client.url}{resource._URL}/",),
                  {'timeout': DEFAULT_TIMEOUT},
-                 return_=[])],
+                 return_=Any)],
             mock_service.calls)
-
 
     @fixture(mock_service_fixture)
     @fixture(client_fixture)

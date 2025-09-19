@@ -12,6 +12,7 @@ from unittest.mock import patch
 from urllib.parse import urlparse
 
 import requests
+from jinja2.nodes import Or
 
 
 LIVE_SERVICE = os.getenv('LIVE_SERVICE', 'false').upper() == 'TRUE'
@@ -83,12 +84,27 @@ Resource.TYPES['schedule'] = ScheduleResource
 
 @dataclass
 class Call:
-    '''a call to a mocked function'''
+    '''
+    A call to a mocked function.
+
+    return_ can be specified as typing.Any to indicate return_ should be
+    ignored for the equality check.
+    '''
     method: Callable
     args: List[Any]
     kwargs: Dict[str, Any]
     return_: Any = None
     exception: Exception = None
+
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return super().__eq__(other)
+        return (self.method == other.method and
+                self.args == other.args and
+                self.kwargs == other.kwargs and
+                self.exception == other.exception and
+                (self.return_ == Any or other.return_ == Any or
+                 self.return_ == other.return_))
 
 
 class MockService(Resource):

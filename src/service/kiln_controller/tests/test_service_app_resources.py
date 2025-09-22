@@ -11,7 +11,7 @@ from skytap.fixtures.fixtures import (fixture, get_default_fixture_name)
 
 from ..client import Phase
 from ..common import PhaseType
-from ..service.app.resources.base import BaseResource
+from ..service.resources.base import BaseResource
 from .fixtures import (CleanupTestCase, user_fixture, schedule_fixture)
 from .fixtures import mock_service_fixture, client_fixture
 

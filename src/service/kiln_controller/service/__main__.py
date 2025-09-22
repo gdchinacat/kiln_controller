@@ -26,11 +26,13 @@ from .resources import (UserResource, UserListResource,
 app = Flask('kiln_controller')
 api = Api(app)
 
-# todo - LIVE_SERVICE=true unit tests are much slower if backed by persistent
-#        storage. Add the ability for tests to start an app instance that uses
-#        a memory backing rather than persistent database.
-# app.config["SQLALCHEMY_DATABASE_URI"] = 'sqlite://'
-app.config["SQLALCHEMY_DATABASE_URI"] = 'sqlite:///kiln_controller.db'
+# LIVE_SERVICE=true unit tests are much slower if backed by persistent storage.
+# NON_PERSISTENT=true env variable specifies that an in-memory database should
+# be used. Only recommended for unit testing.
+if os.getenv('NON_PERSISTENT', 'false').upper() == 'TRUE':
+    app.config["SQLALCHEMY_DATABASE_URI"] = 'sqlite://'
+else:
+    app.config["SQLALCHEMY_DATABASE_URI"] = 'sqlite:///kiln_controller.db'
 db = SQLAlchemy(model_class=Base)
 db.init_app(app)
 

@@ -1,3 +1,4 @@
 .settings
 src/service/kiln_controller/service/app/instance/
 **/.pytest_cache/
+/.mypy_cache/

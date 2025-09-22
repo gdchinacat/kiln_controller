@@ -1,4 +1,3 @@
 .settings
-src/kiln_controller/service/app/instance/
-src/instance/
-/.pytest_cache/
+src/service/kiln_controller/service/app/instance/
+**/.pytest_cache/

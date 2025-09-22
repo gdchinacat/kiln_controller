@@ -3,12 +3,14 @@ The flask application for the kiln_controller service.
 
 Implements the resource model used by the UI and the devices.
 '''
+import os
+
 from flask import Flask, render_template, current_app
 from flask_restful import Api
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import configure_mappers
 
-from ..models import Base
+from .models import Base
 from .resources import (UserResource, UserListResource,
                         DeviceResource, DeviceListResource,
                         ScheduleResource, ScheduleListResource,
@@ -21,7 +23,7 @@ from .resources import (UserResource, UserListResource,
 #logging.basicConfig()
 #logging.getLogger('sqlalchemy.engine').setLevel(logging.DEBUG)
 # end debug
-app = Flask(__name__)
+app = Flask('kiln_controller')
 api = Api(app)
 
 # todo - LIVE_SERVICE=true unit tests are much slower if backed by persistent
@@ -56,5 +58,10 @@ with app.app_context() as ctx:
     db.create_all()
     current_app.db = db
 
-if __name__ == "__main__":
-    app.run(debug=True)
+# process environment variables
+host = os.getenv('HOST')
+port = int(_port) if (_port:=os.getenv('PORT')) else None
+debug = _debug.upper() == 'TRUE' if (_debug:=os.getenv('DEBUG')) else False
+
+# run the service
+app.run(host=host, port=port, debug=debug)

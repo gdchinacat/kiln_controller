@@ -2,7 +2,7 @@
 Device related Flask resources
 '''
 
-from ...models import Device
+from ..models import Device
 from .base import BaseResource, BaseListResource
 
 

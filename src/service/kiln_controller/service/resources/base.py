@@ -13,7 +13,7 @@ from flask import current_app, request
 from flask_restful import Resource
 from sqlalchemy.exc import NoResultFound, IntegrityError
 
-from ....common import ValidationError
+from ...common import ValidationError
 
 
 __all__ = []

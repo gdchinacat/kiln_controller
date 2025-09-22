@@ -1,7 +1,7 @@
 '''
 User resource implementation.
 '''
-from ...models import User
+from ..models import User
 from .base import BaseResource, BaseListResource
 
 

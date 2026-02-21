@@ -6,6 +6,7 @@ Implements the resource model used by the UI and the devices.
 import os
 
 from flask import Flask, render_template, current_app
+from flask_cors import CORS  # todo - insecure hack for development
 from flask_restful import Api
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import configure_mappers
@@ -24,6 +25,7 @@ from .resources import (UserResource, UserListResource,
 #logging.getLogger('sqlalchemy.engine').setLevel(logging.DEBUG)
 # end debug
 app = Flask('kiln_controller')
+CORS(app)
 api = Api(app)
 
 # LIVE_SERVICE=true unit tests are much slower if backed by persistent storage.

@@ -1,4 +1,4 @@
 Tasks
-	- reimplement skytap.fixtures since I don't want to distribute them...it's simple enough and I just don't want anything to do with skytap at this point
+	- use pytest fixtures rather than skytap
 	- option to run service on custom port using memory backed sqlite3
 	- Makefile to run all permutations of LIVE_SERVICE, SKIP_CLEANUP

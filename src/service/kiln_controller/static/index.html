@@ -261,14 +261,16 @@ function DevicesView({ showToast }) {
   const [saving, setSaving]   = useState(false);
 
   const load = useCallback(async () => {
-    try { setDevices(await api.getDevices()); }
-    catch (e) { showToast(e.message, "error"); }
+    try {
+      const [d, u] = await Promise.all([api.getDevices(), api.getUsers()]);
+      setDevices(d); setUsers(u);
+    } catch (e) { showToast(e.message, "error"); }
     finally { setLoading(false); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
-  const openCreate = () => { setForm({ name:"" , host: "", port: "", url: "", user_id: "" }); setModal({ mode:"create" }); }; // todo user name
+  const openCreate = () => { setForm({ name:"" , host: "", port: "", url: "", user_id: users[0]?.id ?? ""}); setModal({ mode:"create" }); };
   const openEdit   = d  => { setForm({ name: d.name, host: d.host, port: String(d.port), url: d.url, user_id: d.user_id }); setModal({ mode:"edit", device:d }); };  // todo user name
 
   const save = async () => {
@@ -287,6 +289,8 @@ function DevicesView({ showToast }) {
     catch (e) { showToast(e.message, "error"); }
   };
 
+  const userName = (uid) => users.find(u => u.id === uid)?.name || `User ${uid}`;
+
   return (
     <div style={{ maxWidth:700 }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:24 }}>
@@ -294,7 +298,9 @@ function DevicesView({ showToast }) {
           <h2 className="serif" style={{ fontSize:26, marginBottom:4 }}>Devices</h2>
           <p style={{ fontSize:14, color:"#64748b" }}>Manage connected kiln devices.</p>
         </div>
-        <button className="btn-primary" onClick={openCreate}> + New Device</button>
+        <button className="btn-primary" onClick={openCreate} disabled={users.length === 0}>
+          + New Device
+        </button>
       </div>
 
       {RequireUsers(users, loading)}
@@ -315,7 +321,7 @@ function DevicesView({ showToast }) {
                 <tr key={d.id}>
                   <td style={{ fontWeight:500 }}>{d.name}</td>
                   <td style={{ fontWeight:500 }}>http://{d.host}:{d.port}{d.url}</td>
-                  <td style={{ fontWeight:500 }}>{d.user_id}</td>
+                  <td style={{ fontWeight:500 }}>{userName(d.user_id)}</td>
                   <td style={{ textAlign:"right", width:160 }}>
                     <button className="btn-ghost btn-sm" style={{ marginRight:6 }} onClick={() => openEdit(d)}>Edit</button>
                     <button className="btn-danger btn-sm" onClick={() => del(d)}>Delete</button>
@@ -357,7 +363,7 @@ function DevicesView({ showToast }) {
           </Field>
           <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:8 }}>
             <button className="btn-ghost" onClick={() => setModal(null)}>Cancel</button>
-            <button className="btn-primary" onClick={save} disabled={saving || !form.name.trim() || !form.port.trim() || !form.host.trim() || !form.url.trim() || !form.user_id.trim()}>
+            <button className="btn-primary" onClick={save} disabled={saving || !form.name.trim() || !form.port.trim() || !form.host.trim() || !form.url.trim() }>
               {saving ? <span className="spinner"/> : null}
               {modal.mode === "create" ? "Create" : "Save"}
             </button>

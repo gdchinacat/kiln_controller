@@ -2,3 +2,6 @@ Tasks
 	- use pytest fixtures rather than skytap
 	- option to run service on custom port using memory backed sqlite3
 	- Makefile to run all permutations of LIVE_SERVICE, SKIP_CLEANUP
+	- Frontend
+		- refactor AI slop, lots of duplication, no structure
+

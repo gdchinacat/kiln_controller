@@ -4,4 +4,29 @@ Tasks
 	- Makefile to run all permutations of LIVE_SERVICE, SKIP_CLEANUP
 	- Frontend
 		- refactor AI slop, lots of duplication, no structure
+		- handle 422 validation errors
+		- Phases
+			- populate temperature and type based on previous phase temp/type
+			- bars in chart should be based on duration
+			- bug? I think deleting phases that invalidate the schedule is allowed
+			- hide ordinal, manage it implicitly by adding buttons to insert before,after existing
+	
+		
+	- Kiln
+		How should the kiln API be implemented?
+			- firing managed by microcontroller
+				- GET/PUT /firing <-> schedule
+					only one firing, can get status of it after starts until next one is put
+				- GET /stats
+					temperature, door open/closed
+			- microcontroller just takes io commands
+				- websocket client
+					- creates a /device on kiln controller when creating socket
+					- get temperature, turn on/off SSR for elements
+					CONS:
+						- no standalone operation, server connectivity firing fails
+						- http on arduino nano may be a bit heavyweight
+					Pros:
+						- super simple
+
 

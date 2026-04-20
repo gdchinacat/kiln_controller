@@ -9,7 +9,7 @@ from functools import partial
 from typing import List
 from unittest import TestCase
 
-from skytap.fixtures.fixtures import default_fixture_name, fixture, pass_self
+from .fixtures import default_fixture_name, fixture
 
 from ..common import (ValidationError, ValidationErrors, PhaseType,
                       UserValidator, ScheduleValidator, DeviceValidator)
@@ -90,7 +90,6 @@ class _ValidatorTestCase(TestCase):
     Provides methods for encapsulating common assertion patterns.
     '''
 
-    @pass_self
     def assertInvalid(self, resource, error: ValidationErrors, **kwargs):
         '''
         assert resource.validate() raises ValidationError with type error.

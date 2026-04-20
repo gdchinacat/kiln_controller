@@ -10,7 +10,7 @@ import logging
 import os
 
 import pytest
-from skytap.fixtures import fixture
+from .fixtures import fixture
 
 from ..client import ValidationError, ValidationErrors
 from ..client.mock_service import LIVE_SERVICE

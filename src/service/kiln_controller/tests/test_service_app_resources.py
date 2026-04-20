@@ -7,7 +7,7 @@
 from unittest import TestCase
 from unittest.mock import MagicMock
 
-from skytap.fixtures.fixtures import (fixture, get_default_fixture_name)
+from .fixtures import (fixture, get_default_fixture_name)
 
 from ..client import Phase
 from ..common import PhaseType

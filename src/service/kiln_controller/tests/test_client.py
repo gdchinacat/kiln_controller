@@ -12,7 +12,7 @@ import random
 from typing import Any
 
 import pytest
-from skytap.fixtures import fixture
+from .fixtures import fixture
 
 from ..client import (Client, User, Device, Schedule, Phase, NotFoundException,
                       )

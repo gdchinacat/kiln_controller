@@ -18,8 +18,71 @@ import os
 from random import randint
 from unittest import TestCase
 
-from skytap.fixtures.fixtures import (default_fixture_name, pass_self,
-                                      get_default_fixture_name)
+import inspect
+from typing import Callable
+
+
+def default_fixture_name(name: str):
+    """Decorator to set the default fixture name for a factory.
+
+    The original tests rely on get_default_fixture_name(factory) to refer to
+    the kwarg name the fixture should be injected under. We store the name
+    on the factory object.
+    """
+    def _decorator(obj):
+        setattr(obj, '_default_fixture_name', name)
+        return obj
+    return _decorator
+
+
+def get_default_fixture_name(factory: Callable) -> str:
+    """Return the default fixture name for a factory.
+
+    Fall back to the factory __name__ if no explicit name was provided.
+    """
+    return getattr(factory, '_default_fixture_name', factory.__name__)
+
+
+def fixture(factory, **factory_kwargs):
+    """Decorator to apply a factory as a fixture to a unittest TestCase
+
+    Usage in tests is like:
+
+        @fixture(user_fixture)
+        def test_something(self, user):
+            ...
+
+    This decorator wraps the test method so that when it's invoked by
+    unittest it will call the provided factory (trying to pass the TestCase
+    instance if the factory accepts it) and inject the result into the
+    test's kwargs using the factory's default name.
+    """
+    def decorator(test_func):
+        def wrapper(self, *args, **kwargs):
+            # Build keyword args to pass to the factory. Start with any
+            # explicit factory kwargs from the decorator, then include any
+            # fixtures already injected by outer wrappers (in `kwargs`).
+            call_kwargs = dict(factory_kwargs)
+            call_kwargs.update(kwargs)
+
+            # Try calling factory without `self` first (this covers plain
+            # functions and dataclass factories that accept named fixtures).
+            try:
+                resource = factory(**call_kwargs)
+            except TypeError:
+                # If that fails because the factory expects the TestCase
+                # instance, try calling with `self` as the first argument.
+                resource = factory(self, **call_kwargs)
+
+            name = get_default_fixture_name(factory)
+            # inject resource into kwargs under the fixture name
+            kwargs[name] = resource
+            return test_func(self, *args, **kwargs)
+        # Preserve test function attributes
+        wrapper.__name__ = test_func.__name__
+        wrapper.__doc__ = test_func.__doc__
+        return wrapper
+    return decorator
 
 from ..client import Client, User, Schedule, Phase, Device
 from ..client.mock_service import MockService
@@ -80,21 +143,18 @@ def cleanup(func):
 
 
 @default_fixture_name('mock_service')
-@pass_self
 def mock_service_fixture(self, **_):
     '''fixture that provices a MockService'''
     return MockService()
 
 
 @default_fixture_name('client')
-@pass_self
 def client_fixture(self, mock_service, **_):
     '''fixture that provides a Client'''
     with mock_service.patch():
         return Client()
 
 
-@pass_self
 @default_fixture_name('user')
 @cleanup
 def user_fixture(self, name='name', username=None,
@@ -120,7 +180,6 @@ def user_fixture(self, name='name', username=None,
     return user
 
 
-@pass_self
 @default_fixture_name('device')
 @cleanup
 def device_fixture(self, mock_service, client,
@@ -134,7 +193,6 @@ def device_fixture(self, mock_service, client,
     return device
 
 
-@pass_self
 @default_fixture_name('schedule')
 @cleanup
 def schedule_fixture(self, mock_service, client,
@@ -147,7 +205,6 @@ def schedule_fixture(self, mock_service, client,
     return schedule
 
 
-@pass_self
 @default_fixture_name('phase')
 def phase_fixture(self, mock_service, client,
                   schedule_kwarg=get_default_fixture_name(schedule_fixture),

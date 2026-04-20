@@ -13,7 +13,7 @@ import logging
 import os
 
 import pytest
-from skytap.fixtures import fixture
+from .fixtures import fixture
 
 from ..client import Phase
 from ..client.mock_service import LIVE_SERVICE

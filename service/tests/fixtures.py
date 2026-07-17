@@ -91,7 +91,7 @@ def fixture(factory, **factory_kwargs):
     return decorator
 
 
-from kiln_controller.client import Client, User, Schedule, Phase, Device
+import kiln_controller as kc
 from kiln_controller.client.mock_service import MockService
 from kiln_controller.common.enums import PhaseType
 
@@ -163,7 +163,7 @@ def mock_service_fixture(self, **_):
 def client_fixture(self, mock_service, **_):
     """fixture that provides a Client"""
     with mock_service.patch():
-        return Client()
+        return kc.Client()
 
 
 @default_fixture_name("user")
@@ -189,7 +189,7 @@ def user_fixture(
     a user with a uniqueish username that hasn't been created on the server).
     """
     username = username or f"username{next(_user_count)}"
-    user = User(name, username)
+    user = kc.User(name, username)
     if not skip_create:
         with mock_service.patch():
             user.post(client)
@@ -210,7 +210,7 @@ def device_fixture(
     **kwargs,
 ):
     user = kwargs[user_kwarg]
-    device = Device(name, user.id, host, port, url)
+    device = kc.Device(name, user.id, host, port, url)
     with mock_service.patch():
         device.post(client)
     return device
@@ -227,7 +227,7 @@ def schedule_fixture(
     **kwargs,
 ):
     user = kwargs[user_kwarg]
-    schedule = Schedule(name=name, user_id=user.id)
+    schedule = kc.Schedule(name=name, user_id=user.id)
     with mock_service.patch():
         schedule.post(client)
     return schedule
@@ -257,7 +257,7 @@ def phase_fixture(
     """
 
     schedule = kwargs[schedule_kwarg]
-    phase = Phase(
+    phase = kc.Phase(
         name=name,
         ordinal=ordinal,
         phase_type=phase_type,

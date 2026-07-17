@@ -1,16 +1,17 @@
-'''
+"""
 Common enum definitions
-'''
+"""
+
 from enum import Enum
 
-__all__ = ['PhaseType']
+__all__ = ["PhaseType"]
 
 
 class PhaseType(Enum):
-    '''the types of phases'''
+    """the types of phases"""
 
     CONSTANT = 1
-    '''Hold the temperature for a specified duration'''
+    """Hold the temperature for a specified duration"""
 
     RAMP = 2
-    '''Change the temperature'''
+    """Change the temperature"""

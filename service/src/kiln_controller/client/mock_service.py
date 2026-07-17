@@ -1,6 +1,7 @@
 """
 Implements a mock service for use by unit testing.
 """
+
 from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import wraps
@@ -14,8 +15,7 @@ from urllib.parse import urlparse
 import requests
 from jinja2.nodes import Or
 
-
-LIVE_SERVICE = os.getenv('LIVE_SERVICE', 'false').upper() == 'TRUE'
+LIVE_SERVICE = os.getenv("LIVE_SERVICE", "false").upper() == "TRUE"
 
 
 class _HTTPError(Exception):
@@ -27,17 +27,20 @@ class NotFound(_HTTPError):
 
 
 def sort(order_by: Dict[type, Callable]) -> List:
-    '''decorator to sort the return values'''
+    """decorator to sort the return values"""
+
     def dec(func):
         @wraps(func)
         def _sort(self, url, *args, **kwargs):
             ret = func(self, url, *args, **kwargs)
-            type_ = url.split('/')[-2]
+            type_ = url.split("/")[-2]
             key = order_by.get(type_, None)
             if key:
                 ret = sorted(ret, key=key)
             return ret
+
         return _sort
+
     return dec
 
 
@@ -48,48 +51,48 @@ class Resource(dict):
     a collection of sub resources indexed by the path in the url to access that
     node.
     """
+
     TYPES: Dict[str, type] = {}
     resource: Dict
     sub_resources: Dict[str, "Resource"]
 
     def __init__(self, sub_resources: Dict[str, "Resource"] = None, **kwargs):
-        self['resource'] = dict(kwargs)
-        self['sub_resources'] = sub_resources or {}
+        self["resource"] = dict(kwargs)
+        self["sub_resources"] = sub_resources or {}
 
     @classmethod
-    def create(cls,
-               resource_type: str,
-               **kwargs):
-        '''create a new resource of the indicated type'''
+    def create(cls, resource_type: str, **kwargs):
+        """create a new resource of the indicated type"""
         resource_cls = cls.TYPES.get(resource_type, cls)
         return resource_cls(**kwargs)
 
     @property
     def resource(self):
-        return self['resource']
+        return self["resource"]
 
     @property
     def sub_resources(self):
-        return self['sub_resources']
+        return self["sub_resources"]
 
 
 class ScheduleResource(Resource):
     def __init__(self, *args, **kwargs):
-        sub_resources = {'phase': Resource()}
+        sub_resources = {"phase": Resource()}
         super().__init__(*args, sub_resources=sub_resources, **kwargs)
 
 
-Resource.TYPES['schedule'] = ScheduleResource
+Resource.TYPES["schedule"] = ScheduleResource
 
 
 @dataclass
 class Call:
-    '''
+    """
     A call to a mocked function.
 
     return_ can be specified as typing.Any to indicate return_ should be
     ignored for the equality check.
-    '''
+    """
+
     method: Callable
     args: List[Any]
     kwargs: Dict[str, Any]
@@ -99,16 +102,21 @@ class Call:
     def __eq__(self, other):
         if not isinstance(other, type(self)):
             return super().__eq__(other)
-        return (self.method == other.method and
-                self.args == other.args and
-                self.kwargs == other.kwargs and
-                self.exception == other.exception and
-                (self.return_ == Any or other.return_ == Any or
-                 self.return_ == other.return_))
+        return (
+            self.method == other.method
+            and self.args == other.args
+            and self.kwargs == other.kwargs
+            and self.exception == other.exception
+            and (
+                self.return_ == Any
+                or other.return_ == Any
+                or self.return_ == other.return_
+            )
+        )
 
 
 class MockService(Resource):
-    '''
+    """
     Mock service to stub HTTP requests to the service.
 
     Supports LIVE_SERVICE=true environment variable to enable tests to execute
@@ -116,27 +124,29 @@ class MockService(Resource):
     live_service=False when creating the MockService, but are not allowed to
     force live_service to avoid tests executing against a real service when
     user does not explicitly configure it.
-    '''
+    """
 
     calls: List[Call]
 
-    def __init__(self, sub_resources: Dict[str, Resource] = None,
-                 live_service: bool = None):
-        assert live_service is None or live_service is False, \
-               'tests are not permitted to force live_service=True'
+    def __init__(
+        self, sub_resources: Dict[str, Resource] = None, live_service: bool = None
+    ):
+        assert (
+            live_service is None or live_service is False
+        ), "tests are not permitted to force live_service=True"
 
         super().__init__()
-        self['sub_resources'] = (sub_resources or
-                                 {_type: Resource() for _type in
-                                  ('user', 'device', 'schedule')})
+        self["sub_resources"] = sub_resources or {
+            _type: Resource() for _type in ("user", "device", "schedule")
+        }
         self.ids = count()
         self.calls = []
-        self.live_service = (
-            LIVE_SERVICE if live_service is None else live_service)
+        self.live_service = LIVE_SERVICE if live_service is None else live_service
 
     @staticmethod
     def track_call(func):
-        '''decorator to append the call to the list of calls'''
+        """decorator to append the call to the list of calls"""
+
         @wraps(func)
         def _track_call(self, *args, **kwargs):
             call = Call(func.__name__, args, kwargs)
@@ -153,11 +163,13 @@ class MockService(Resource):
             except Exception as exception:
                 call.exception = exception
                 raise
+
         return _track_call
 
     @staticmethod
     def conditional_requests_mock(requests_func):
-        '''decorator that mocks requests_func only when live_service=false'''
+        """decorator that mocks requests_func only when live_service=false"""
+
         def dec(mock_func):
             @wraps(mock_func)
             def _conditional_requests_mock(self, *args, **kwargs):
@@ -165,7 +177,9 @@ class MockService(Resource):
                     return requests_func(*args, **kwargs)
                 else:
                     return mock_func(self, *args, **kwargs)
+
             return _conditional_requests_mock
+
         return dec
 
     @contextmanager
@@ -176,7 +190,7 @@ class MockService(Resource):
         @conditional_requests_mock to permit tests to execute against a live
         service.
         """
-        with patch('kiln_controller.client.client.requests', new=self):
+        with patch("kiln_controller.client.client.requests", new=self):
             self.calls = []  # only track calls in this with block
             yield self
 
@@ -184,7 +198,7 @@ class MockService(Resource):
         response = requests.Response()
         response.status_code = status_code
         if obj is not None:
-            response.json = lambda: obj 
+            response.json = lambda: obj
         return response
 
     def walk(self, url: str, action=None):
@@ -207,22 +221,21 @@ class MockService(Resource):
 
         # If the resource attributes contains 'id' then we found an actual
         # resource. If not, it's a collection of resources.
-        if 'id' in resource.resource:
+        if "id" in resource.resource:
             ret = resource.resource
             if action:
                 ret = action(ret)
             return ret
         if action:
             return action(paths, resource)
-        return [x.resource for x in
-                resource.sub_resources.values()]
+        return [x.resource for x in resource.sub_resources.values()]
 
     def get_paths(self, url):
         parsed = urlparse(url)
-        paths = parsed.path.split('/')
-        if paths[0] == '':
+        paths = parsed.path.split("/")
+        if paths[0] == "":
             paths = paths[1:]
-        if paths[-1] == '':
+        if paths[-1] == "":
             paths = paths[:-1]
         return paths
 
@@ -237,14 +250,14 @@ class MockService(Resource):
                 else:
                     return self.response(HTTPStatus.OK, ret)
             except _HTTPError as e:
-                return self.response(e.status_code,
-                                     {'message': e.args[0]})
+                return self.response(e.status_code, {"message": e.args[0]})
+
         return wrap
 
     @exception_to_response
     @track_call
     @conditional_requests_mock(requests.get)
-    @sort({'phase': lambda phase: int(phase['ordinal'])})
+    @sort({"phase": lambda phase: int(phase["ordinal"])})
     def get(self, url, **_) -> requests.Response:
         return self.walk(url)
 
@@ -252,14 +265,15 @@ class MockService(Resource):
     @track_call
     @conditional_requests_mock(requests.post)
     def post(self, url: str, json: Dict[str, Any], **_) -> requests.Response:
-        json['id'] = next(self.ids)
+        json["id"] = next(self.ids)
 
         def create_resource(paths, parent):
             resource_type = paths[-1]
             assert resource_type, f"{resource_type=}"
             resource = Resource.create(resource_type, **json)
-            parent.sub_resources[str(json['id'])] = resource
+            parent.sub_resources[str(json["id"])] = resource
             return json
+
         return self.walk(url, action=create_resource)
 
     @exception_to_response
@@ -268,15 +282,16 @@ class MockService(Resource):
     def put(self, url: str, json: Dict[str, Any], **_) -> requests.Response:
         # get the id from the url and store it on the obj
         paths = self.get_paths(url)
-        json['id'] = int(paths[-1])
+        json["id"] = int(paths[-1])
 
         # find the parent, makes handling not existing easier
         url = "/".join(paths[:-1])
 
         def _put(paths, parent_resource):
             # todo - whatever post does to create typed resources
-            parent_resource.sub_resources[str(json['id'])] = Resource(**json)
+            parent_resource.sub_resources[str(json["id"])] = Resource(**json)
             return json
+
         return self.walk(url, action=_put)
 
     @exception_to_response
@@ -294,4 +309,5 @@ class MockService(Resource):
             if _id in parent_resource.sub_resources:
                 del parent_resource.sub_resources[_id]
             return {}
+
         return self.walk(url, action=_delete)

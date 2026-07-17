@@ -1,6 +1,6 @@
-'''
+"""
 Schedule related ORMs
-'''
+"""
 
 from datetime import time
 from typing import List, Optional
@@ -12,51 +12,49 @@ from ...common import PhaseType, ScheduleValidator, PhaseValidator
 from .base import Base
 from .users import User
 
-
-__all__ = ['Phase', 'Schedule']
+__all__ = ["Phase", "Schedule"]
 
 
 class Schedule(ScheduleValidator, Base):  # pylint: disable=too-few-public-methods
     """
     A schedule is a definition of how a firing should be executed.
     """
+
     __tablename__ = "schedules"
-    PUBLIC_FIELDS = Base.PUBLIC_FIELDS | {'user_id': None}
+    PUBLIC_FIELDS = Base.PUBLIC_FIELDS | {"user_id": None}
 
     user_id: Mapped[int] = mapped_column(ForeignKey(User.id))
-    user: Mapped[User] = relationship(User,
-                                      back_populates='schedules',
-                                      viewonly=True,
-                                      default=None,
-                                      lazy=True)
+    user: Mapped[User] = relationship(
+        User, back_populates="schedules", viewonly=True, default=None, lazy=True
+    )
 
-    phases: Mapped[List["Phase"]] = relationship(default_factory=list,
-                                                 order_by="Phase.ordinal",
-                                                 cascade="delete",
-                                                 lazy=True)
+    phases: Mapped[List["Phase"]] = relationship(
+        default_factory=list, order_by="Phase.ordinal", cascade="delete", lazy=True
+    )
 
 
 class Phase(PhaseValidator, Base):
     """
     A schedule is a definition of how a firing should be executed.
     """
+
     __tablename__ = "phases"
     __table_args__ = (
-        UniqueConstraint('schedule_id', 'name'),
-        UniqueConstraint('schedule_id', 'ordinal'),
+        UniqueConstraint("schedule_id", "name"),
+        UniqueConstraint("schedule_id", "ordinal"),
     )
 
-    PUBLIC_FIELDS = (Base.PUBLIC_FIELDS |
-                     {'phase_type': lambda x: x.name if x else None,
-                      'duration': lambda x: x.isoformat() if x else None,
-                      'rate': None,
-                      'temperature': None,
-                      'ordinal': None,
-                      'schedule_id': None,
-                      })
+    PUBLIC_FIELDS = Base.PUBLIC_FIELDS | {
+        "phase_type": lambda x: x.name if x else None,
+        "duration": lambda x: x.isoformat() if x else None,
+        "rate": None,
+        "temperature": None,
+        "ordinal": None,
+        "schedule_id": None,
+    }
 
     ordinal: Mapped[int]
-    '''
+    """
     The ordinal indicates the order of phases within a schedule.
 
     For the time being, the recommendation is that clients create gaps in
@@ -77,40 +75,40 @@ class Phase(PhaseValidator, Base):
            since the problem is essentially the same, the differences being
            API support for specifying where to insert vs supporting gaps. Gaps
            aren't as hard to handle as API, so it is deferred (for now).
-    '''
+    """
 
     phase_type: Mapped[PhaseType] = mapped_column(Enum(PhaseType))
-    '''the type of the phase'''
+    """the type of the phase"""
 
     duration: Mapped[Optional[time]]
-    '''
+    """
     How long the phase lasts in minutes.
 
     duration is unset for type==RAMP
-    '''
+    """
 
-    rate:  Mapped[Optional[int]]
-    '''
+    rate: Mapped[Optional[int]]
+    """
     The rate the temperature should be changed at in C/min.
 
     Unset for type==CONSTANT.
     When not set for type==RAMP indicates the temperature should change as
     rapidly as possible.
-    '''
+    """
 
     temperature: Mapped[Optional[int]]
-    '''
+    """
     The temperature the phase maintains (CONSTANT) or ends with (RAMP).
 
     Unset to indicate ambient temperature.
-    '''
+    """
 
     schedule_id: Mapped[int] = mapped_column(ForeignKey(Schedule.id))
-    schedule: Mapped[Schedule] = relationship(back_populates='phases',
-                                              viewonly=True, default=None,
-                                              lazy=True)
-    '''the schedule the phase is part of'''
+    schedule: Mapped[Schedule] = relationship(
+        back_populates="phases", viewonly=True, default=None, lazy=True
+    )
+    """the schedule the phase is part of"""
 
     def validate(self):
-        '''Phase validation is delegated to Schedule.validate().'''
+        """Phase validation is delegated to Schedule.validate()."""
         return self.schedule.validate()

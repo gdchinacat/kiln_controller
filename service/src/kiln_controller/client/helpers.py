@@ -2,16 +2,16 @@
 helpers for the client
 Contains things like logging, trace decorators, etc.
 """
+
 from functools import wraps
 import logging
-
 
 logger = logging.getLogger("kiln_controller.client")
 trace_logger = logging.getLogger("kiln_controller.client")
 
 
 def noop(*_, **__):
-    '''function that accepts all args, kwargs and does nothing'''
+    """function that accepts all args, kwargs and does nothing"""
 
 
 def trace(func=None, /, *, log_func=trace_logger.debug):
@@ -20,6 +20,7 @@ def trace(func=None, /, *, log_func=trace_logger.debug):
     Can be applied directly to the function or accept these kw_only arguments:
       log_func - the log function to use (default: trace_logger.debug)
     """
+
     @wraps(func)
     def trace_(*args, **kwargs):
         log_func("%s(%s, %s)", func.__name__, args, kwargs)
@@ -38,6 +39,7 @@ def trace(func=None, /, *, log_func=trace_logger.debug):
         nonlocal func
         func = _func
         return trace_
+
     return _wrap
 
 
@@ -48,14 +50,13 @@ def validate_url(url):
     if not url:
         raise ValueError(f"url must have a value: {url}")
 
-    if url[0] != '/':
+    if url[0] != "/":
         raise ValueError(f"url must begin with '/':{url}")
 
-    if '/None' in url:
-        raise ValueError("url appears to contain an unset "
-                         f"'id' attribute: {url}")
+    if "/None" in url:
+        raise ValueError("url appears to contain an unset " f"'id' attribute: {url}")
 
-    bad_characters = '{}'
+    bad_characters = "{}"
     if any(bad in url for bad in bad_characters):
         raise ValueError(f"url contains one of '{bad_characters}': {url}")
 
@@ -71,8 +72,10 @@ def detect_bad_url(func):
     reaching the server.
     TODO - only apply it when debug is enabled?
     """
+
     @wraps(func)
     def bad_url_filter(self, url, *args, **kwargs):
         validate_url(url)
         return func(self, url, *args, **kwargs)
+
     return bad_url_filter

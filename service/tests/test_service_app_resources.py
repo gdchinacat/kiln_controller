@@ -7,17 +7,16 @@
 from unittest import TestCase
 from unittest.mock import MagicMock
 
-from .fixtures import (fixture, get_default_fixture_name)
+from .fixtures import fixture, get_default_fixture_name
 
 from kiln_controller.client import Phase
 from kiln_controller.common import PhaseType
 from kiln_controller.service.resources.base import BaseResource
-from .fixtures import (CleanupTestCase, user_fixture, schedule_fixture)
+from .fixtures import CleanupTestCase, user_fixture, schedule_fixture
 from .fixtures import mock_service_fixture, client_fixture
 
 
-class _ResourceType:
-    ...
+class _ResourceType: ...
 
 
 class _Resource(BaseResource):
@@ -44,10 +43,12 @@ class TestPhases(CleanupTestCase):
     @fixture(client_fixture)
     @fixture(user_fixture)
     @fixture(schedule_fixture)
-    def test_phase_order(self, mock_service,
-                         schedule_kwarg=get_default_fixture_name(
-                             schedule_fixture),
-                         **kwargs):
+    def test_phase_order(
+        self,
+        mock_service,
+        schedule_kwarg=get_default_fixture_name(schedule_fixture),
+        **kwargs
+    ):
         """
         Test that phases are ordered by ordinal rather than insert order.
 
@@ -60,8 +61,8 @@ class TestPhases(CleanupTestCase):
         """
         schedule = kwargs[schedule_kwarg]
 
-        phase2 = Phase('phase2', 2, PhaseType.RAMP, temperature=950)
-        phase1 = Phase('phase1', 1, PhaseType.RAMP, temperature=1000)
+        phase2 = Phase("phase2", 2, PhaseType.RAMP, temperature=950)
+        phase1 = Phase("phase1", 1, PhaseType.RAMP, temperature=1000)
 
         with mock_service.patch():
             schedule.phases += phase2

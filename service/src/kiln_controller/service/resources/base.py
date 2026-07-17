@@ -1,6 +1,6 @@
-'''
+"""
 Framework for application resources.
-'''
+"""
 
 from abc import ABC
 from dataclasses import MISSING
@@ -15,7 +15,6 @@ from sqlalchemy.exc import NoResultFound, IntegrityError
 
 from ...common import ValidationError
 
-
 __all__ = []
 
 
@@ -23,60 +22,65 @@ logger = getLogger("resource/base.py")
 
 
 def db(func) -> Callable[[Callable], Callable]:
-    '''decorator to inject the database into wrapped calls as db_= kwarg'''
+    """decorator to inject the database into wrapped calls as db_= kwarg"""
+
     @wraps(func)
     def wrap(*args, **kwargs):
         db_ = current_app.db  # @UndefinedVariable
         return func(*args, **kwargs, db_=db_)
+
     return wrap
 
 
 def error(msg: str) -> Dict[str, str]:
-    '''create a json error dict with error msg'''
+    """create a json error dict with error msg"""
     # TODO - don't expose internal error messages (500 returns sql error)
     return {"message": msg}
 
 
 def validate_request_json(func):
-    '''
+    """
     todo - validate_request_json is deprecated, use marshallers instead
-    '''
+    """
+
     @wraps(func)
     def wrap(self: "DataclassFieldJsonValidatorMixin", *args, **kwargs):
         errors = self.validate(request.json)
         if errors:
-            return (error(errors),
-                    HTTPStatus.UNPROCESSABLE_ENTITY)
+            return (error(errors), HTTPStatus.UNPROCESSABLE_ENTITY)
         return func(self, *args, **kwargs)
+
     return wrap
 
 
-class DataclassFieldJsonValidatorMixin: \
-        # pylint: disable=too-few-public-methods
-    '''
+class DataclassFieldJsonValidatorMixin:  # pylint: disable=too-few-public-methods
+    """
     validator for json representation of a dataclass
 
     todo - validate_request_json is deprecated, use marshallers instead
-    '''
+    """
 
     TYPE: Callable = None  # class that this is mixed with must provide
 
     def validate(self, obj_json) -> str:
-        '''validate the obj_json dict has the required fields for TYPE'''
+        """validate the obj_json dict has the required fields for TYPE"""
         errors = []
-        required_fields = {field.name for field in
-                           self.TYPE.__dataclass_fields__.values()
-                           if (field.init
-                               and field.default is MISSING
-                               and field.default_factory is MISSING
-                               )}
+        required_fields = {
+            field.name
+            for field in self.TYPE.__dataclass_fields__.values()
+            if (
+                field.init
+                and field.default is MISSING
+                and field.default_factory is MISSING
+            )
+        }
         missing_required = required_fields - set(obj_json)
         if missing_required:
-            errors.append("required fields missing: "
-                          f"{', '.join(missing_required)}")
+            errors.append("required fields missing: " f"{', '.join(missing_required)}")
 
-        unknown_fields = [x for x in obj_json
-                          if x not in self.TYPE.__dataclass_fields__]
+        unknown_fields = [
+            x for x in obj_json if x not in self.TYPE.__dataclass_fields__
+        ]
         if unknown_fields:
             errors.append(f"unknown fields: {', '.join(unknown_fields)}")
 
@@ -84,7 +88,7 @@ class DataclassFieldJsonValidatorMixin: \
 
 
 class BaseResource(Resource, DataclassFieldJsonValidatorMixin, ABC):
-    '''
+    """
     Base class for resources (abstract).
 
     Subclasses must override:
@@ -97,39 +101,45 @@ class BaseResource(Resource, DataclassFieldJsonValidatorMixin, ABC):
     operations for TYPE.
 
     endpoint methods are decorated with appropriate validation.
-    '''
+    """
+
     TYPE: Callable = None
 
     def _lookup(self, db_, id: int) -> TYPE:
-        '''lookup the resource by id'''
+        """lookup the resource by id"""
         try:
-            return db_.session.execute(db_.select(self.TYPE)
-                                       .filter_by(id=id)).scalar_one()
+            return db_.session.execute(
+                db_.select(self.TYPE).filter_by(id=id)
+            ).scalar_one()
         except NoResultFound:
             return None
 
     @db
     def get(self, id: int, *, db_, **kwargs) -> Dict:
-        '''get the resource'''
+        """get the resource"""
         assert not kwargs, f"recieved unhandled {kwargs=}"
         orm = self._lookup(db_, id)
         if not orm:
-            return (error(f"{self.TYPE.__name__} with id={id} not found"),
-                    HTTPStatus.NOT_FOUND)
+            return (
+                error(f"{self.TYPE.__name__} with id={id} not found"),
+                HTTPStatus.NOT_FOUND,
+            )
         return orm.asdict()
 
     @staticmethod
     def _validation_error_response_handler(func):
-        '''decorator to convert ValidationError into HTTP response'''
+        """decorator to convert ValidationError into HTTP response"""
+
         @wraps(func)
         def validation_error_response_handler(*args, **kwargs):
-            '''
+            """
             Convert ValidationEerror raised by func into HTTP response.
-            '''
+            """
             try:
                 return func(*args, **kwargs)
             except ValidationError as ve:
                 return ve.json(), HTTPStatus.UNPROCESSABLE_ENTITY
+
         return validation_error_response_handler
 
     @validate_request_json
@@ -184,8 +194,7 @@ class BaseResource(Resource, DataclassFieldJsonValidatorMixin, ABC):
                 del j[attr]
         # raise an error if any attributes can't be processed.
         if j:
-            return (error(f"unexpected values: {j}"),
-                    HTTPStatus.UNPROCESSABLE_ENTITY)
+            return (error(f"unexpected values: {j}"), HTTPStatus.UNPROCESSABLE_ENTITY)
 
         db_.session.commit()
         return orm.asdict()
@@ -193,7 +202,7 @@ class BaseResource(Resource, DataclassFieldJsonValidatorMixin, ABC):
     @db
     @_validation_error_response_handler
     def delete(self, id, *, db_):
-        '''delete the resource'''
+        """delete the resource"""
         orm = self._lookup(db_, id)
         if orm is not None:
             orm.validate_delete()
@@ -203,7 +212,7 @@ class BaseResource(Resource, DataclassFieldJsonValidatorMixin, ABC):
 
 
 class BaseListResource(Resource, DataclassFieldJsonValidatorMixin):
-    '''
+    """
     Base class for list resources (abstract).
 
     Subclasses must override:
@@ -211,25 +220,25 @@ class BaseListResource(Resource, DataclassFieldJsonValidatorMixin):
         - marshalling data: todo how receive and present the TYPE instances in
                             requests and responses.
 
-    '''
+    """
+
     TYPE = None
 
     @db
     def get(self, *, db_, order_by=None, **filters):
-        '''get the list of TYPE resources'''
+        """get the list of TYPE resources"""
         query = db_.select(self.TYPE)
         if filters:
             query = query.filter_by(**filters)
             if order_by is not None:
                 query = query.order_by(order_by)
-        return [orm.asdict() for orm in
-                db_.session.execute(query).scalars()]
+        return [orm.asdict() for orm in db_.session.execute(query).scalars()]
 
     @validate_request_json
     @BaseResource._validation_error_response_handler
     @db
     def post(self, db_):
-        '''create a resource of TYPE'''
+        """create a resource of TYPE"""
         try:
             orm = self.TYPE(**request.json)  # pylint: disable=not-callable
             with db_.session.begin() as session:

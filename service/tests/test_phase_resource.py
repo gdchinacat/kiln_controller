@@ -17,7 +17,7 @@ import pytest
 from .fixtures import fixture
 
 from kiln_controller.client import Phase
-from kiln_controller.client.mock_service import LIVE_SERVICE
+from .mock_service import LIVE_SERVICE
 from kiln_controller.common import PhaseType, ValidationError, ValidationErrors
 from .fixtures import (
     CleanupTestCase,

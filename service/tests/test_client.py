@@ -24,7 +24,7 @@ from kiln_controller.client import (
     NotFoundException,
 )
 from kiln_controller.client.client import DEFAULT_TIMEOUT
-from kiln_controller.client.mock_service import Call
+from .mock_service import Call
 from kiln_controller.common.enums import PhaseType
 from .fixtures import (
     CleanupTestCase,

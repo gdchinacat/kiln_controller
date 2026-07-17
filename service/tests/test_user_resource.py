@@ -14,7 +14,7 @@ import pytest
 from .fixtures import fixture
 
 from kiln_controller.client import ValidationError, ValidationErrors
-from kiln_controller.client.mock_service import LIVE_SERVICE
+from .mock_service import LIVE_SERVICE
 from .fixtures import (
     CleanupTestCase,
     mock_service_fixture,

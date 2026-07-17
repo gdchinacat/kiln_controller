@@ -92,7 +92,7 @@ def fixture(factory, **factory_kwargs):
 
 
 import kiln_controller as kc
-from kiln_controller.client.mock_service import MockService
+from .mock_service import MockService
 from kiln_controller.common.enums import PhaseType
 
 __all__ = [

@@ -9,10 +9,11 @@ from functools import partial
 from typing import List
 from unittest import TestCase
 
-from .fixtures import default_fixture_name, fixture
+import pytest
 
 from ..common import (ValidationError, ValidationErrors, PhaseType,
                       UserValidator, ScheduleValidator, DeviceValidator)
+from .fixtures import default_fixture_name, fixture
 from .helpers import SortedList
 
 

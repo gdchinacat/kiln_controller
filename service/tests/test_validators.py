@@ -11,7 +11,7 @@ from unittest import TestCase
 
 import pytest
 
-from ..common import (ValidationError, ValidationErrors, PhaseType,
+from kiln_controller.common import (ValidationError, ValidationErrors, PhaseType,
                       UserValidator, ScheduleValidator, DeviceValidator)
 from .fixtures import default_fixture_name, fixture
 from .helpers import SortedList

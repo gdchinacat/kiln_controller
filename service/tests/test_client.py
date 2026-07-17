@@ -14,11 +14,11 @@ from typing import Any
 import pytest
 from .fixtures import fixture
 
-from ..client import (Client, User, Device, Schedule, Phase, NotFoundException,
+from kiln_controller.client import (Client, User, Device, Schedule, Phase, NotFoundException,
                       )
-from ..client.client import DEFAULT_TIMEOUT
-from ..client.mock_service import Call
-from ..common.enums import PhaseType
+from kiln_controller.client.client import DEFAULT_TIMEOUT
+from kiln_controller.client.mock_service import Call
+from kiln_controller.common.enums import PhaseType
 from .fixtures import (CleanupTestCase, mock_service_fixture, client_fixture,
                        device_fixture, user_fixture, schedule_fixture,
                        phase_fixture)

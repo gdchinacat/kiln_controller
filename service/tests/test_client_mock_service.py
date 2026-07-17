@@ -1,5 +1,5 @@
 """
-Tests the mock service used by client tests.
+Tests the mock service used bkiln_controller.client tests.
 """
 
 from dataclasses import asdict
@@ -9,8 +9,8 @@ from unittest import TestCase
 
 from requests.models import Response
 
-from ..client import User
-from ..client.mock_service import (MockService, Resource, NotFound)
+from kiln_controller.client import User
+from kiln_controller.client.mock_service import (MockService, Resource, NotFound)
 
 
 def _obj(response: Response) -> Dict | List:

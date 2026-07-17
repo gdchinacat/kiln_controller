@@ -9,9 +9,9 @@ from unittest.mock import MagicMock
 
 from .fixtures import (fixture, get_default_fixture_name)
 
-from ..client import Phase
-from ..common import PhaseType
-from ..service.resources.base import BaseResource
+from kiln_controller.client import Phase
+from kiln_controller.common import PhaseType
+from kiln_controller.service.resources.base import BaseResource
 from .fixtures import (CleanupTestCase, user_fixture, schedule_fixture)
 from .fixtures import mock_service_fixture, client_fixture
 

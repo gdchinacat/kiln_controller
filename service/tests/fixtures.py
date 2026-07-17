@@ -84,9 +84,9 @@ def fixture(factory, **factory_kwargs):
         return wrapper
     return decorator
 
-from ..client import Client, User, Schedule, Phase, Device
-from ..client.mock_service import MockService
-from ..common.enums import PhaseType
+from kiln_controller.client import Client, User, Schedule, Phase, Device
+from kiln_controller.client.mock_service import MockService
+from kiln_controller.common.enums import PhaseType
 
 
 __all__ = ['CleanupTestCase',

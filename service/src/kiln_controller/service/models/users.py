@@ -2,34 +2,39 @@
 Users ORM
 """
 
-from typing import Optional, List
+from typing import ClassVar, Dict, Optional, List, TYPE_CHECKING
 
-from sqlalchemy import String
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlmodel import Field, Relationship
 
 from .base import Base
 from ...common import UserValidator
 
+if TYPE_CHECKING:
+    from .schedule import Schedule
+    from .device import Device
 
-class User(UserValidator, Base):
+
+class User(UserValidator, Base, table=True):
     """
     A user of the kiln controller.
     """
 
     __tablename__ = "users"
-    PUBLIC_FIELDS = Base.PUBLIC_FIELDS | {
+    PUBLIC_FIELDS: ClassVar[Dict] = Base.PUBLIC_FIELDS | {
         "username": None,
         "email": None,
         "phone_number": None,
     }
 
-    username: Mapped[str] = mapped_column(String(16), unique=True)
-    email: Mapped[Optional[str]] = mapped_column(default=None)
-    phone_number: Mapped[Optional[str]] = mapped_column(default=None)
+    username: str = Field(max_length=16, unique=True)
+    email: Optional[str] = Field(default=None)
+    phone_number: Optional[str] = Field(default=None)
 
-    schedules: Mapped[List["Schedule"]] = relationship(
-        default_factory=list, viewonly=True, lazy=True
+    schedules: List["Schedule"] = Relationship(
+        back_populates="user",
+        sa_relationship_kwargs={"viewonly": True, "lazy": True},
     )
-    devices: Mapped[List["Device"]] = relationship(
-        default_factory=list, viewonly=True, lazy=True
+    devices: List["Device"] = Relationship(
+        back_populates="user",
+        sa_relationship_kwargs={"viewonly": True, "lazy": True},
     )

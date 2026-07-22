@@ -2,14 +2,19 @@
 Base class for mapped resources.
 """
 
-from sqlalchemy import String
-from sqlalchemy.orm import DeclarativeBase, MappedAsDataclass, mapped_column, Mapped
+from typing import ClassVar, Dict, Optional
+from sqlmodel import SQLModel, Field
 
 
-class Base(MappedAsDataclass, DeclarativeBase):
-    """subclasses will be converted to dataclasses"""
+class Base(SQLModel):
+    """
+    Base class for all ORM models.
 
-    PUBLIC_FIELDS = {"id": None, "name": None}
+    Uses SQLModel which combines SQLAlchemy with Pydantic to provide
+    automatic field validation without requiring manual validation code.
+    """
+
+    PUBLIC_FIELDS: ClassVar[Dict] = {"id": None, "name": None}
     """
     Subclasses must include the fields they want to expose through api.
 
@@ -18,11 +23,13 @@ class Base(MappedAsDataclass, DeclarativeBase):
     means marshal as is.
     """
 
-    name: Mapped[str] = mapped_column(String(30))
-    """all model dataclasses contain a name"""
+    model_config = {"arbitrary_types_allowed": True}
 
-    id: Mapped[int] = mapped_column(primary_key=True, default=None, kw_only=True)
+    id: Optional[int] = Field(default=None, primary_key=True)
     """all model dataclasses contain a primary key named id"""
+
+    name: str = Field(max_length=30)
+    """all model dataclasses contain a name"""
 
     def asdict(self):
         """marshal the model as a json dict"""
@@ -31,11 +38,17 @@ class Base(MappedAsDataclass, DeclarativeBase):
             for (name, marshaler) in self.PUBLIC_FIELDS.items()
         }
 
-    def validate(self):
+    def validate_create_or_update(self):
         """
-        Validate this resource is valid and in a consistent state. It is called
+        Validate this resource is valid and in a consistent state. Called
         by the Resource or children ResourceList classes when updated.
 
         raises ValidationError when the validation fails.
         """
-        pass
+
+    def validate_delete(self):
+        """
+        Validate this resource can be deleted.
+
+        raises ValidationError when the validation fails.
+        """

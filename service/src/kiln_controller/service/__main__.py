@@ -10,7 +10,7 @@ from flask import Flask, render_template, current_app
 from flask_cors import CORS  # todo - insecure hack for development
 from flask_restful import Api
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy.orm import configure_mappers
+from sqlmodel import SQLModel
 
 from .models import Base
 from .resources import (
@@ -40,7 +40,12 @@ if os.getenv("NON_PERSISTENT", "false").upper() == "TRUE":
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite://"
 else:
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///kiln_controller.db"
-db = SQLAlchemy(model_class=Base)
+
+db = SQLAlchemy(
+    model_class=Base,
+    metadata=SQLModel.metadata,
+    session_options={"expire_on_commit": False},
+)
 db.init_app(app)
 
 
@@ -62,8 +67,7 @@ api.add_resource(PhaseResource, "/schedule/<string:schedule_id>/phase/<string:id
 api.add_resource(PhaseListResource, "/schedule/<string:schedule_id>/phase/")
 
 with app.app_context() as ctx:
-    configure_mappers()  # do this proactively rather than when app is started
-    db.create_all()
+    SQLModel.metadata.create_all(db.engine)
     current_app.db = db
 
 # process environment variables

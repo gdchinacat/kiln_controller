@@ -6,7 +6,7 @@ mocks.
 """
 
 from enum import Enum
-from typing import List, Dict, Type, TypeVar
+from typing import ClassVar, List, Dict, Type, TypeVar
 
 from .enums import PhaseType
 
@@ -83,8 +83,8 @@ class ValidatorMixinBase:
 class UserValidator(ValidatorMixinBase):
     """user validation"""
 
-    schedules: List
-    devices: List
+    schedules: ClassVar[List]
+    devices: ClassVar[List]
 
     def validate_delete(self):
         """validate the user can be deleted"""
@@ -107,7 +107,7 @@ class DeviceValidator(ValidatorMixinBase):
 class ScheduleValidator(ValidatorMixinBase):
     """schedule validation"""
 
-    phases: List
+    phases: ClassVar[List]
 
     def validate_create_or_update(self):
         """
@@ -182,7 +182,7 @@ class ScheduleValidator(ValidatorMixinBase):
 class PhaseValidator(ValidatorMixinBase):
     """phase validation"""
 
-    schedule = None
+    schedule: ClassVar = None
 
     def validate_create_or_update(self):
         super().validate_create_or_update()

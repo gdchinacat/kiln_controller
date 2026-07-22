@@ -7,8 +7,7 @@
 from unittest import TestCase
 from unittest.mock import MagicMock
 
-from .fixtures import fixture, get_default_fixture_name
-
+from fixtures import kwargs
 from kiln_controller.client import Phase
 from kiln_controller.common import PhaseType
 from kiln_controller.service.resources.base import BaseResource
@@ -39,14 +38,14 @@ class TestResources(TestCase):
 class TestPhases(CleanupTestCase):
     """Test phases"""
 
-    @fixture(mock_service_fixture)
-    @fixture(client_fixture)
-    @fixture(user_fixture)
-    @fixture(schedule_fixture)
+    @ kwargs['mock_service'] << mock_service_fixture()
+    @ kwargs['client'] << client_fixture()
+    @ kwargs['user'] << user_fixture()
+    @ kwargs['schedule'] << schedule_fixture()
     def test_phase_order(
         self,
         mock_service,
-        schedule_kwarg=get_default_fixture_name(schedule_fixture),
+        schedule,
         **kwargs
     ):
         """
@@ -59,7 +58,6 @@ class TestPhases(CleanupTestCase):
         the order_by for that query to Phase.ordinal.desc() changes correctly
         changes the order and causes this test to fail.
         """
-        schedule = kwargs[schedule_kwarg]
 
         phase2 = Phase("phase2", 2, PhaseType.RAMP, temperature=950)
         phase1 = Phase("phase1", 1, PhaseType.RAMP, temperature=1000)

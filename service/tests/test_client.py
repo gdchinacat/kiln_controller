@@ -11,9 +11,9 @@ Test the kiln_controller python client library.
 from contextlib import contextmanager
 import random
 from typing import Any
+from fixtures import kwargs
 
 import pytest
-from .fixtures import fixture
 
 from kiln_controller.client import (
     Client,
@@ -51,14 +51,14 @@ class ClientTest(CleanupTestCase):
 
     # maxDiff = None  # I really do want to see the error
 
-    @fixture(mock_service_fixture)
+    @ kwargs['mock_service'] << mock_service_fixture()
     def test_client_init(self, mock_service):
         with mock_service.patch():
             client = Client()
         self.assertIsNotNone(client)
 
-    @fixture(mock_service_fixture)
-    @fixture(client_fixture)
+    @ kwargs['mock_service'] << mock_service_fixture()
+    @ kwargs['client'] << client_fixture()
     def _test_list_add(
         self, _type_list_getter, *args, iadd=False, mock_service, client
     ):
@@ -96,8 +96,8 @@ class ClientTest(CleanupTestCase):
 
             self.assertTrue(obj in _list)
 
-    @fixture(mock_service_fixture)
-    @fixture(user_fixture, skip_create=True, skip_cleanup=True)
+    @ kwargs['mock_service'] << mock_service_fixture()
+    @ kwargs['user'] << user_fixture(skip_create=True, skip_cleanup=True)
     def test_append_user_to_list(self, user, **_):
         return self._test_list_add(
             (User, lambda client: client.users),  # pylint: disable=missing-kwoa
@@ -105,8 +105,8 @@ class ClientTest(CleanupTestCase):
             user.username,
         )
 
-    @fixture(mock_service_fixture)
-    @fixture(user_fixture, skip_create=True, skip_cleanup=True)
+    @ kwargs['mock_service'] << mock_service_fixture()
+    @ kwargs['user'] << user_fixture(skip_create=True, skip_cleanup=True)
     def test_add_user_to_list(self, user, **_):
         return self._test_list_add(
             (User, lambda client: client.users),  # pylint: disable=missing-kwoa
@@ -151,8 +151,8 @@ class ClientTest(CleanupTestCase):
             1,
         )
 
-    @fixture(mock_service_fixture)
-    @fixture(client_fixture)
+    @ kwargs['mock_service'] << mock_service_fixture()
+    @ kwargs['client'] << client_fixture()
     def _test_post(self, resource, mock_service, client):
         """
         test that resources of type _type can be created using
@@ -170,15 +170,15 @@ class ClientTest(CleanupTestCase):
             # test post with resource.id fails
             self.assertRaises(AttributeError, resource.post, client)
 
-    @fixture(user_fixture, skip_create=True, skip_cleanup=True)
+    @ kwargs['user'] << user_fixture(skip_create=True, skip_cleanup=True)
     def test_post_user(self, user, **_):
         return self._test_post(
             user
         )  # pylint: disable=no-value-for-parameter,not-callable
 
-    @fixture(mock_service_fixture)
-    @fixture(client_fixture)
-    @fixture(user_fixture)
+    @ kwargs['mock_service'] << mock_service_fixture()
+    @ kwargs['client'] << client_fixture()
+    @ kwargs['user'] << user_fixture()
     def test_post_device(self, user, **kwargs):
         return self._test_post(
             Device("name", user.id, "host", 5000)
@@ -189,8 +189,8 @@ class ClientTest(CleanupTestCase):
             Schedule("name", USER_ID)
         )  # pylint: disable=no-value-for-parameter,not-callable
 
-    @fixture(mock_service_fixture)
-    @fixture(client_fixture)
+    @ kwargs['mock_service'] << mock_service_fixture()
+    @ kwargs['client'] << client_fixture()
     def _test_put(self, resource, mock_service, client):
         """
         test that resources of type _type can be created and updated using
@@ -218,7 +218,7 @@ class ClientTest(CleanupTestCase):
 
             self.assertEqual(name, resource2.name, "name not updated in put")
 
-    @fixture(user_fixture, skip_create=True, skip_cleanup=True)
+    @ kwargs['user'] << user_fixture(skip_create=True, skip_cleanup=True)
     def test_put_user(self, user, **_):
         return self._test_put(
             user
@@ -263,27 +263,27 @@ class ClientTest(CleanupTestCase):
         )
         self.assertIsNone(resource.id)
 
-    @fixture(mock_service_fixture)
-    @fixture(client_fixture)
-    @fixture(user_fixture, skip_cleanup=True)
+    @ kwargs['mock_service'] << mock_service_fixture()
+    @ kwargs['client'] << client_fixture()
+    @ kwargs['user'] << user_fixture(skip_cleanup=True)
     def test_delete_user_resource(self, client, user, mock_service, **kwargs):
         del client
         with mock_service.patch():
             return self._test_delete_resource(user, mock_service=mock_service)
 
-    @fixture(mock_service_fixture)
-    @fixture(client_fixture)
-    @fixture(user_fixture)
-    @fixture(device_fixture, skip_cleanup=True)
+    @ kwargs['mock_service'] << mock_service_fixture()
+    @ kwargs['client'] << client_fixture()
+    @ kwargs['user'] << user_fixture()
+    @ kwargs['device'] << device_fixture(skip_cleanup=True)
     def test_delete_device_resource(self, client, device, mock_service, **kwargs):
         del client
         with mock_service.patch():
             return self._test_delete_resource(device, mock_service=mock_service)
 
-    @fixture(mock_service_fixture)
-    @fixture(client_fixture)
-    @fixture(user_fixture)
-    @fixture(schedule_fixture, skip_cleanup=True)
+    @ kwargs['mock_service'] << mock_service_fixture()
+    @ kwargs['client'] << client_fixture()
+    @ kwargs['user'] << user_fixture()
+    @ kwargs['schedule'] << schedule_fixture(skip_cleanup=True)
     def test_delete_schedule_resource(self, client, schedule, mock_service, **kwargs):
         del client
         with mock_service.patch():
@@ -329,18 +329,18 @@ class ClientTest(CleanupTestCase):
             mock_service.calls,
         )
 
-    @fixture(mock_service_fixture)
-    @fixture(client_fixture)
-    @fixture(user_fixture)
+    @ kwargs['mock_service'] << mock_service_fixture()
+    @ kwargs['client'] << client_fixture()
+    @ kwargs['user'] << user_fixture()
     def test_delete_user_resource_by_list(self, client, user, mock_service, **kwargs):
         return self._test_delete_resource_by_list(
             client.users, user, mock_service=mock_service
         )
 
-    @fixture(mock_service_fixture)
-    @fixture(client_fixture)
-    @fixture(user_fixture)
-    @fixture(device_fixture)
+    @ kwargs['mock_service'] << mock_service_fixture()
+    @ kwargs['client'] << client_fixture()
+    @ kwargs['user'] << user_fixture()
+    @ kwargs['device'] << device_fixture()
     def test_delete_device_resource_by_list(
         self, client, device, mock_service, **kwargs
     ):
@@ -348,10 +348,10 @@ class ClientTest(CleanupTestCase):
             client.devices, device, mock_service=mock_service
         )
 
-    @fixture(mock_service_fixture)
-    @fixture(client_fixture)
-    @fixture(user_fixture)
-    @fixture(schedule_fixture)
+    @ kwargs['mock_service'] << mock_service_fixture()
+    @ kwargs['client'] << client_fixture()
+    @ kwargs['user'] << user_fixture()
+    @ kwargs['schedule'] << schedule_fixture()
     def test_delete_schedule_resource_by_list(
         self, client, schedule, mock_service, **kwargs
     ):
@@ -359,10 +359,10 @@ class ClientTest(CleanupTestCase):
             client.schedules, schedule, mock_service=mock_service
         )
 
-    @fixture(mock_service_fixture)
-    @fixture(client_fixture)
-    @fixture(user_fixture)
-    @fixture(schedule_fixture)
+    @ kwargs['mock_service'] << mock_service_fixture()
+    @ kwargs['client'] << client_fixture()
+    @ kwargs['user'] << user_fixture()
+    @ kwargs['schedule'] << schedule_fixture()
     def test_basic_schedule_phases_resource_list(
         self, schedule, mock_service, **kwargs
     ):
@@ -386,11 +386,11 @@ class ClientTest(CleanupTestCase):
             del schedule.phases[0]
             self.assertEqual([], schedule.phases)
 
-    @fixture(mock_service_fixture)
-    @fixture(client_fixture)
-    @fixture(user_fixture)
-    @fixture(schedule_fixture)
-    @fixture(phase_fixture)
+    @ kwargs['mock_service'] << mock_service_fixture()
+    @ kwargs['client'] << client_fixture()
+    @ kwargs['user'] << user_fixture()
+    @ kwargs['schedule'] << schedule_fixture()
+    @ kwargs['phase'] << phase_fixture()
     def test_schedule_phases_resource_list_clear_get(
         self, schedule, phase, client, mock_service, **kwargs
     ):
@@ -421,11 +421,11 @@ class ClientTest(CleanupTestCase):
             mock_service.calls,
         )
 
-    @fixture(mock_service_fixture)
-    @fixture(client_fixture)
-    @fixture(user_fixture)
-    @fixture(schedule_fixture, skip_cleanup=True)
-    @fixture(phase_fixture, skip_cleanup=True)
+    @ kwargs['mock_service'] << mock_service_fixture()
+    @ kwargs['client'] << client_fixture()
+    @ kwargs['user'] << user_fixture()
+    @ kwargs['schedule'] << schedule_fixture(skip_cleanup=True)
+    @ kwargs['phase'] << phase_fixture(skip_cleanup=True)
     def test_schedule_delete_deletes_phases(
         self, client, schedule, phase, mock_service, **kwargs
     ):

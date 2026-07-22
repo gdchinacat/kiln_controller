@@ -19,8 +19,8 @@ from kiln_controller.common import (
     ScheduleValidator,
     DeviceValidator,
 )
-from .fixtures import default_fixture_name, fixture
 from .helpers import SortedList
+from fixtures import kwargs
 
 __all__ = []
 
@@ -28,7 +28,7 @@ __all__ = []
 # TODO - move these @dataclass fixtures into .fixtures?
 
 
-@default_fixture_name("user")
+@kwargs.factory
 @dataclass
 class _User(UserValidator):
     """User @fixture"""
@@ -37,7 +37,7 @@ class _User(UserValidator):
     devices: List["_Device"] = field(default_factory=list)
 
 
-@default_fixture_name("device")
+@kwargs.factory
 @dataclass
 class _Device(DeviceValidator):
     """Device @fixture"""
@@ -49,7 +49,7 @@ class _Device(DeviceValidator):
             self.user.devices.append(self)
 
 
-@default_fixture_name("schedule")
+@kwargs.factory
 @dataclass
 class _Schedule(ScheduleValidator):
     """Schedule @fixture"""
@@ -69,7 +69,6 @@ class _Schedule(ScheduleValidator):
         return self.phases[-1].ordinal if self.phases else 10
 
 
-@default_fixture_name("phase")
 @dataclass
 class _Phase:
     """Schedule @fixture"""
@@ -82,7 +81,7 @@ class _Phase:
     def __post_init__(self):
         self.schedule.phases.append(self)
 
-    @default_fixture_name("phase")
+    @kwargs.factory
     @staticmethod
     def ramp(schedule, temperature=1000, ordinal=None, **kwargs):
         return _Phase(
@@ -92,7 +91,7 @@ class _Phase:
             schedule,
         )
 
-    @default_fixture_name("phase")
+    @kwargs.factory
     @staticmethod
     def constant(schedule, temperature=1000, ordinal=None, **kwargs):
         return _Phase(
@@ -119,49 +118,56 @@ class _ValidatorTestCase(TestCase):
         self.assertEqual(error, ve.exception.error)
 
 
+def print(func):
+    def wrap(*args, **kwargs):
+        print(f'{args=} {kwargs=}')
+        return func(*args, **kwargs)
+    return wrap
+    
 class TestScheduleValidator(_ValidatorTestCase):
     """Test the schedule validator"""
 
-    @fixture(_Schedule)
-    @fixture(_Phase.constant)
+    @ kwargs['schedule'] << _Schedule()
+    @ print
+    @ kwargs['phase'] << _Phase.constant()
     def test_first_phase_must_be_ramp(self, schedule, **_):
         self.assertInvalid(schedule, ValidationErrors.FIRST_PHASE_NOT_RAMP)
 
-    @fixture(_Schedule)
-    @fixture(_Phase.ramp, temperature=1000)
-    @fixture(_Phase.constant, temperature=1500)
+    @ kwargs['schedule'] << _Schedule()
+    @ kwargs['phase'] << _Phase.ramp(temperature=1000)
+    @ kwargs['phase'] << _Phase.constant(temperature=1500)
     def test_temperature_must_be_continous(self, schedule, **_):
         self.assertInvalid(schedule, ValidationErrors.TEMPERATURE_NOT_CONTINUOUS)
 
-    @fixture(_Schedule)
-    @fixture(_Phase.ramp)
-    @fixture(_Phase.constant)
-    @fixture(_Phase.constant)
+    @ kwargs['schedule'] << _Schedule()
+    @ kwargs['phase'] << _Phase.ramp()
+    @ kwargs['phase'] << _Phase.constant()
+    @ kwargs['phase'] << _Phase.constant()
     def test_no_sequential_constant_phases(self, schedule, **_):
         self.assertInvalid(schedule, ValidationErrors.SEQUENTIAL_CONSTANT_PHASES)
 
-    @fixture(_Schedule)
-    @fixture(_Phase.ramp)
-    @fixture(_Phase.ramp)
+    @ kwargs['schedule'] << _Schedule()
+    @ kwargs['phase'] << _Phase.ramp()
+    @ kwargs['phase'] << _Phase.ramp()
     def test_no_dupliate_ramp_temperatures(self, schedule, **_):
         self.assertInvalid(schedule, ValidationErrors.DUPLICATE_RAMP_TEMPERATURES)
 
 
 class TestUserValidator(_ValidatorTestCase):
 
-    @fixture(_User)
+    @ kwargs['user'] << _User()
     def test_user_delete_no_schedule_no_device(self, user):
         user.validate_delete()
 
-    @fixture(_User)
-    @fixture(_Schedule)
+    @ kwargs['user'] << _User()
+    @ kwargs['shedule'] << _Schedule()
     def test_user_delete_with_schedule_error(self, user, **_):
         with self.assertRaises(ValidationError) as ve:
             user.validate_delete()
         self.assertEqual(ValidationErrors.USER_HAS_SCHEDULES, ve.exception.error)
 
-    @fixture(_User)
-    @fixture(_Device)
+    @ kwargs['user'] << _User()
+    @ kwargs['device'] << _Device()
     def test_user_delete_with_device_error(self, user, **_):
         with self.assertRaises(ValidationError) as ve:
             user.validate_delete()

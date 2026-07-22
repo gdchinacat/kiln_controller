@@ -14,11 +14,11 @@ import logging
 import os
 
 import pytest
-from .fixtures import fixture
 
 from kiln_controller.client import Phase
 from .mock_service import LIVE_SERVICE
 from kiln_controller.common import PhaseType, ValidationError, ValidationErrors
+from fixtures import kwargs
 from .fixtures import (
     CleanupTestCase,
     mock_service_fixture,
@@ -87,10 +87,10 @@ class PhaseTest(CleanupTestCase):
             kwargs = yield Phase(ordinal=next(ordinal), parent=schedule, **kwargs)
 
     @pytest.mark.skipif(not LIVE_SERVICE, reason="mocks do not perform validation")
-    @fixture(mock_service_fixture)
-    @fixture(client_fixture)
-    @fixture(user_fixture)
-    @fixture(schedule_fixture)
+    @ kwargs['mock_service'] << mock_service_fixture()
+    @ kwargs['client'] << client_fixture()
+    @ kwargs['user'] << user_fixture()
+    @ kwargs['schedule'] << schedule_fixture()
     def test_first_phase_must_be_ramp_error(self, schedule, mock_service, **_):
         """
         Verify an error occurs if the first phase is not a RAMP.
@@ -106,10 +106,10 @@ class PhaseTest(CleanupTestCase):
         self.assertEqual(ValidationErrors.FIRST_PHASE_NOT_RAMP, ve.exception.error)
 
     @pytest.mark.skipif(not LIVE_SERVICE, reason="mocks do not perform validation")
-    @fixture(mock_service_fixture)
-    @fixture(client_fixture)
-    @fixture(user_fixture)
-    @fixture(schedule_fixture)
+    @ kwargs['mock_service'] << mock_service_fixture()
+    @ kwargs['client'] << client_fixture()
+    @ kwargs['user'] << user_fixture()
+    @ kwargs['schedule'] << schedule_fixture()
     def test_sequential_ramp_different_temperature(self, schedule, mock_service, **_):
         """
         test that sequential RAMP can't have same temperature
@@ -125,10 +125,10 @@ class PhaseTest(CleanupTestCase):
         )
 
     @pytest.mark.skipif(not LIVE_SERVICE, reason="mocks do not perform validation")
-    @fixture(mock_service_fixture)
-    @fixture(client_fixture)
-    @fixture(user_fixture)
-    @fixture(schedule_fixture)
+    @ kwargs['mock_service'] << mock_service_fixture()
+    @ kwargs['client'] << client_fixture()
+    @ kwargs['user'] << user_fixture()
+    @ kwargs['schedule'] << schedule_fixture()
     def test_sequential_constant_phases_error(self, schedule, mock_service, **_):
         """
         Since temperatures must be continuous and PhaseType.CONSTANT phases do
@@ -152,10 +152,10 @@ class PhaseTest(CleanupTestCase):
         )
 
     @pytest.mark.skipif(not LIVE_SERVICE, reason="mocks do not perform validation")
-    @fixture(mock_service_fixture)
-    @fixture(client_fixture)
-    @fixture(user_fixture)
-    @fixture(schedule_fixture)
+    @ kwargs['mock_service'] << mock_service_fixture()
+    @ kwargs['client'] << client_fixture()
+    @ kwargs['user'] << user_fixture()
+    @ kwargs['schedule'] << schedule_fixture()
     def test_discountinous_temperature_error(self, schedule, mock_service, **_):
         """test the requirement that phases temperature must be continuous"""
         phases = self.phase_generator(schedule)

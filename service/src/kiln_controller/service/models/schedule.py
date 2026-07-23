@@ -68,6 +68,20 @@ class Phase(PhaseValidator, Base, table=True):
     ordinals between phases to allow subsequent insertions. Since it is not
     expected have more than 10 or so phases per schedule gaps of 10 should be
     sufficient (so BASIC).
+
+    TODO - Clients should not be required to manage this directly as doing so
+           does not fit the single-resource REST endpoints provided by the
+           API. Suppose an existing set of phases with ordinals {1, 2, 3}.
+           Inserting a phase between 1 and 2 requires that 3 be updated to 4,
+           2 be updated to 3, then the new phase can be inserted at 2. This is
+           cumbersome, requires gaps in ordinals be allowed (precluding [n-1]),
+           and is not atomic, and requires unmodeled fields in requests to
+           specify where to insert.
+           This is being deferred to reduce server complexity by moving it to
+           the client. This deferral may be revisited during implementation
+           since the problem is essentially the same, the differences being
+           API support for specifying where to insert vs supporting gaps. Gaps
+           aren't as hard to handle as API, so it is deferred (for now).
     """
 
     phase_type: PhaseType = Field(sa_column=Column(SAEnum(PhaseType), nullable=False))

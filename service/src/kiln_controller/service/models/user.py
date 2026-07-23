@@ -2,7 +2,7 @@
 Users ORM
 """
 
-from typing import ClassVar, Dict, Optional, List, TYPE_CHECKING
+from typing import ClassVar, TYPE_CHECKING
 
 from sqlmodel import Field, Relationship
 
@@ -20,21 +20,21 @@ class User(UserValidator, Base, table=True):
     """
 
     __tablename__ = "users"
-    PUBLIC_FIELDS: ClassVar[Dict] = Base.PUBLIC_FIELDS | {
-        "username": None,
-        "email": None,
-        "phone_number": None,
+    __public_fields__: ClassVar[set[str]] = Base.__public_fields__ | {
+        "username",
+        "email",
+        "phone_number",
     }
 
     username: str = Field(max_length=16, unique=True)
-    email: Optional[str] = Field(default=None)
-    phone_number: Optional[str] = Field(default=None)
+    email: str | None = Field(default=None)
+    phone_number: str | None = Field(default=None)
 
-    schedules: List["Schedule"] = Relationship(
+    schedules: list["Schedule"] = Relationship(
         back_populates="user",
         sa_relationship_kwargs={"viewonly": True, "lazy": True},
     )
-    devices: List["Device"] = Relationship(
+    devices: list["Device"] = Relationship(
         back_populates="user",
         sa_relationship_kwargs={"viewonly": True, "lazy": True},
     )

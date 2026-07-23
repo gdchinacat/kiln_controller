@@ -3,14 +3,15 @@ Schedule related ORMs
 """
 
 from datetime import time
-from typing import ClassVar, Dict, List, Optional
+from typing import ClassVar
 
 from sqlalchemy import UniqueConstraint, Enum as SAEnum
 from sqlmodel import Field, Relationship, Column
+from pydantic import field_serializer
 
 from ...common import PhaseType, ScheduleValidator, PhaseValidator
 from .base import Base
-from .users import User
+from .user import User
 
 __all__ = ["Phase", "Schedule"]
 
@@ -21,15 +22,15 @@ class Schedule(ScheduleValidator, Base, table=True):  # pylint: disable=too-few-
     """
 
     __tablename__ = "schedules"
-    PUBLIC_FIELDS: ClassVar[Dict] = Base.PUBLIC_FIELDS | {"user_id": None}
+    __public_fields__: ClassVar[set[str]] = Base.__public_fields__ | {"user_id"}
 
     user_id: int = Field(foreign_key="users.id")
-    user: Optional[User] = Relationship(
+    user: User | None = Relationship(
         back_populates="schedules",
         sa_relationship_kwargs={"viewonly": True, "lazy": True},
     )
 
-    phases: List["Phase"] = Relationship(
+    phases: list["Phase"] = Relationship(
         back_populates="schedule",
         sa_relationship_kwargs={
             "order_by": "Phase.ordinal",
@@ -50,13 +51,13 @@ class Phase(PhaseValidator, Base, table=True):
         UniqueConstraint("schedule_id", "ordinal"),
     )
 
-    PUBLIC_FIELDS: ClassVar[Dict] = Base.PUBLIC_FIELDS | {
-        "phase_type": lambda x: x.name if x else None,
-        "duration": lambda x: x.isoformat() if x else None,
-        "rate": None,
-        "temperature": None,
-        "ordinal": None,
-        "schedule_id": None,
+    __public_fields__: ClassVar[set[str]] = Base.__public_fields__ | {
+        "phase_type",
+        "duration",
+        "rate",
+        "temperature",
+        "ordinal",
+        "schedule_id",
     }
 
     ordinal: int
@@ -72,14 +73,14 @@ class Phase(PhaseValidator, Base, table=True):
     phase_type: PhaseType = Field(sa_column=Column(SAEnum(PhaseType), nullable=False))
     """the type of the phase"""
 
-    duration: Optional[time] = Field(default=None)
+    duration: time | None = Field(default=None)
     """
     How long the phase lasts in minutes.
 
     duration is unset for type==RAMP
     """
 
-    rate: Optional[int] = Field(default=None)
+    rate: int | None = Field(default=None)
     """
     The rate the temperature should be changed at in C/min.
 
@@ -88,7 +89,7 @@ class Phase(PhaseValidator, Base, table=True):
     rapidly as possible.
     """
 
-    temperature: Optional[int] = Field(default=None)
+    temperature: int | None = Field(default=None)
     """
     The temperature the phase maintains (CONSTANT) or ends with (RAMP).
 
@@ -96,7 +97,7 @@ class Phase(PhaseValidator, Base, table=True):
     """
 
     schedule_id: int = Field(foreign_key="schedules.id")
-    schedule: Optional[Schedule] = Relationship(
+    schedule: Schedule | None = Relationship(
         back_populates="phases",
         sa_relationship_kwargs={"viewonly": True, "lazy": True},
     )
@@ -105,3 +106,8 @@ class Phase(PhaseValidator, Base, table=True):
     def validate_create_or_update(self):
         """Phase validation is delegated to Schedule.validate_create_or_update()."""
         return self.schedule.validate_create_or_update()
+
+    @field_serializer("phase_type")
+    def serialize_phase_type(self, v: PhaseType) -> str | None:
+        """Serialize PhaseType enum to its name string."""
+        return v.name if v is not None else None

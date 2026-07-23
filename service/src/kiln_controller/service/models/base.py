@@ -2,41 +2,32 @@
 Base class for mapped resources.
 """
 
-from typing import ClassVar, Dict, Optional
+from typing import ClassVar
 from sqlmodel import SQLModel, Field
 
 
 class Base(SQLModel):
     """
     Base class for all ORM models.
-
-    Uses SQLModel which combines SQLAlchemy with Pydantic to provide
-    automatic field validation without requiring manual validation code.
     """
 
-    PUBLIC_FIELDS: ClassVar[Dict] = {"id": None, "name": None}
+    __public_fields__: ClassVar[set[str]] = {"id", "name"}
     """
-    Subclasses must include the fields they want to expose through api.
-
-    Keys are field name.
-    Values are the marshalling function for the field (type conversion). None
-    means marshal as is.
+    The attributes that should be serialized.
     """
 
-    model_config = {"arbitrary_types_allowed": True}
-
-    id: Optional[int] = Field(default=None, primary_key=True)
-    """all model dataclasses contain a primary key named id"""
+    id: int | None = Field(default=None, primary_key=True)
+    """
+    All model dataclasses contain a primary key named id.
+    id is optional only to support database assignment.
+    """
 
     name: str = Field(max_length=30)
     """all model dataclasses contain a name"""
 
-    def asdict(self):
-        """marshal the model as a json dict"""
-        return {
-            name: (marshaler or (lambda x: x))(getattr(self, name))
-            for (name, marshaler) in self.PUBLIC_FIELDS.items()
-        }
+    def asdict(self) -> dict:
+        """Serialize the model to a JSON-safe dict of public fields."""
+        return self.model_dump(mode="json", include=self.__public_fields__)
 
     def validate_create_or_update(self):
         """

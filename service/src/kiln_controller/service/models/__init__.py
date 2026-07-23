@@ -3,7 +3,7 @@ The server-side data models for the kiln_controller service.
 """
 
 from .base import Base
-from .users import User
+from .user import User
 from .schedule import Schedule, Phase
 from .device import Device
 

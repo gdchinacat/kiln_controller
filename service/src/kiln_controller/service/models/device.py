@@ -23,7 +23,7 @@ class Device(DeviceValidator, Base, table=True):
 
     host: str
     port: int
-    url: str |  None = Field(default=None)
+    url: str | None = Field(default=None)
     user_id: int = Field(foreign_key="users.id")
     user: User | None = Relationship(
         back_populates="devices",

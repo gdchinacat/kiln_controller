@@ -38,16 +38,11 @@ class TestResources(TestCase):
 class TestPhases(CleanupTestCase):
     """Test phases"""
 
-    @ kwargs['mock_service'] << mock_service_fixture()
-    @ kwargs['client'] << client_fixture()
-    @ kwargs['user'] << user_fixture()
-    @ kwargs['schedule'] << schedule_fixture()
-    def test_phase_order(
-        self,
-        mock_service,
-        schedule,
-        **kwargs
-    ):
+    @ kwargs["mock_service"] << mock_service_fixture()
+    @ kwargs["client"] << client_fixture()
+    @ kwargs["user"] << user_fixture()
+    @ kwargs["schedule"] << schedule_fixture()
+    def test_phase_order(self, mock_service, schedule, **kwargs):
         """
         Test that phases are ordered by ordinal rather than insert order.
 

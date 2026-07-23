@@ -146,7 +146,10 @@ class BaseResource(Resource, ABC):
                     del j[attr]
             # raise an error if any attributes can't be processed.
             if j:
-                return (error(f"unexpected values: {j}"), HTTPStatus.UNPROCESSABLE_ENTITY)
+                return (
+                    error(f"unexpected values: {j}"),
+                    HTTPStatus.UNPROCESSABLE_ENTITY,
+                )
 
             db_.session.commit()
             db_.session.refresh(orm)

@@ -120,54 +120,56 @@ class _ValidatorTestCase(TestCase):
 
 def print(func):
     def wrap(*args, **kwargs):
-        print(f'{args=} {kwargs=}')
+        print(f"{args=} {kwargs=}")
         return func(*args, **kwargs)
+
     return wrap
-    
+
+
 class TestScheduleValidator(_ValidatorTestCase):
     """Test the schedule validator"""
 
-    @ kwargs['schedule'] << _Schedule()
-    @ print
-    @ kwargs['phase'] << _Phase.constant()
+    @ kwargs["schedule"] << _Schedule()
+    @print
+    @ kwargs["phase"] << _Phase.constant()
     def test_first_phase_must_be_ramp(self, schedule, **_):
         self.assertInvalid(schedule, ValidationErrors.FIRST_PHASE_NOT_RAMP)
 
-    @ kwargs['schedule'] << _Schedule()
-    @ kwargs['phase'] << _Phase.ramp(temperature=1000)
-    @ kwargs['phase'] << _Phase.constant(temperature=1500)
+    @ kwargs["schedule"] << _Schedule()
+    @ kwargs["phase"] << _Phase.ramp(temperature=1000)
+    @ kwargs["phase"] << _Phase.constant(temperature=1500)
     def test_temperature_must_be_continous(self, schedule, **_):
         self.assertInvalid(schedule, ValidationErrors.TEMPERATURE_NOT_CONTINUOUS)
 
-    @ kwargs['schedule'] << _Schedule()
-    @ kwargs['phase'] << _Phase.ramp()
-    @ kwargs['phase'] << _Phase.constant()
-    @ kwargs['phase'] << _Phase.constant()
+    @ kwargs["schedule"] << _Schedule()
+    @ kwargs["phase"] << _Phase.ramp()
+    @ kwargs["phase"] << _Phase.constant()
+    @ kwargs["phase"] << _Phase.constant()
     def test_no_sequential_constant_phases(self, schedule, **_):
         self.assertInvalid(schedule, ValidationErrors.SEQUENTIAL_CONSTANT_PHASES)
 
-    @ kwargs['schedule'] << _Schedule()
-    @ kwargs['phase'] << _Phase.ramp()
-    @ kwargs['phase'] << _Phase.ramp()
+    @ kwargs["schedule"] << _Schedule()
+    @ kwargs["phase"] << _Phase.ramp()
+    @ kwargs["phase"] << _Phase.ramp()
     def test_no_dupliate_ramp_temperatures(self, schedule, **_):
         self.assertInvalid(schedule, ValidationErrors.DUPLICATE_RAMP_TEMPERATURES)
 
 
 class TestUserValidator(_ValidatorTestCase):
 
-    @ kwargs['user'] << _User()
+    @ kwargs["user"] << _User()
     def test_user_delete_no_schedule_no_device(self, user):
         user.validate_delete()
 
-    @ kwargs['user'] << _User()
-    @ kwargs['shedule'] << _Schedule()
+    @ kwargs["user"] << _User()
+    @ kwargs["shedule"] << _Schedule()
     def test_user_delete_with_schedule_error(self, user, **_):
         with self.assertRaises(ValidationError) as ve:
             user.validate_delete()
         self.assertEqual(ValidationErrors.USER_HAS_SCHEDULES, ve.exception.error)
 
-    @ kwargs['user'] << _User()
-    @ kwargs['device'] << _Device()
+    @ kwargs["user"] << _User()
+    @ kwargs["device"] << _Device()
     def test_user_delete_with_device_error(self, user, **_):
         with self.assertRaises(ValidationError) as ve:
             user.validate_delete()

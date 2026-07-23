@@ -81,7 +81,7 @@ def cleanup(func):
         resource = func(mock_service=mock_service, **kwargs)
         # TODO - figure out how to skip cleanup without self (passing self
         #        to fixture functions was a misstep IMO).
-        #if not skip_cleanup:
+        # if not skip_cleanup:
         #    self.cleanup(mock_service, resource)
         return resource
 

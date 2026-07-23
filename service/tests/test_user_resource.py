@@ -34,10 +34,10 @@ class UserTest(CleanupTestCase):
     """
 
     @pytest.mark.skipif(not LIVE_SERVICE, reason="mocks do not perform validation")
-    @ kwargs['mock_service'] << mock_service_fixture()
-    @ kwargs['client'] << client_fixture()
-    @ kwargs['user'] << user_fixture()
-    @ kwargs['schedule'] << schedule_fixture()
+    @ kwargs["mock_service"] << mock_service_fixture()
+    @ kwargs["client"] << client_fixture()
+    @ kwargs["user"] << user_fixture()
+    @ kwargs["schedule"] << schedule_fixture()
     def test_user_delete_fails_with_schedule(self, user, mock_service, **_):
         """
         Verify an error occurs if a user delete is attempted while the user has
@@ -50,10 +50,10 @@ class UserTest(CleanupTestCase):
         self.assertEqual(ValidationErrors.USER_HAS_SCHEDULES, ve.exception.error)
 
     @pytest.mark.skipif(not LIVE_SERVICE, reason="mocks do not perform validation")
-    @ kwargs['mock_service'] << mock_service_fixture()
-    @ kwargs['client'] << client_fixture()
-    @ kwargs['user'] << user_fixture()
-    @ kwargs['device'] << device_fixture()
+    @ kwargs["mock_service"] << mock_service_fixture()
+    @ kwargs["client"] << client_fixture()
+    @ kwargs["user"] << user_fixture()
+    @ kwargs["device"] << device_fixture()
     def test_user_delete_fails_with_devices(self, user, mock_service, **_):
         """
         Verify an error occurs if a user delete is attempted while the user has

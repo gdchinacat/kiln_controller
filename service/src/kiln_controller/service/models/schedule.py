@@ -16,7 +16,9 @@ from .user import User
 __all__ = ["Phase", "Schedule"]
 
 
-class Schedule(ScheduleValidator, Base, table=True):  # pylint: disable=too-few-public-methods
+class Schedule(
+    ScheduleValidator, Base, table=True
+):  # pylint: disable=too-few-public-methods
     """
     A schedule is a definition of how a firing should be executed.
     """

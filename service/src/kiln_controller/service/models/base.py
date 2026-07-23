@@ -2,7 +2,7 @@
 Base class for mapped resources.
 """
 
-from typing import ClassVar
+from typing import ClassVar, Any
 from sqlmodel import SQLModel, Field
 
 
@@ -25,11 +25,11 @@ class Base(SQLModel):
     name: str = Field(max_length=30)
     """all model dataclasses contain a name"""
 
-    def asdict(self) -> dict:
+    def asdict(self) -> dict[str, Any]:  # todo TypedDict based on pydantic model?
         """Serialize the model to a JSON-safe dict of public fields."""
         return self.model_dump(mode="json", include=self.__public_fields__)
 
-    def validate_create_or_update(self):
+    def validate_create_or_update(self) -> None:
         """
         Validate this resource is valid and in a consistent state. Called
         by the Resource or children ResourceList classes when updated.
@@ -37,7 +37,7 @@ class Base(SQLModel):
         raises ValidationError when the validation fails.
         """
 
-    def validate_delete(self):
+    def validate_delete(self) -> None:
         """
         Validate this resource can be deleted.
 

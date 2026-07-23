@@ -16,9 +16,7 @@ from .user import User
 __all__ = ["Phase", "Schedule"]
 
 
-class Schedule(
-    ScheduleValidator, Base, table=True
-):  # pylint: disable=too-few-public-methods
+class Schedule(ScheduleValidator, Base, table=True):
     """
     A schedule is a definition of how a firing should be executed.
     """
@@ -26,8 +24,8 @@ class Schedule(
     __tablename__ = "schedules"
     __public_fields__: ClassVar[set[str]] = Base.__public_fields__ | {"user_id"}
 
-    user_id: int = Field(foreign_key="users.id")
-    user: User | None = Relationship(
+    user_id: int = Field(foreign_key="users.id")  # todo? - serialize user as user_id=user.id
+    user: User = Relationship(
         back_populates="schedules",
         sa_relationship_kwargs={"viewonly": True, "lazy": True},
     )
@@ -99,15 +97,15 @@ class Phase(PhaseValidator, Base, table=True):
     """
 
     schedule_id: int = Field(foreign_key="schedules.id")
-    schedule: Schedule | None = Relationship(
+    schedule: Schedule = Relationship(
         back_populates="phases",
         sa_relationship_kwargs={"viewonly": True, "lazy": True},
     )
     """the schedule the phase is part of"""
 
-    def validate_create_or_update(self):
+    def validate_create_or_update(self) -> None:
         """Phase validation is delegated to Schedule.validate_create_or_update()."""
-        return self.schedule.validate_create_or_update()
+        self.schedule.validate_create_or_update()
 
     @field_serializer("phase_type")
     def serialize_phase_type(self, v: PhaseType) -> str | None:

@@ -131,9 +131,6 @@ class BaseResource(Resource, ABC):
                require all clients to use POST to remove the possibility that
                clients will clobber existing entities.
         Create or update a resource by id.
-
-        SQLModel/Pydantic validates the fields automatically when the model
-        is instantiated, replacing the need for manual field validation.
         """
         j = request.json
         orm = self._lookup(db_, id)

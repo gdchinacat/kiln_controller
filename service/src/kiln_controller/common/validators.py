@@ -105,7 +105,7 @@ class ScheduleValidator(ValidatorMixinBase):
 
     # phases: list[Phase]  # provided by class this is mixed with
 
-    def validate_create_or_update(self):
+    def validate_create_or_update(self) -> None:
         """
         Validate the schedule is valid.
 

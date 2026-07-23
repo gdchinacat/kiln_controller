@@ -87,6 +87,8 @@ class BaseResource(Resource, ABC):
                 return func(*args, **kwargs)
             except ValidationError as ve:
                 return ve.json(), HTTPStatus.UNPROCESSABLE_ENTITY
+            except PydanticValidationError as e:
+                return error(str(e)), HTTPStatus.UNPROCESSABLE_ENTITY
 
         return validation_error_response_handler
 
@@ -134,31 +136,28 @@ class BaseResource(Resource, ABC):
         is instantiated, replacing the need for manual field validation.
         """
         j = request.json
-        try:
-            orm = self._lookup(db_, id)
-            if orm is None:
-                orm = self.TYPE(**j)  # pylint: disable=not-callable
-                orm.id = id
-                db_.session.add(orm)
-            for attr in orm.asdict().keys():
-                if attr in j:
-                    setattr(orm, attr, j[attr])
-                    del j[attr]
-            # raise an error if any attributes can't be processed.
-            if j:
-                return (
-                    error(f"unexpected values: {j}"),
-                    HTTPStatus.UNPROCESSABLE_ENTITY,
-                )
+        orm = self._lookup(db_, id)
+        if orm is None:
+            orm = self.TYPE(**j)  # pylint: disable=not-callable
+            orm.id = id
+            db_.session.add(orm)
+        for attr in orm.asdict().keys():
+            if attr in j:
+                setattr(orm, attr, j[attr])
+                del j[attr]
+        # raise an error if any attributes can't be processed.
+        if j:
+            return (
+                error(f"unexpected values: {j}"),
+                HTTPStatus.UNPROCESSABLE_ENTITY,
+            )
 
-            db_.session.commit()
-            db_.session.refresh(orm)
-            return orm.asdict()
-        except PydanticValidationError as e:
-            return error(str(e)), HTTPStatus.UNPROCESSABLE_ENTITY
+        db_.session.commit()
+        db_.session.refresh(orm)
+        return orm.asdict()
 
-    @db
     @_validation_error_response_handler
+    @db
     def delete(self, id, *, db_):
         """delete the resource"""
         orm = self._lookup(db_, id)
@@ -200,11 +199,8 @@ class BaseListResource(Resource):
                 db_.session.flush()
                 orm.validate_create_or_update()
             return orm.asdict()
-        except PydanticValidationError as e:
-            # todo - doesn't appear to be covered by tests.
-            return error(str(e)), HTTPStatus.UNPROCESSABLE_ENTITY
-        except ValidationError:
-            raise  # let decorator handle it
+        except (ValidationError, PydanticValidationError):
+            raise
         except IntegrityError as e:
             # todo - we should not be getting IntegrityErrors from the database
             #        since that indicates validation was lacking. But...that's

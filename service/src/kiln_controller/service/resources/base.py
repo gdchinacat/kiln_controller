@@ -14,7 +14,6 @@ from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy.exc import NoResultFound, IntegrityError
 
 from ...common import ValidationError
-import sqlalchemy
 
 __all__ = []
 

@@ -6,7 +6,6 @@ mocks.
 """
 
 from enum import Enum
-from typing import ClassVar, List, Dict, Type, TypeVar
 
 from .enums import PhaseType
 
@@ -23,20 +22,17 @@ class ValidationErrors(Enum):
     USER_MANAGES_DEVICES = 6
 
 
-_ValidationError = TypeVar("_ValidationError", bound="ValidationError")
-
-
 class ValidationError(Exception):
     """Exception indicating a validation error has occurred."""
 
-    def __init__(self, error: ValidationErrors, *args):
+    def __init__(self, error: ValidationErrors, *args: object) -> None:
         super().__init__(*args)
         self.error = error
 
     @classmethod
     def from_json(
-        cls: Type[_ValidationError], json: Dict[str, str]
-    ) -> _ValidationError | None:
+        cls: type[ValidationError], json: dict[str, str]
+    ) -> ValidationError | None:
         """
         Reconstitute a ValidationError from json.
 
@@ -83,8 +79,8 @@ class ValidatorMixinBase:
 class UserValidator(ValidatorMixinBase):
     """user validation"""
 
-    schedules: ClassVar[List]
-    devices: ClassVar[List]
+    # schedules: list[Schedule]  # provided by class this is mixed with
+    # devices: list[Devvice]  # provided by class this is mixed with
 
     def validate_delete(self):
         """validate the user can be deleted"""
@@ -107,7 +103,7 @@ class DeviceValidator(ValidatorMixinBase):
 class ScheduleValidator(ValidatorMixinBase):
     """schedule validation"""
 
-    phases: ClassVar[List]
+    # phases: list[Phase]  # provided by class this is mixed with
 
     def validate_create_or_update(self):
         """
@@ -182,7 +178,7 @@ class ScheduleValidator(ValidatorMixinBase):
 class PhaseValidator(ValidatorMixinBase):
     """phase validation"""
 
-    schedule: ClassVar = None
+    schedule = None
 
     def validate_create_or_update(self):
         super().validate_create_or_update()

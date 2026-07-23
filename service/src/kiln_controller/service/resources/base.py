@@ -153,7 +153,6 @@ class BaseResource(Resource, ABC):
             )
 
         db_.session.commit()
-        db_.session.refresh(orm)
         return orm.asdict()
 
     @_validation_error_response_handler

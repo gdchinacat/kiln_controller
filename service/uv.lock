@@ -164,7 +164,7 @@ wheels = [
 [[package]]
 name = "fixtures"
 version = "0.1.0"
-source = { directory = "../../fixtures" }
+source = { editable = "../../fixtures" }
 
 [package.metadata]
 
@@ -339,7 +339,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "fixtures", directory = "../../fixtures" },
+    { name = "fixtures", editable = "../../fixtures" },
     { name = "flask", specifier = ">=3.1.3" },
     { name = "flask-cors", specifier = ">=6.0.5" },
     { name = "flask-restful", specifier = ">=0.3.10" },

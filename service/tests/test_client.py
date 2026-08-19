@@ -11,10 +11,11 @@ Test the kiln_controller python client library.
 from contextlib import contextmanager
 import random
 from typing import Any
-from fixtures import kwargs
+import unittest
 
 import pytest
 
+from fixtures import kwargs
 from kiln_controller.client import (
     Client,
     User,
@@ -24,10 +25,9 @@ from kiln_controller.client import (
     NotFoundException,
 )
 from kiln_controller.client.client import DEFAULT_TIMEOUT
-from .mock_service import Call
 from kiln_controller.common.enums import PhaseType
-from .fixtures import (
-    CleanupTestCase,
+
+from ._fixtures import (
     mock_service_fixture,
     client_fixture,
     device_fixture,
@@ -35,13 +35,14 @@ from .fixtures import (
     schedule_fixture,
     phase_fixture,
 )
+from .mock_service import Call
 
 # throwaway ids to make arg lists readable
 # todo - get rid of USER_ID, use actual resources
 USER_ID = 1
 
 
-class ClientTest(CleanupTestCase):
+class ClientTest(unittest.TestCase):
     """
     Test the kiln_controller Client
 
@@ -84,7 +85,6 @@ class ClientTest(CleanupTestCase):
                 _list += obj
             else:
                 _list.append(obj)
-            self.cleanup(mock_service, obj)
 
             # make sure the obj exists in the resource list
             self.assertTrue(obj in _list, f"{obj} not in {_list}")
@@ -164,13 +164,13 @@ class ClientTest(CleanupTestCase):
             # test post success
             resource.post(client)
 
-            self.cleanup(mock_service, resource)
             self.assertIsNotNone(resource.id, "post failed to assign id to resource")
 
             # test post with resource.id fails
             self.assertRaises(AttributeError, resource.post, client)
 
-    @ kwargs["user"] << user_fixture(skip_create=True, skip_cleanup=True)
+    @ kwargs["mock_service"] << mock_service_fixture()
+    @ kwargs["user"] << user_fixture(skip_create=True)
     def test_post_user(self, user, **_):
         return self._test_post(
             user
@@ -179,14 +179,20 @@ class ClientTest(CleanupTestCase):
     @ kwargs["mock_service"] << mock_service_fixture()
     @ kwargs["client"] << client_fixture()
     @ kwargs["user"] << user_fixture()
-    def test_post_device(self, user, **kwargs):
+    @ kwargs["device"] << device_fixture(skip_create=True)
+    def test_post_device(self, device, **kwargs):
         return self._test_post(
-            Device("name", user.id, "host", 5000)
+            device
         )  # pylint: disable=no-value-for-parameter,not-callable
 
-    def test_post_schedule(self):
+    @ kwargs["mock_service"] << mock_service_fixture()
+    @ kwargs["client"] << client_fixture()
+    @ kwargs["user"] << user_fixture()
+    @ kwargs["schedule"] << schedule_fixture(skip_create=True)
+    def test_post_schedule(self, user, schedule, **_):
+        # todo how did this ever work? schedule should require a user!!!
         return self._test_post(
-            Schedule("name", USER_ID)
+            schedule
         )  # pylint: disable=no-value-for-parameter,not-callable
 
     @ kwargs["mock_service"] << mock_service_fixture()
@@ -208,8 +214,6 @@ class ClientTest(CleanupTestCase):
             resource.name = name
             resource.put(client)
 
-            self.cleanup(mock_service, resource)
-
             # Verify name is updated by creating a new bare Resource with only
             # id and getting it with the client.
             resource2 = type(resource).__new__(type(resource))
@@ -218,20 +222,29 @@ class ClientTest(CleanupTestCase):
 
             self.assertEqual(name, resource2.name, "name not updated in put")
 
-    @ kwargs["user"] << user_fixture(skip_create=True, skip_cleanup=True)
+    @ kwargs["mock_service"] << mock_service_fixture()
+    @ kwargs["user"] << user_fixture(skip_create=True)
     def test_put_user(self, user, **_):
         return self._test_put(
             user
         )  # pylint: disable=no-value-for-parameter,not-callable
 
-    def test_put_device(self):
+    @ kwargs["mock_service"] << mock_service_fixture()
+    @ kwargs["client"] << client_fixture()
+    @ kwargs["user"] << user_fixture()
+    @ kwargs["device"] << device_fixture(skip_create=True)
+    def test_put_device(self, device, **_):
         return self._test_put(
-            Device("name", USER_ID, "host", 5000)
+            device,
         )  # pylint: disable=no-value-for-parameter,not-callable
 
-    def test_put_schedule(self):
+    @ kwargs["mock_service"] << mock_service_fixture()
+    @ kwargs["client"] << client_fixture()
+    @ kwargs["user"] << user_fixture()
+    @ kwargs["schedule"] << schedule_fixture(skip_create=True)
+    def test_put_schedule(self, schedule, **_):
         return self._test_put(
-            Schedule("name", USER_ID)
+            schedule
         )  # pylint: disable=no-value-for-parameter,not-callable
 
     @contextmanager

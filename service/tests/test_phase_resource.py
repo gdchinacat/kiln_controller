@@ -12,20 +12,21 @@ from functools import wraps
 from itertools import count
 import logging
 import os
+import unittest
 
 import pytest
 
-from kiln_controller.client import Phase
-from .mock_service import LIVE_SERVICE
-from kiln_controller.common import PhaseType, ValidationError, ValidationErrors
 from fixtures import kwargs
-from .fixtures import (
-    CleanupTestCase,
+from kiln_controller.client import Phase
+from kiln_controller.common import PhaseType, ValidationError, ValidationErrors
+
+from ._fixtures import (
     mock_service_fixture,
     client_fixture,
     user_fixture,
     schedule_fixture,
 )
+from .mock_service import LIVE_SERVICE
 
 if os.getenv("DEBUG_LOGGING", "false").upper() == "TRUE":
     logging.basicConfig(level=logging.DEBUG, force=True)
@@ -63,7 +64,7 @@ def _ramp(**kwargs):
     } | kwargs
 
 
-class PhaseTest(CleanupTestCase):
+class PhaseTest(unittest.TestCase):
     """
     Test phase resources.
     """

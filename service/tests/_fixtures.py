@@ -29,7 +29,6 @@ from kiln_controller.common.enums import PhaseType
 from fixtures import kwargs
 
 __all__ = [
-    "CleanupTestCase",
     "mock_service_fixture",
     "client_fixture",
     "user_fixture",
@@ -37,33 +36,7 @@ __all__ = [
     "phase_fixture",
 ]
 
-
-class CleanupTestCase(TestCase):
-    """
-    Mixin for adding cleanup functionality to tests.
-
-    Primarily used by fixtures to remove resources created for tests, but test
-    cases can also register resources for cleanup directly by calling:
-    self.cleanup(mock_service, resource)
-
-    SKIP_CLEANUP=true environment variable can be used to skip cleanup to allow
-    inspection of the resources after the test completes.
-    """
-
-    def setUp(self):
-        super().setUp()
-        self._cleanup = []
-
-    def tearDown(self):
-        super().tearDown()
-        for mock_service, resource in reversed(self._cleanup):
-            with mock_service.patch():
-                resource.delete()
-
-    def cleanup(self, mock_service, resource):
-        if os.getenv("SKIP_CLEANUP", "false").upper() != "TRUE":
-            self._cleanup.append((mock_service, resource))
-
+SKIP_CLEANUP = os.getenv('SKIP_CLEANUP', 'false').upper() == 'TRUE'
 
 def cleanup(func):
     """
@@ -76,16 +49,21 @@ def cleanup(func):
     """
 
     @wraps(func)
-    def _cleanup(*, mock_service=None, skip_cleanup=None, **kwargs):
+    def _cleanable_fixture(*, mock_service, skip_cleanup=None, **kwargs):
         """wrapper to call func and register its return for cleanup"""
         resource = func(mock_service=mock_service, **kwargs)
-        # TODO - figure out how to skip cleanup without self (passing self
-        #        to fixture functions was a misstep IMO).
-        # if not skip_cleanup:
-        #    self.cleanup(mock_service, resource)
+        def _tearDown(*args, **kwargs):
+            with mock_service.patch():
+                resource.delete()
+        def tearDown(*args, **kwargs):  # fixtures/kwargs cleanup callback
+            if not (skip_cleanup or SKIP_CLEANUP):
+                _tearDown(*args, **kwargs)
+
+        resource.tearDown = tearDown
+        resource._tearDown = _tearDown
         return resource
 
-    return _cleanup
+    return _cleanable_fixture
 
 
 @kwargs.factory
@@ -136,6 +114,7 @@ def device_fixture(
     mock_service,
     client,
     user,
+    skip_create: bool = False,
     name="name",
     host="host",
     port=5000,
@@ -143,8 +122,9 @@ def device_fixture(
     **kwargs,
 ):
     device = kc.Device(name, user.id, host, port, url)
-    with mock_service.patch():
-        device.post(client)
+    if not skip_create:
+        with mock_service.patch():
+            device.post(client)
     return device
 
 
@@ -154,12 +134,14 @@ def schedule_fixture(
     mock_service,
     client,
     user,
+    skip_create: bool = False,
     name="name",
     **kwargs,
 ):
     schedule = kc.Schedule(name=name, user_id=user.id)
-    with mock_service.patch():
-        schedule.post(client)
+    if not skip_create:
+        with mock_service.patch():
+            schedule.post(client)
     return schedule
 
 

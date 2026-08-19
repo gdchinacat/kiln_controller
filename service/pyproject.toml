@@ -32,4 +32,8 @@ dev = [
 ]
 
 [tool.uv.sources]
-fixtures = { path = "../../fixtures" }
+fixtures = { path = "../../fixtures", editable = true }
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"

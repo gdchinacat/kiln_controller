@@ -9,26 +9,27 @@ Test the kiln_controller user resource behavior.
 
 import logging
 import os
+import unittest
 
 import pytest
-from fixtures import kwargs
 
+from fixtures import kwargs
 from kiln_controller.client import ValidationError, ValidationErrors
-from .mock_service import LIVE_SERVICE
-from .fixtures import (
-    CleanupTestCase,
+
+from ._fixtures import (
     mock_service_fixture,
     client_fixture,
     user_fixture,
     schedule_fixture,
     device_fixture,
 )
+from .mock_service import LIVE_SERVICE
 
 if os.getenv("DEBUG_LOGGING", "false").upper() == "TRUE":
     logging.basicConfig(level=logging.DEBUG, force=True)
 
 
-class UserTest(CleanupTestCase):
+class UserTest(unittest.TestCase):
     """
     Test phase resources.
     """

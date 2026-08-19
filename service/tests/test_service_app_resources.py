@@ -11,8 +11,8 @@ from fixtures import kwargs
 from kiln_controller.client import Phase
 from kiln_controller.common import PhaseType
 from kiln_controller.service.resources.base import BaseResource
-from .fixtures import CleanupTestCase, user_fixture, schedule_fixture
-from .fixtures import mock_service_fixture, client_fixture
+from ._fixtures import user_fixture, schedule_fixture
+from ._fixtures import mock_service_fixture, client_fixture
 
 
 class _ResourceType: ...
@@ -35,7 +35,7 @@ class TestResources(TestCase):
         db.session.execute.assert_has_calls(query)
 
 
-class TestPhases(CleanupTestCase):
+class TestPhases(TestCase):
     """Test phases"""
 
     @ kwargs["mock_service"] << mock_service_fixture()

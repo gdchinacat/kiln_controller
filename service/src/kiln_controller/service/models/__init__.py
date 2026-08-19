@@ -6,6 +6,7 @@ from .base import Base
 from .user import User
 from .schedule import Schedule, Phase
 from .device import Device
+from .schemas import UserSchema, DeviceSchema, ScheduleSchema, PhaseSchema
 
 __all__ = [
     "Base",
@@ -13,4 +14,8 @@ __all__ = [
     "Schedule",
     "Phase",
     "Device",
+    "UserSchema",
+    "DeviceSchema",
+    "ScheduleSchema",
+    "PhaseSchema",
 ]

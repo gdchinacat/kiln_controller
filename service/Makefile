@@ -1,4 +1,4 @@
-SERVICE_CMD := HOST=localhost PORT=5000 NON_PERSISTENT=true uv run python -m kiln_controller.service > /tmp/kiln_controller.5000.log 2>&1
+SERVICE_CMD := HOST=0.0.0.0 PORT=5000 NON_PERSISTENT=true uv run python -m kiln_controller.service > /tmp/kiln_controller.5000.log 2>&1
 PIDFILE := /tmp/kiln_controller.5000.pid
 
 .PHONY: start_service

@@ -29,6 +29,7 @@ from kiln_controller.common.enums import PhaseType
 
 from ._fixtures import (
     mock_service_fixture,
+    MockService,
     client_fixture,
     device_fixture,
     user_fixture,
@@ -61,8 +62,13 @@ class ClientTest(unittest.TestCase):
     @ kwargs["mock_service"] << mock_service_fixture()
     @ kwargs["client"] << client_fixture()
     def _test_list_add(
-        self, _type_list_getter, *args, iadd=False, mock_service, client
-    ):
+        self,
+        _type_list_getter,
+        *args: object,
+        iadd=False,
+        mock_service: MockService,
+        client: Client,
+    ) -> None:
         """
         helper to add an object.
         _type_list_getter: (_type, list_getter)
@@ -136,8 +142,8 @@ class ClientTest(unittest.TestCase):
             "description",
         )
 
-    def test_add_schedule_to_list(self):
-        return self._test_list_add(
+    def test_add_schedule_to_list(self) -> None:
+        self._test_list_add(
             (Schedule, lambda client: client.schedules),  # pylint: disable=missing-kwoa
             "name",
             1,
@@ -417,8 +423,8 @@ class ClientTest(unittest.TestCase):
 
             # Access the resource list twice, only the first should generate a
             # call.
-            phases = [phase for phase in schedule.phases]
-            _ = [phase for phase in schedule.phases]
+            phases = list(schedule.phases)
+            _ = list(schedule.phases)
 
         self.assertEqual([phase], phases)
 

@@ -4,10 +4,15 @@ Validation logic for model elements.
 It exists in this package so that it can be used by both the server and client
 mocks.
 """
-
+import logging
 from enum import Enum
 
 from .enums import PhaseType
+
+__all__ = ('ValidationError',)
+
+logger = logging.getLogger('kiln_controller.validators')
+
 
 
 class ValidationErrors(Enum):
@@ -84,6 +89,7 @@ class UserValidator(ValidatorMixinBase):
 
     def validate_delete(self):
         """validate the user can be deleted"""
+        logger.error(f'validating delete of {self}')
         super().validate_delete()
         if self.schedules:
             raise ValidationError(

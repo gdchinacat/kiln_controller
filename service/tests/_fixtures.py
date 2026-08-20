@@ -23,20 +23,22 @@ import inspect
 from typing import Callable
 
 
-import kiln_controller as kc
+import kiln_controller.client as _client
 from .mock_service import MockService
 from kiln_controller.common.enums import PhaseType
 from fixtures import kwargs
 
 __all__ = [
     "mock_service_fixture",
+    "MockService",
     "client_fixture",
     "user_fixture",
     "schedule_fixture",
     "phase_fixture",
 ]
 
-SKIP_CLEANUP = os.getenv('SKIP_CLEANUP', 'false').upper() == 'TRUE'
+SKIP_CLEANUP = os.getenv("SKIP_CLEANUP", "false").upper() == "TRUE"
+
 
 def cleanup(func):
     """
@@ -52,9 +54,11 @@ def cleanup(func):
     def _cleanable_fixture(*, mock_service, skip_cleanup=None, **kwargs):
         """wrapper to call func and register its return for cleanup"""
         resource = func(mock_service=mock_service, **kwargs)
+
         def _tearDown(*args, **kwargs):
             with mock_service.patch():
                 resource.delete()
+
         def tearDown(*args, **kwargs):  # fixtures/kwargs cleanup callback
             if not (skip_cleanup or SKIP_CLEANUP):
                 _tearDown(*args, **kwargs)
@@ -67,7 +71,7 @@ def cleanup(func):
 
 
 @kwargs.factory
-def mock_service_fixture(**_):
+def mock_service_fixture(**_) -> MockService:
     """fixture that provices a MockService"""
     return MockService()
 
@@ -76,7 +80,7 @@ def mock_service_fixture(**_):
 def client_fixture(mock_service, **_):
     """fixture that provides a Client"""
     with mock_service.patch():
-        return kc.Client()
+        return _client.Client()
 
 
 @kwargs.factory
@@ -101,7 +105,7 @@ def user_fixture(
     a user with a uniqueish username that hasn't been created on the server).
     """
     username = username or f"username{next(_user_count)}"
-    user = kc.User(name, username)
+    user = _client.User(name, username)
     if not skip_create:
         with mock_service.patch():
             user.post(client)
@@ -121,7 +125,7 @@ def device_fixture(
     url="/",
     **kwargs,
 ):
-    device = kc.Device(name, user.id, host, port, url)
+    device = _client.Device(name, user.id, host, port, url)
     if not skip_create:
         with mock_service.patch():
             device.post(client)
@@ -138,7 +142,7 @@ def schedule_fixture(
     name="name",
     **kwargs,
 ):
-    schedule = kc.Schedule(name=name, user_id=user.id)
+    schedule = _client.Schedule(name=name, user_id=user.id)
     if not skip_create:
         with mock_service.patch():
             schedule.post(client)
@@ -167,7 +171,7 @@ def phase_fixture(
     scheduled for cleanup.
     """
 
-    phase = kc.Phase(
+    phase = _client.Phase(
         name=name,
         ordinal=ordinal,
         phase_type=phase_type,

@@ -13,6 +13,7 @@ method rather than on the classes themselves. I believe proper use of
 metaclasses will alleviate this problem.
 """
 
+import logging
 from abc import ABC
 from dataclasses import dataclass, field, asdict
 import datetime
@@ -25,6 +26,7 @@ import requests
 from ..common import PhaseType, ValidationError, ValidationErrors
 from .helpers import detect_bad_url, trace
 
+logger = logging.getLogger("client")
 # DEFAULT_TIMEOUT = 5
 DEFAULT_TIMEOUT = None
 
@@ -159,7 +161,11 @@ class Resource(ABC):
             raise AttributeError("refusing to POST resource with id (use put()?)")
         # post goes to the Class._URL
         json = self._client._client.post(self._url, self)
-        self._update(**json)
+        try:
+            self._update(**json)
+        except TypeError:
+            logger.error(str(json))
+            raise
         return self
 
 
@@ -258,6 +264,7 @@ class ResourceList[A](list):
     __eq__ = _unexpire(list.__eq__)
     __getitem__ = _unexpire(list.__getitem__)
     __iter__ = _unexpire(list.__iter__)
+    __len__ = _unexpire(list.__len__)  # covers __bool__ as well
 
     # unexpiring these causes logging messages to refresh, likely at "bad"
     # times, so they are disabled. This means you may see weird results in
@@ -406,11 +413,11 @@ class BaseRestClient(ABC):
                     validation_error = ValidationError.from_json(json)
                     if validation_error:
                         raise validation_error
-                    raise ClientException(resp.json()["message"])
+                    raise ClientException(json["message"])
                 case server_error if 500 <= server_error <= 599:
-                    raise ServerException(resp.json()["message"])
+                    raise ServerException(str(resp.json()))
                 case _:
-                    raise ClientException(resp.json()["message"])
+                    raise ClientException(str(resp.json()))
 
         return response_handler
 
@@ -506,17 +513,22 @@ class PhaseBase(DataclassBase):
     temperature: int = None
     schedule_id: int | None = None
 
+    # TODO - pydantic should handle this, remove this framework
     def asdict(self) -> Dict:
         ret = super().asdict()
-        ret["phase_type"] = self.phase_type.name
+        ret["phase_type"] = self.phase_type.value
         ret["duration"] = str(self.duration) if self.duration else None
         return ret
 
     def __post_init__(self):
         """convert the phase_type to enum element if it make sense to do so"""
 
+        if self.schedule_id is not None:
+            self.schedule_id = int(
+                self.schedule_id
+            )
         if isinstance(self.phase_type, str):
-            self.phase_type = getattr(PhaseType, self.phase_type)
+            self.phase_type = PhaseType(self.phase_type)
         if isinstance(self.duration, str):
             self.duration = datetime.datetime.strptime(self.duration, "%H:%M:%S").time()
 
@@ -560,6 +572,9 @@ class ResourceListDescriptor:
 
         resource_list = getattr(parent, self.attr, None)
         if resource_list is None:
+            if not parent._client:
+                logger.error(f"unable to __get__ {parent=} {self.type_=}")
+                return None
             resource_list = ResourceList(
                 self.type_.concrete_type,
                 parent._client._client,
@@ -570,11 +585,15 @@ class ResourceListDescriptor:
             setattr(parent, self.attr, resource_list)
         return resource_list
 
+    def __repr__(self) -> str:
+        return f"ResourceListDescriptor[{self.type_}]"
+
 
 @dataclass
 class ScheduleBase(DataclassBase):
 
     user_id: int
+    phases: ResourceList["Phase"] = field(repr=False)
     phases: ResourceList["Phase"] = ResourceListDescriptor(PhaseBase)
 
     def asdict(self):

@@ -5,6 +5,8 @@ Base class for mapped resources.
 from typing import ClassVar, Any
 from sqlmodel import SQLModel, Field
 
+__all__ = ("Base", "MappedBase")
+
 
 class Base(SQLModel):
     """
@@ -14,6 +16,11 @@ class Base(SQLModel):
     __public_fields__: ClassVar[set[str]] = {"id", "name"}
     """
     The attributes that should be serialized.
+    """
+
+    ORDER_BY: ClassVar = None
+    """
+    what list get responses should be ordered by
     """
 
     id: int | None = Field(default=None, primary_key=True)
@@ -43,3 +50,7 @@ class Base(SQLModel):
 
         raises ValidationError when the validation fails.
         """
+
+
+class MappedBase(Base):
+    """exists primarily for typing"""

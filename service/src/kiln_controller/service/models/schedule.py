@@ -13,18 +13,25 @@ from ...common import PhaseType, ScheduleValidator, PhaseValidator
 from .base import Base
 from .user import User
 
-__all__ = ["Phase", "Schedule"]
+__all__ = ["PhaseBase", "Phase", "ScheduleBase", "Schedule"]
 
 
-class Schedule(ScheduleValidator, Base, table=True):
+class ScheduleBase(Base):
     """
     A schedule is a definition of how a firing should be executed.
     """
 
-    __tablename__ = "schedules"
+    _URL_PATH: ClassVar[str] = "schedule"
     __public_fields__: ClassVar[set[str]] = Base.__public_fields__ | {"user_id"}
 
-    user_id: int = Field(foreign_key="users.id")  # todo? - serialize user as user_id=user.id
+    user_id: int = Field(
+        foreign_key="users.id"
+    )  # todo? - serialize user as user_id=user.id
+
+
+class Schedule(ScheduleValidator, ScheduleBase, table=True):
+
+    __tablename__ = "schedules"
     user: User = Relationship(
         back_populates="schedules",
         sa_relationship_kwargs={"viewonly": True, "lazy": True},
@@ -40,17 +47,12 @@ class Schedule(ScheduleValidator, Base, table=True):
     )
 
 
-class Phase(PhaseValidator, Base, table=True):
+class PhaseBase(Base):
     """
     A phase in a firing schedule.
     """
 
-    __tablename__ = "phases"
-    __table_args__ = (
-        UniqueConstraint("schedule_id", "name"),
-        UniqueConstraint("schedule_id", "ordinal"),
-    )
-
+    _URL_PATH: ClassVar[str] = "phase"
     __public_fields__: ClassVar[set[str]] = Base.__public_fields__ | {
         "phase_type",
         "duration",
@@ -59,6 +61,9 @@ class Phase(PhaseValidator, Base, table=True):
         "ordinal",
         "schedule_id",
     }
+
+    id: int | None = Field(default=None, primary_key=True)
+    name: str
 
     ordinal: int
     """
@@ -110,6 +115,20 @@ class Phase(PhaseValidator, Base, table=True):
     Unset to indicate ambient temperature.
     """
 
+    schedule_id: int | None
+
+    def validate_create_or_update(self) -> None:
+        """Phase validation is delegated to Schedule.validate_create_or_update()."""
+        self.schedule.validate_create_or_update()
+
+
+class Phase(PhaseValidator, PhaseBase, table=True):
+    __tablename__ = "phases"
+    __table_args__ = (
+        UniqueConstraint("schedule_id", "name"),
+        UniqueConstraint("schedule_id", "ordinal"),
+    )
+
     schedule_id: int = Field(foreign_key="schedules.id")
     schedule: Schedule = Relationship(
         back_populates="phases",
@@ -117,11 +136,5 @@ class Phase(PhaseValidator, Base, table=True):
     )
     """the schedule the phase is part of"""
 
-    def validate_create_or_update(self) -> None:
-        """Phase validation is delegated to Schedule.validate_create_or_update()."""
-        self.schedule.validate_create_or_update()
 
-    @field_serializer("phase_type")
-    def serialize_phase_type(self, v: PhaseType) -> str | None:
-        """Serialize PhaseType enum to its name string."""
-        return v.name if v is not None else None
+# Phase.ORDER_BY = Phase.ordinal # todo I don't think this is required

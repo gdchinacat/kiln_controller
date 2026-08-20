@@ -1,10 +1,11 @@
-SERVICE_CMD := HOST=0.0.0.0 PORT=5000 NON_PERSISTENT=true uv run python -m kiln_controller.service > /tmp/kiln_controller.5000.log 2>&1
+SERVICE_CMD := NON_PERSISTENT=true uv run fastapi dev --host 0.0.0.0 --port 5000 src/kiln_controller/service/__main__.py > /tmp/kiln_controller.5000.log 2>&1
 PIDFILE := /tmp/kiln_controller.5000.pid
 
 .PHONY: start_service
 start_service:
 	@echo "Starting service in the background..."
 	@$(SERVICE_CMD) 2>&1 > /dev/null & echo $$! > $(PIDFILE)
+	@sleep 1
 	@echo "Service started PID=$$(cat $(PIDFILE))"
 	
 .PHONY: stop_service
@@ -23,20 +24,20 @@ live_tests: live_clean_test live_dirty_test
 
 .PHONY: mock_dirty_test
 mock_dirty_test:
-	LIVE_SERVICE=false SKIP_CLEANUP=true uv run pytest
+	LIVE_SERVICE=false SKIP_CLEANUP=true uv run pytest -s
 
 .PHONY: mock_clean_test
 mock_clean_test:
-	LIVE_SERVICE=false SKIP_CLEANUP=false uv run pytest
+	LIVE_SERVICE=false SKIP_CLEANUP=false uv run pytest -s
 
 .PHONY: live_dirty_test
 live_dirty_test:
 	make start_service
-	LIVE_SERVICE=true SKIP_CLEANUP=true uv run pytest
+	LIVE_SERVICE=true SKIP_CLEANUP=true uv run pytest -s
 	make stop_service
 
 .PHONY: live_clean_test
 live_clean_test:
 	make start_service
-	LIVE_SERVICE=true SKIP_CLEANUP=false uv run pytest
+	LIVE_SERVICE=true SKIP_CLEANUP=false uv run pytest -s 
 	make stop_service

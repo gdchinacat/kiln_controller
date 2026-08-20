@@ -71,7 +71,7 @@ class TraceTest(unittest.TestCase):
     def test_bare_trace(self):
         # test success
         with _TestHandler.temporary_handler(helper_logger) as handler:
-            trace(int)()
+            trace(int, log_func=helper_logger.debug)()
         self.assertEqual(
             handler.emitted,
             [
@@ -93,7 +93,9 @@ class TraceTest(unittest.TestCase):
                     exc = _exc
                     raise
 
-            self.assertRaises(TestException, trace(raises))
+            self.assertRaises(
+                TestException, trace(raises, log_func=helper_logger.debug)
+            )
 
         self.maxDiff = None  # pylint: disable=invalid-name
         self.assertEqual(

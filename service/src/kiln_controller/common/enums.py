@@ -10,8 +10,8 @@ __all__ = ["PhaseType"]
 class PhaseType(Enum):
     """the types of phases"""
 
-    CONSTANT = 1
+    CONSTANT = "constant"
     """Hold the temperature for a specified duration"""
 
-    RAMP = 2
+    RAMP = "ramp"
     """Change the temperature"""

@@ -26,7 +26,7 @@ class DeviceBase(Base):
 
 class Device(DeviceValidator, DeviceBase, MappedBase, table=True):
     __tablename__ = "devices"
-    #user: Annotated[User | None, Field(exclude=True)] = Relationship(
+    # user: Annotated[User | None, Field(exclude=True)] = Relationship(
     user: User | None = Relationship(
         back_populates="devices",
         sa_relationship_kwargs={"viewonly": True, "lazy": True},

@@ -31,14 +31,14 @@ class ScheduleBase(Base):
 class Schedule(ScheduleValidator, ScheduleBase, table=True):
 
     __tablename__ = "schedules"
-    #user: Annotated[User, Field(exlude=True)] = Relationship(
+    # user: Annotated[User, Field(exlude=True)] = Relationship(
     user: User = Relationship(
         back_populates="schedules",
         sa_relationship_kwargs={"viewonly": True, "lazy": True},
     )
 
     phases: list["Phase"] = Relationship(
-    #phases: Annotated[list["Phase"], Field(exlude=True)] = Relationship(
+        # phases: Annotated[list["Phase"], Field(exlude=True)] = Relationship(
         back_populates="schedule",
         sa_relationship_kwargs={
             "order_by": "Phase.ordinal",
@@ -113,6 +113,7 @@ class PhaseBase(Base):
 
     schedule_id: int | None
 
+
 class Phase(PhaseValidator, PhaseBase, table=True):
     __tablename__ = "phases"
     __table_args__ = (
@@ -121,7 +122,7 @@ class Phase(PhaseValidator, PhaseBase, table=True):
     )
 
     schedule_id: int = Field(foreign_key="schedules.id")
-    #schedule: Annotated[Schedule, Field(exclude=True)] = Relationship(
+    # schedule: Annotated[Schedule, Field(exclude=True)] = Relationship(
     schedule: Schedule = Relationship(
         back_populates="phases",
         sa_relationship_kwargs={"viewonly": True, "lazy": True},

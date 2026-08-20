@@ -18,7 +18,7 @@ class PhaseTest(unittest.TestCase):
         assert isinstance(phase.duration, time)
         assert isinstance(phase.phase_type, PhaseType)
 
-        d = phase.model_dump(mode='json')
+        d = phase.model_dump(mode="json")
         json_ = json.dumps(d)
 
         phase_reconstituted = PhaseBase.model_validate_json(json_)

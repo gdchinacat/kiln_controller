@@ -340,7 +340,6 @@ class ResourceList[A](list):
             resource = self[key]
             resource.delete()
 
-
     @classmethod
     def factory(cls, _type, url):
         """

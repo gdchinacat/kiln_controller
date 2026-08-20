@@ -64,6 +64,12 @@ def format_url(func):
     return _format_url
 
 
+# TODO - convert this to be pydantic models.
+#        Should they be created from the servers openapi.json?
+#            - dynamically generated classes don't work well with static
+#              type checking. openapi-python-client will create the python
+#              files.
+#            - jsonschema_to_pydantic can do this dynamically
 class Resource(ABC):
     """A resource associates a dataclass with a REST resource"""
 

@@ -3,7 +3,7 @@ Schedule related ORMs
 """
 
 from datetime import time
-from typing import ClassVar
+from typing import Annotated, ClassVar
 
 from sqlalchemy import UniqueConstraint, Enum as SAEnum
 from sqlmodel import Field, Relationship, Column
@@ -22,7 +22,6 @@ class ScheduleBase(Base):
     """
 
     _URL_PATH: ClassVar[str] = "schedule"
-    __public_fields__: ClassVar[set[str]] = Base.__public_fields__ | {"user_id"}
 
     user_id: int = Field(
         foreign_key="users.id"
@@ -32,12 +31,14 @@ class ScheduleBase(Base):
 class Schedule(ScheduleValidator, ScheduleBase, table=True):
 
     __tablename__ = "schedules"
+    #user: Annotated[User, Field(exlude=True)] = Relationship(
     user: User = Relationship(
         back_populates="schedules",
         sa_relationship_kwargs={"viewonly": True, "lazy": True},
     )
 
     phases: list["Phase"] = Relationship(
+    #phases: Annotated[list["Phase"], Field(exlude=True)] = Relationship(
         back_populates="schedule",
         sa_relationship_kwargs={
             "order_by": "Phase.ordinal",
@@ -53,17 +54,6 @@ class PhaseBase(Base):
     """
 
     _URL_PATH: ClassVar[str] = "phase"
-    __public_fields__: ClassVar[set[str]] = Base.__public_fields__ | {
-        "phase_type",
-        "duration",
-        "rate",
-        "temperature",
-        "ordinal",
-        "schedule_id",
-    }
-
-    id: int | None = Field(default=None, primary_key=True)
-    name: str
 
     ordinal: int
     """
@@ -115,12 +105,13 @@ class PhaseBase(Base):
     Unset to indicate ambient temperature.
     """
 
-    schedule_id: int | None
-
+    ''' todo is this necessary?
     def validate_create_or_update(self) -> None:
         """Phase validation is delegated to Schedule.validate_create_or_update()."""
         self.schedule.validate_create_or_update()
+    '''
 
+    schedule_id: int | None
 
 class Phase(PhaseValidator, PhaseBase, table=True):
     __tablename__ = "phases"
@@ -130,6 +121,7 @@ class Phase(PhaseValidator, PhaseBase, table=True):
     )
 
     schedule_id: int = Field(foreign_key="schedules.id")
+    #schedule: Annotated[Schedule, Field(exclude=True)] = Relationship(
     schedule: Schedule = Relationship(
         back_populates="phases",
         sa_relationship_kwargs={"viewonly": True, "lazy": True},

@@ -2,7 +2,7 @@
 Users ORM
 """
 
-from typing import ClassVar, TYPE_CHECKING
+from typing import Annotated, ClassVar, TYPE_CHECKING
 
 from sqlmodel import Field, Relationship
 
@@ -22,11 +22,6 @@ class UserBase(Base):
     """
 
     _URL_PATH: ClassVar[str] = "user"
-    __public_fields__: ClassVar[set[str]] = Base.__public_fields__ | {
-        "username",
-        "email",
-        "phone_number",
-    }
 
     username: str = Field(max_length=16, unique=True)
     email: str | None = Field(default=None)
@@ -35,10 +30,12 @@ class UserBase(Base):
 
 class User(UserValidator, UserBase, table=True):
     __tablename__ = "users"
+    # schedules: Annotated[list["Schedule"], Field(exclude=True)] = Relationship(
     schedules: list["Schedule"] = Relationship(
         back_populates="user",
         sa_relationship_kwargs={"viewonly": True, "lazy": True},
     )
+    # devices: Annotated[list["Device"], Field(exclude=True)] = Relationship(
     devices: list["Device"] = Relationship(
         back_populates="user",
         sa_relationship_kwargs={"viewonly": True, "lazy": True},

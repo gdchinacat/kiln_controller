@@ -13,12 +13,7 @@ class Base(SQLModel):
     Base class for all ORM models.
     """
 
-    __public_fields__: ClassVar[set[str]] = {"id", "name"}
-    """
-    The attributes that should be serialized.
-    """
-
-    ORDER_BY: ClassVar = None
+    ORDER_BY: ClassVar = None  # todo remove?
     """
     what list get responses should be ordered by
     """
@@ -31,10 +26,6 @@ class Base(SQLModel):
 
     name: str = Field(max_length=30)
     """all model dataclasses contain a name"""
-
-    def asdict(self) -> dict[str, Any]:  # todo TypedDict based on pydantic model?
-        """Serialize the model to a JSON-safe dict of public fields."""
-        return self.model_dump(mode="json", include=self.__public_fields__)
 
     def validate_create_or_update(self) -> None:
         """

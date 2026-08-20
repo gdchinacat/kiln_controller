@@ -71,7 +71,7 @@ def create_router(
         if resource_type.ORDER_BY is not None:
             query = query.order_by(resource_type.ORDER_BY)
         with Session() as session:
-            return [orm.asdict() for orm in session.execute(query).scalars()]
+            return [orm.model_dump(mode="json") for orm in session.execute(query).scalars()]
 
     @router.get("/{id}")
     async def _get(id: int, schedule_id=None) -> Dict:
@@ -83,7 +83,7 @@ def create_router(
                 error(f"{self.resource_type.__name__} with id={id} not found"),
                 HTTPStatus.NOT_FOUND,
             )
-        return orm.asdict()
+        return orm.model_dump(mode='json')
 
     @router.post("/")
     async def _post(resource: resource_type, schedule_id=None):
@@ -96,7 +96,7 @@ def create_router(
                 session.add(orm)
                 session.flush()
                 orm.validate_create_or_update()
-            return orm.asdict()
+            return orm.model_dump(mode='json')
         except (ValidationError, PydanticValidationError):
             raise
         except IntegrityError as e:
@@ -153,7 +153,7 @@ def create_router(
         orm = orm_type.model_validate(resource)
         with (session := Session()), session.begin():
             session.merge(orm)
-        return orm.asdict()
+        return orm.model_dump(mode='json')
 
     @router.delete("/{id}")
     async def delete(id: int):

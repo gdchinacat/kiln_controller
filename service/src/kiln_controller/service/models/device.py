@@ -2,7 +2,7 @@
 Device model.
 """
 
-from typing import ClassVar
+from typing import Annotated, ClassVar
 
 from sqlmodel import Field, Relationship
 
@@ -15,13 +15,6 @@ __all__ = ("DeviceBase", "Device")
 
 class DeviceBase(Base):
     _URL_PATH: ClassVar[str] = "device"
-    __public_fields__: ClassVar[set[str]] = Base.__public_fields__ | {
-        "host",
-        "port",
-        "url",
-        "user_id",
-        "description",
-    }
 
     host: str
     port: int
@@ -33,6 +26,7 @@ class DeviceBase(Base):
 
 class Device(DeviceValidator, DeviceBase, MappedBase, table=True):
     __tablename__ = "devices"
+    #user: Annotated[User | None, Field(exclude=True)] = Relationship(
     user: User | None = Relationship(
         back_populates="devices",
         sa_relationship_kwargs={"viewonly": True, "lazy": True},

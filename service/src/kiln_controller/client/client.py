@@ -203,14 +203,10 @@ class ResourceList[A](list):
     def refresh(self) -> "ResourceList[A]":
         """refresh the list of resources, expired becomes False"""
         super().clear()
-        super().extend(
-            self.coerce(
-                self._client,
-                self._type,
-                self._client.get(self._url),
-                parent=self._parent,
-            )
-        )
+        for data in self._client.get(self._url):
+            resource = self._type(parent=self._parent, **data)
+            resource._set_client(self._client)
+            super().append(resource)
         self._expired = False
         return self
 
@@ -344,24 +340,6 @@ class ResourceList[A](list):
             resource = self[key]
             resource.delete()
 
-    @classmethod
-    def coerce(cls, client, _type, data, parent=None):
-        """
-        convert json dicts that represent model elements in resp to instances
-        of _type
-        """
-        if isinstance(data, list):
-            # todo - move list handling to different decorator (list_coerce?)
-            resources = []
-            for _data in data:
-                resource = _type(parent=parent, **_data)
-                resource._set_client(client)
-                resources.append(resource)
-            return resources
-
-        resource = _type(parent=parent, **data)
-        resource._set_client(client)
-        return resource
 
     @classmethod
     def factory(cls, _type, url):

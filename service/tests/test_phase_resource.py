@@ -18,7 +18,8 @@ import pytest
 
 from fixtures import kwargs
 from kiln_controller.client import Phase
-from kiln_controller.common import PhaseType, ValidationError, ValidationErrors
+from kiln_controller.common.enums import PhaseType
+from kiln_controller.service.models.validators import ValidationError, ValidationErrors
 
 from ._fixtures import (
     mock_service_fixture,

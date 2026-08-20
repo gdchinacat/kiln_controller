@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 
 from .models import db  # initialize the database
 from .routers import users_router, devices_router, schedules_router, phases_router
-from ..common import ValidationError
+from .models.validators import ValidationError
 
 # debug
 import logging

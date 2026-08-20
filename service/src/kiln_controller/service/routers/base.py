@@ -13,7 +13,7 @@ from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound, IntegrityError
 
-from ...common import ValidationError, PhaseType
+from ..models.validators import ValidationError, PhaseType
 from ..models import Session
 from ..models.base import Base, MappedBase
 from mypy_extensions import KwArg

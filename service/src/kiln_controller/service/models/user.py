@@ -7,7 +7,7 @@ from typing import Annotated, ClassVar, TYPE_CHECKING
 from sqlmodel import Field, Relationship
 
 from .base import Base
-from ...common import UserValidator
+from .validators import UserValidator
 
 __all__ = ("UserBase", "User")
 

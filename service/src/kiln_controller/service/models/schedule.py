@@ -9,7 +9,8 @@ from sqlalchemy import UniqueConstraint, Enum as SAEnum
 from sqlmodel import Field, Relationship, Column
 from pydantic import field_serializer
 
-from ...common import PhaseType, ScheduleValidator, PhaseValidator
+from ...common.enums import PhaseType
+from .validators import ScheduleValidator, PhaseValidator
 from .base import Base
 from .user import User
 

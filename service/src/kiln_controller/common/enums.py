@@ -1,5 +1,5 @@
 """
-Common enum definitions
+API cruft. Should move into client, but ultimately be derived from openapi.json.
 """
 
 from enum import Enum

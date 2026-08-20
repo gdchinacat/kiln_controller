@@ -23,7 +23,8 @@ from typing import SupportsIndex, Callable, Dict
 
 import requests
 
-from ..common import PhaseType, ValidationError, ValidationErrors
+from ..common.enums import PhaseType
+from ..common.validators import ValidationError, ValidationErrors
 from .helpers import detect_bad_url, trace
 
 logger = logging.getLogger("client")

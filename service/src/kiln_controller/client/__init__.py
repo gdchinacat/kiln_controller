@@ -1,4 +1,4 @@
-from ..common import ValidationErrors, ValidationError
+from ..common.validators import ValidationErrors, ValidationError
 from .client import (
     Client,
     User,

@@ -11,7 +11,7 @@ from unittest import TestCase
 
 import pytest
 
-from kiln_controller.common import (
+from kiln_controller.service.models.validators import (
     ValidationError,
     ValidationErrors,
     PhaseType,

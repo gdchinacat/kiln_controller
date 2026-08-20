@@ -1,7 +1,7 @@
 import unittest
 import json
 from datetime import time
-from kiln_controller.common import PhaseType
+from kiln_controller.common.enums import PhaseType
 from kiln_controller.service.models import PhaseBase
 
 

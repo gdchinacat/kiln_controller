@@ -8,7 +8,7 @@ from sqlmodel import Field, Relationship
 
 from .base import Base, MappedBase
 from .user import User
-from ...common import DeviceValidator
+from .validators import DeviceValidator
 
 __all__ = ("DeviceBase", "Device")
 

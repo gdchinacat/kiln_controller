@@ -5,7 +5,7 @@ Base class for mapped resources.
 from typing import ClassVar, Any
 from sqlmodel import SQLModel, Field
 
-from ...common.validators import ValidatorMixinBase
+from .validators import ValidatorMixinBase
 
 __all__ = ("Base", "MappedBase")
 

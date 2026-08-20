@@ -1,23 +1,7 @@
 """
-Datatypes commont to the client and server
+Common elements for client and service.
+
+Deprecated: the coupling between client and service is actively being removed.
+Eventually this package won't exist. Towards this end, the package doesn't
+reexport anything, consumers must import from it's actual location.
 """
-
-__all__ = [
-    "PhaseType",
-    "ValidationError",
-    "ValidationErrors",
-    "UserValidator",
-    "DeviceValidator",
-    "ScheduleValidator",
-    "PhaseValidator",
-]
-
-from .enums import PhaseType
-from .validators import (
-    ValidationError,
-    ValidationErrors,
-    UserValidator,
-    DeviceValidator,
-    ScheduleValidator,
-    PhaseValidator,
-)

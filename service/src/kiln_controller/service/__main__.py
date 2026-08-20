@@ -28,7 +28,11 @@ app.include_router(devices_router)
 app.include_router(schedules_router)
 app.include_router(phases_router)
 
+
 @app.exception_handler(ValidationError)
-async def _validation_error_handler(request: Request, exc: ValidationError) -> JSONResponse:
-    return JSONResponse(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                        content=exc.json())
+async def _validation_error_handler(
+    request: Request, exc: ValidationError
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, content=exc.json()
+    )

@@ -161,9 +161,9 @@ def create_router(
         with (session := Session()), session.begin():
             orm = _lookup(orm_type, session, id)
             if orm is not None:
-                logger.error(f'calling {orm.validate_delete=} {type(orm)=}')
+                logger.error(f"calling {orm.validate_delete=} {type(orm)=}")
                 orm.validate_delete()
-                logger.error(f'{orm.validate_delete=} returned')
+                logger.error(f"{orm.validate_delete=} returned")
                 session.delete(orm)
         return {}
 

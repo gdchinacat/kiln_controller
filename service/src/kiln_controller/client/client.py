@@ -524,9 +524,7 @@ class PhaseBase(DataclassBase):
         """convert the phase_type to enum element if it make sense to do so"""
 
         if self.schedule_id is not None:
-            self.schedule_id = int(
-                self.schedule_id
-            )
+            self.schedule_id = int(self.schedule_id)
         if isinstance(self.phase_type, str):
             self.phase_type = PhaseType(self.phase_type)
         if isinstance(self.duration, str):

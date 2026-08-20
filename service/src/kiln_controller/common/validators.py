@@ -63,5 +63,3 @@ class ValidationError(Exception):
                 else (self.error.name,)
             ),
         }
-
-

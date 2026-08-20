@@ -118,19 +118,10 @@ class _ValidatorTestCase(TestCase):
         self.assertEqual(error, ve.exception.error)
 
 
-def print(func):
-    def wrap(*args, **kwargs):
-        print(f"{args=} {kwargs=}")
-        return func(*args, **kwargs)
-
-    return wrap
-
-
 class TestScheduleValidator(_ValidatorTestCase):
     """Test the schedule validator"""
 
     @ kwargs["schedule"] << _Schedule()
-    @print
     @ kwargs["phase"] << _Phase.constant()
     def test_first_phase_must_be_ramp(self, schedule, **_):
         self.assertInvalid(schedule, ValidationErrors.FIRST_PHASE_NOT_RAMP)

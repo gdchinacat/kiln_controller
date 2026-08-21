@@ -2,12 +2,6 @@
 Test the kiln_controller python client library.
 """
 
-# pylint: disable=missing-class-docstring
-# pylint: disable=missing-function-docstring
-# pylint: disable=too-few-public-methods
-# pylint: disable=unused-argument
-# pylint: disable=too-many-public-methods
-
 from contextlib import contextmanager
 import random
 from typing import Any
@@ -106,7 +100,7 @@ class ClientTest(unittest.TestCase):
     @ kwargs["user"] << user_fixture(skip_create=True, skip_cleanup=True)
     def test_append_user_to_list(self, user, **_):
         return self._test_list_add(
-            (User, lambda client: client.users),  # pylint: disable=missing-kwoa
+            (User, lambda client: client.users),
             user.name,
             user.username,
         )
@@ -115,7 +109,7 @@ class ClientTest(unittest.TestCase):
     @ kwargs["user"] << user_fixture(skip_create=True, skip_cleanup=True)
     def test_add_user_to_list(self, user, **_):
         return self._test_list_add(
-            (User, lambda client: client.users),  # pylint: disable=missing-kwoa
+            (User, lambda client: client.users),
             user.name,
             user.username,
             iadd=True,
@@ -123,7 +117,7 @@ class ClientTest(unittest.TestCase):
 
     def test_add_device_to_list(self):
         return self._test_list_add(
-            (Device, lambda client: client.devices),  # pylint: disable=missing-kwoa
+            (Device, lambda client: client.devices),
             "name",
             USER_ID,
             "host",
@@ -134,7 +128,7 @@ class ClientTest(unittest.TestCase):
 
     def test_append_device_to_list(self):
         return self._test_list_add(
-            (Device, lambda client: client.devices),  # pylint: disable=missing-kwoa
+            (Device, lambda client: client.devices),
             "name",
             USER_ID,
             "host",
@@ -144,7 +138,7 @@ class ClientTest(unittest.TestCase):
 
     def test_add_schedule_to_list(self) -> None:
         self._test_list_add(
-            (Schedule, lambda client: client.schedules),  # pylint: disable=missing-kwoa
+            (Schedule, lambda client: client.schedules),
             "name",
             1,
             iadd=True,
@@ -152,7 +146,7 @@ class ClientTest(unittest.TestCase):
 
     def test_append_schedule_to_list(self):
         return self._test_list_add(
-            (Schedule, lambda client: client.schedules),  # pylint: disable=missing-kwoa
+            (Schedule, lambda client: client.schedules),
             "name",
             1,
         )
@@ -178,18 +172,14 @@ class ClientTest(unittest.TestCase):
     @ kwargs["mock_service"] << mock_service_fixture()
     @ kwargs["user"] << user_fixture(skip_create=True)
     def test_post_user(self, user, **_):
-        return self._test_post(
-            user
-        )  # pylint: disable=no-value-for-parameter,not-callable
+        return self._test_post(user)
 
     @ kwargs["mock_service"] << mock_service_fixture()
     @ kwargs["client"] << client_fixture()
     @ kwargs["user"] << user_fixture()
     @ kwargs["device"] << device_fixture(skip_create=True)
     def test_post_device(self, device, **kwargs):
-        return self._test_post(
-            device
-        )  # pylint: disable=no-value-for-parameter,not-callable
+        return self._test_post(device)
 
     @ kwargs["mock_service"] << mock_service_fixture()
     @ kwargs["client"] << client_fixture()
@@ -197,9 +187,7 @@ class ClientTest(unittest.TestCase):
     @ kwargs["schedule"] << schedule_fixture(skip_create=True)
     def test_post_schedule(self, user, schedule, **_):
         # todo how did this ever work? schedule should require a user!!!
-        return self._test_post(
-            schedule
-        )  # pylint: disable=no-value-for-parameter,not-callable
+        return self._test_post(schedule)
 
     @ kwargs["mock_service"] << mock_service_fixture()
     @ kwargs["client"] << client_fixture()
@@ -231,9 +219,7 @@ class ClientTest(unittest.TestCase):
     @ kwargs["mock_service"] << mock_service_fixture()
     @ kwargs["user"] << user_fixture(skip_create=True)
     def test_put_user(self, user, **_):
-        return self._test_put(
-            user
-        )  # pylint: disable=no-value-for-parameter,not-callable
+        return self._test_put(user)
 
     @ kwargs["mock_service"] << mock_service_fixture()
     @ kwargs["client"] << client_fixture()
@@ -242,16 +228,14 @@ class ClientTest(unittest.TestCase):
     def test_put_device(self, device, **_):
         return self._test_put(
             device,
-        )  # pylint: disable=no-value-for-parameter,not-callable
+        )
 
     @ kwargs["mock_service"] << mock_service_fixture()
     @ kwargs["client"] << client_fixture()
     @ kwargs["user"] << user_fixture()
     @ kwargs["schedule"] << schedule_fixture(skip_create=True)
     def test_put_schedule(self, schedule, **_):
-        return self._test_put(
-            schedule
-        )  # pylint: disable=no-value-for-parameter,not-callable
+        return self._test_put(schedule)
 
     @contextmanager
     def _mock_client_requests(self):

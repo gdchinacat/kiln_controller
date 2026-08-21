@@ -108,7 +108,7 @@ def create_router(
             #        the model is simple enough to make that a good assumption.
             # todo - don't expose internal details (e) to client
             return error(f"{e}"), HTTPStatus.UNPROCESSABLE_ENTITY
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except Exception as e:
             logger.exception(e)
             # todo - don't expose internal details (e) to client
             return error(f"{e}"), HTTPStatus.INTERNAL_SERVER_ERROR

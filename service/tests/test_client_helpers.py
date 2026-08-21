@@ -1,8 +1,3 @@
-# pylint: disable=missing-module-docstring
-# pylint: disable=missing-class-docstring
-# pylint: disable=missing-function-docstring
-# pylint: disable=too-few-public-methods
-
 from contextlib import contextmanager
 import logging
 from typing import List, Tuple, Dict
@@ -97,7 +92,7 @@ class TraceTest(unittest.TestCase):
                 TestException, trace(raises, log_func=helper_logger.debug)
             )
 
-        self.maxDiff = None  # pylint: disable=invalid-name
+        self.maxDiff = None
         self.assertEqual(
             handler.emitted,
             [

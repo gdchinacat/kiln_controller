@@ -9,10 +9,6 @@ resources becoming stale. ResourceList.expire() should be used to indicate the
 resource lists should be refreshed on next access.
 """
 
-# pylint: disable=unused-argument
-# pylint: disable=redefined-outer-name
-
-
 from functools import wraps
 from itertools import count
 import os

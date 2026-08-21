@@ -1,5 +1,3 @@
-# The current implementation relies heavily on accessing "protected" members
-# pylint: disable=protected-access
 """
 A requests based client for interacting with the REST server
 
@@ -134,8 +132,8 @@ class Resource(ABC):
 
         @wraps(func)
         def client_injector(self, client=None):
-            self._client = client or self._client  # pylint: disable=protected-access
-            if not self._client:  # pylint: disable=protected-access
+            self._client = client or self._client
+            if not self._client:
                 raise ValueError(
                     "must associate resources with a client " "before get'ing them"
                 )
@@ -632,10 +630,10 @@ Phase: Callable = lambda *_, **__: None
 _name, _cls = None, None
 for _name, _cls in _Client.resource_class_map.items():
     locals()[_name] = _cls
-del _name, _cls  # cleanup to silence pylint errors
+del _name, _cls
 
 
-class Client:  # pylint: disable=too-few-public-methods
+class Client:
     """
     The kiln_controller client interface.
 

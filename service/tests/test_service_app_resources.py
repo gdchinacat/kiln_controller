@@ -1,9 +1,3 @@
-# pylint: disable=missing-module-docstring
-# pylint: disable=missing-class-docstring
-# pylint: disable=missing-function-docstring
-# pylint: disable=too-few-public-methods
-# pylint: disable=unused-argument
-
 from unittest import TestCase
 from unittest.mock import MagicMock
 

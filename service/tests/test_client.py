@@ -186,7 +186,6 @@ class ClientTest(unittest.TestCase):
     @ kwargs["user"] << user_fixture()
     @ kwargs["schedule"] << schedule_fixture(skip_create=True)
     def test_post_schedule(self, user, schedule, **_):
-        # todo how did this ever work? schedule should require a user!!!
         return self._test_post(schedule)
 
     @ kwargs["mock_service"] << mock_service_fixture()

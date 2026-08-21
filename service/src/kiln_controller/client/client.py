@@ -451,6 +451,8 @@ class DataclassBase(ABC):
     Contains the common attributes all model elements share:
       id - the primary key for the model instance (unique by mapped table)
       name - the primary key for the model instance (unique by mapped table)
+    TODO - the eventual 'something better than this mess' overhaul should
+           replace these classes with openapi.json derived classes.
     """
 
     id: int = field(default=None, kw_only=True)  # primary key
@@ -495,7 +497,6 @@ class PhaseBase(DataclassBase):
     temperature: int = None
     schedule_id: int | None = None
 
-    # TODO - pydantic should handle this, remove this framework
     def asdict(self) -> Dict:
         ret = super().asdict()
         ret["phase_type"] = self.phase_type.value

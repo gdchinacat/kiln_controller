@@ -8,7 +8,7 @@ from http import HTTPStatus
 from logging import getLogger
 from typing import Callable, Dict
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound, IntegrityError
@@ -58,16 +58,11 @@ def create_router(
     )
 
     @router.get("/")
-    async def _list_get(
-        schedule_id=None, filters: dict = {}
-    ):  # todo schedule_id and filters hack
+    async def _list_get(request: Request):
         """get the list of resource_type resources"""
         query = select(orm_type)
-        if schedule_id is not None:
-            # theoretical hack - is fastapi not inserting schedule_id if not explicitly declared?
-            filters["schedule_id"] = schedule_id
-        if filters:
-            query = query.filter_by(**filters)
+        if request.path_params:  # schedule_id in '/schedule/{request_id}/phase
+            query = query.filter_by(**request.path_params)
         with Session() as session:
             return [
                 orm.model_dump(mode="json") for orm in session.execute(query).scalars()
@@ -86,10 +81,11 @@ def create_router(
         return orm.model_dump(mode="json")
 
     @router.post("/")
-    async def _post(resource: resource_type, schedule_id=None):
+    async def _post(request: Request, resource: resource_type):
         """create a resource of resource_type"""
-        if schedule_id is not None:  # Ugly Ugly Ugly hack TODO
-            resource.schedule_id = schedule_id
+        # set the path parameter values on the resource (ie schedule_id on phase)
+        for k, v in request.path_params.items():
+            setattr(resource, k, v)
         try:
             orm = orm_type.model_validate(resource)
             with (session := Session(expire_on_commit=False)), session.begin():

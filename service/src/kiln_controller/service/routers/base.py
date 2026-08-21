@@ -8,7 +8,7 @@ from http import HTTPStatus
 from logging import getLogger
 from typing import Callable, Dict
 
-from fastapi import APIRouter, Request
+import fastapi
 from mypy_extensions import KwArg
 from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound, IntegrityError
@@ -23,12 +23,6 @@ __all__ = []
 logger = getLogger("resource/base.py")
 
 
-def error(msg: str) -> Dict[str, str]:
-    """create a json error dict with error msg"""
-    # TODO - don't expose internal error messages (500 returns sql error)
-    return {"message": msg}
-
-
 def _lookup(resource_type: type[Base], session: Session, id: int) -> resource_type:
     """lookup the resource by id"""
     try:
@@ -40,7 +34,7 @@ def _lookup(resource_type: type[Base], session: Session, id: int) -> resource_ty
 
 def create_router(
     resource_type: type[Base], orm_type: type[MappedBase], url_prefix=""
-) -> APIRouter:
+) -> fastapi.APIRouter:
     """
     Base class for resources (abstract).
 
@@ -52,12 +46,12 @@ def create_router(
     operations for resource_type.
     """
 
-    router = APIRouter(
+    router = fastapi.APIRouter(
         prefix=f"{url_prefix}/{resource_type._URL_PATH}", tags=[resource_type.__name__]
     )
 
     @router.get("/")
-    async def _list_get(request: Request):
+    async def _list_get(request: fastapi.Request) -> list[resource_type]:
         """get the list of resource_type resources"""
         query = select(orm_type)
         if request.path_params:  # schedule_id in '/schedule/{request_id}/phase
@@ -68,19 +62,23 @@ def create_router(
             ]
 
     @router.get("/{id}")
-    async def _get(id: int, schedule_id=None) -> Dict:
+    async def _get(id: int, schedule_id=None) -> resource_type:
         """get the resource"""
         with Session() as session:
             orm = _lookup(orm_type, session, id)
         if not orm:
             return (
-                error(f"{self.resource_type.__name__} with id={id} not found"),
-                HTTPStatus.NOT_FOUND,
+                fastapi.Response(
+                    status_code=HTTPStatus.NOT_FOUND,
+                    content={
+                        "message": f"{resource_model.__name__} with id={id} not found"
+                    },
+                ),
             )
         return orm.model_dump(mode="json")
 
-    @router.post("/")
-    async def _post(request: Request, resource: resource_type):
+    @router.post("/", status_code=HTTPStatus.CREATED)
+    async def _post(request: fastapi.Request, resource: resource_type) -> resource_type:
         """create a resource of resource_type"""
         # set the path parameter values on the resource (ie schedule_id on phase)
         for k, v in request.path_params.items():
@@ -93,7 +91,7 @@ def create_router(
         return orm.model_dump(mode="json")
 
     @router.put("/{id}")
-    async def _put(id: int, resource: resource_type) -> Dict:
+    async def _put(id: int, resource: resource_type) -> resource_type:
         """
         There is some debate in the REST community as to whether or not clients
         should be allowed to create resources with PUT since it gives the
@@ -136,14 +134,17 @@ def create_router(
             session.merge(orm)
         return orm.model_dump(mode="json")
 
-    @router.delete("/{id}")
-    async def delete(id: int):
+    @router.delete(
+        "/{id}",
+        status_code=fastapi.status.HTTP_204_NO_CONTENT,
+        response_class=fastapi.Response,
+    )
+    async def delete(id: int) -> None:
         """delete the resource"""
         with (session := Session()), session.begin():
             orm = _lookup(orm_type, session, id)
             if orm is not None:
                 orm.validate_delete()
                 session.delete(orm)
-        return {}
 
     return router

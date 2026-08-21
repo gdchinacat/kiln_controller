@@ -239,28 +239,31 @@ class MockService(Resource):
         return paths
 
     @staticmethod
-    def exception_to_response(func):
-        @wraps(func)
-        def wrap(self, *args, **kwargs):
-            try:
-                ret = func(self, *args, **kwargs)
-                if self.live_service:
-                    return ret
-                else:
-                    return self.response(HTTPStatus.OK, ret)
-            except _HTTPError as e:
-                return self.response(e.status_code, {"message": e.args[0]})
+    def exception_to_response(status_code: HTTPStatus):
+        def _exception_to_response(func):
+            @wraps(func)
+            def wrap(self, *args, **kwargs):
+                try:
+                    ret = func(self, *args, **kwargs)
+                    if self.live_service:
+                        return ret
+                    else:
+                        return self.response(status_code, ret)
+                except _HTTPError as e:
+                    return self.response(e.status_code, {"message": e.args[0]})
 
-        return wrap
+            return wrap
 
-    @exception_to_response
+        return _exception_to_response
+
+    @exception_to_response(HTTPStatus.OK)
     @track_call
     @conditional_requests_mock(requests.get)
     @sort({"phase": lambda phase: int(phase["ordinal"])})
     def get(self, url, **_) -> requests.Response:
         return self.walk(url)
 
-    @exception_to_response
+    @exception_to_response(HTTPStatus.CREATED)
     @track_call
     @conditional_requests_mock(requests.post)
     def post(self, url: str, json: Dict[str, Any], **_) -> requests.Response:
@@ -275,7 +278,7 @@ class MockService(Resource):
 
         return self.walk(url, action=create_resource)
 
-    @exception_to_response
+    @exception_to_response(HTTPStatus.OK)
     @track_call
     @conditional_requests_mock(requests.put)
     def put(self, url: str, json: Dict[str, Any], **_) -> requests.Response:
@@ -293,7 +296,7 @@ class MockService(Resource):
 
         return self.walk(url, action=_put)
 
-    @exception_to_response
+    @exception_to_response(HTTPStatus.NO_CONTENT)
     @track_call
     @conditional_requests_mock(requests.delete)
     def delete(self, url: str, **_) -> requests.Response:
@@ -307,6 +310,6 @@ class MockService(Resource):
         def _delete(paths, parent_resource):
             if _id in parent_resource.sub_resources:
                 del parent_resource.sub_resources[_id]
-            return {}
+            return None
 
         return self.walk(url, action=_delete)

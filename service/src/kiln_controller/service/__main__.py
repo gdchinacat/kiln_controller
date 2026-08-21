@@ -41,15 +41,6 @@ async def _validation_error_handler(
     )
 
 
-@app.exception_handler(pydantic.ValidationError)
-async def _pydantic_validation_error_handler(
-    request: Request, exc: pydantic.ValidationError
-) -> JSONResponse:
-    return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, content=exc.json()
-    )
-
-
 @app.exception_handler(sqlalchemy.exc.IntegrityError)
 async def _integrity_error_handler(
     request: Request, exc: sqlalchemy.exc.IntegrityError

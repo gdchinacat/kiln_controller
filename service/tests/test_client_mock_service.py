@@ -79,10 +79,14 @@ class MockServiceTest(TestCase):
 
         self.assertEqual({"id": 2}, _obj(service.get("/parent/1/child/2")))
 
-        self.assertEqual(HTTPStatus.OK, service.delete("/parent/1/child/2").status_code)
+        self.assertEqual(
+            HTTPStatus.NO_CONTENT, service.delete("/parent/1/child/2").status_code
+        )
         self.assertEqual(
             HTTPStatus.NOT_FOUND, service.get("/parent/1/child/2").status_code
         )
 
         # test that it's idempotent
-        self.assertEqual(HTTPStatus.OK, service.delete("/parent/1/child/2").status_code)
+        self.assertEqual(
+            HTTPStatus.NO_CONTENT, service.delete("/parent/1/child/2").status_code
+        )

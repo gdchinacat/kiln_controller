@@ -385,9 +385,11 @@ class BaseRestClient(ABC):
         @wraps(func)
         def response_handler(*args, **kwargs):
             resp = func(*args, **kwargs)
-            if resp.status_code == HTTPStatus.OK:
-                return resp.json()
             match resp.status_code:
+                case HTTPStatus.OK | HTTPStatus.CREATED:
+                    return resp.json()
+                case HTTPStatus.NO_CONTENT:
+                    return None
                 case HTTPStatus.NOT_FOUND:
                     raise NotFoundException()
                 case HTTPStatus.UNPROCESSABLE_ENTITY:
@@ -399,7 +401,7 @@ class BaseRestClient(ABC):
                 case server_error if 500 <= server_error <= 599:
                     raise ServerException(str(resp.json()))
                 case _:
-                    raise ClientException(str(resp.json()))
+                    raise ClientException(f"{resp.status_code} {resp.json()}")
 
         return response_handler
 

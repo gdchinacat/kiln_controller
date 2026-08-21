@@ -261,7 +261,7 @@ class ClientTest(unittest.TestCase):
                     mock_service.delete.__name__,
                     (resource_url,),
                     {"timeout": DEFAULT_TIMEOUT},
-                    return_={},
+                    return_=None,
                 )
             ],
             mock_service.calls,
@@ -313,7 +313,7 @@ class ClientTest(unittest.TestCase):
                     mock_service.delete.__name__,
                     (resource_url,),
                     {"timeout": DEFAULT_TIMEOUT},
-                    return_={},
+                    return_=None,
                 )
             ],
             mock_service.calls,

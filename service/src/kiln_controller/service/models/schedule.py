@@ -13,7 +13,6 @@ from .base import Base
 from .user import User
 from .validators import ScheduleValidator, PhaseValidator
 
-
 __all__ = ["PhaseBase", "Phase", "ScheduleBase", "Schedule"]
 
 

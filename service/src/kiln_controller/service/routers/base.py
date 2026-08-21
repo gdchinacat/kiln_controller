@@ -9,14 +9,13 @@ from logging import getLogger
 from typing import Callable, Dict
 
 from fastapi import APIRouter, Request
-from pydantic import ValidationError as PydanticValidationError
+from mypy_extensions import KwArg
 from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound, IntegrityError
 
-from ..models.validators import ValidationError, PhaseType
 from ..models import Session
 from ..models.base import Base, MappedBase
-from mypy_extensions import KwArg
+from ..models.validators import PhaseType
 
 __all__ = []
 
@@ -86,27 +85,12 @@ def create_router(
         # set the path parameter values on the resource (ie schedule_id on phase)
         for k, v in request.path_params.items():
             setattr(resource, k, v)
-        try:
-            orm = orm_type.model_validate(resource)
-            with (session := Session(expire_on_commit=False)), session.begin():
-                session.add(orm)
-                session.flush()
-                orm.validate_create_or_update()
-            return orm.model_dump(mode="json")
-        except (ValidationError, PydanticValidationError):
-            # todo - move all this exception handling into the app
-            raise
-        except IntegrityError as e:
-            # todo - we should not be getting IntegrityErrors from the database
-            #        since that indicates validation was lacking. But...that's
-            #        going to happen, so handle it as a *client* error since
-            #        the model is simple enough to make that a good assumption.
-            # todo - don't expose internal details (e) to client
-            return error(f"{e}"), HTTPStatus.UNPROCESSABLE_ENTITY
-        except Exception as e:
-            logger.exception(e)
-            # todo - don't expose internal details (e) to client
-            return error(f"{e}"), HTTPStatus.INTERNAL_SERVER_ERROR
+        orm = orm_type.model_validate(resource)
+        with (session := Session(expire_on_commit=False)), session.begin():
+            session.add(orm)
+            session.flush()
+            orm.validate_create_or_update()
+        return orm.model_dump(mode="json")
 
     @router.put("/{id}")
     async def _put(id: int, resource: resource_type) -> Dict:

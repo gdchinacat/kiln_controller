@@ -106,12 +106,6 @@ class PhaseBase(Base):
     Unset to indicate ambient temperature.
     """
 
-    ''' todo is this necessary?
-    def validate_create_or_update(self) -> None:
-        """Phase validation is delegated to Schedule.validate_create_or_update()."""
-        self.schedule.validate_create_or_update()
-    '''
-
     schedule_id: int | None
 
 

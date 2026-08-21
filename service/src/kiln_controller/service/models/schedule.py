@@ -123,6 +123,3 @@ class Phase(PhaseValidator, PhaseBase, table=True):
         sa_relationship_kwargs={"viewonly": True, "lazy": True},
     )
     """the schedule the phase is part of"""
-
-
-# Phase.ORDER_BY = Phase.ordinal # todo I don't think this is required

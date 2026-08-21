@@ -23,7 +23,7 @@ class TestPhases(TestCase):
 
         This doesn't really test that the get() orders by ordinal since there
         is a unique constraint on (schedule_id, ordinal). The index for this
-        constraint is the only one for schedule, so he natural order of phases
+        constraint is the only one for schedule, so the natural order of phases
         by schedule includes ordinal. I have manually verified that changing
         the order_by for that query to Phase.ordinal.desc() changes correctly
         changes the order and causes this test to fail.

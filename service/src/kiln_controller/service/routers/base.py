@@ -68,8 +68,6 @@ def create_router(
             filters["schedule_id"] = schedule_id
         if filters:
             query = query.filter_by(**filters)
-        if resource_type.ORDER_BY is not None:
-            query = query.order_by(resource_type.ORDER_BY)
         with Session() as session:
             return [
                 orm.model_dump(mode="json") for orm in session.execute(query).scalars()

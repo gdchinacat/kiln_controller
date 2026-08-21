@@ -1,4 +1,4 @@
-SERVICE_CMD := NON_PERSISTENT=true uv run fastapi dev --host 0.0.0.0 --port 5000 src/kiln_controller/service/__main__.py > /tmp/kiln_controller.5000.log 2>&1
+SERVICE_CMD := NON_PERSISTENT=true uv run fastapi dev --host 0.0.0.0 --port 5000 src/kiln_controller/service/__main__.py >> /tmp/kiln_controller.5000.log 2>&1
 PIDFILE := /tmp/kiln_controller.5000.pid
 
 .PHONY: start_service

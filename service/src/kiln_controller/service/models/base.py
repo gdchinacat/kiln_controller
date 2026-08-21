@@ -15,11 +15,6 @@ class Base(ValidatorMixinBase, SQLModel):
     Base class for all ORM models.
     """
 
-    ORDER_BY: ClassVar = None  # todo remove?
-    """
-    what list get responses should be ordered by
-    """
-
     id: int | None = Field(default=None, primary_key=True)
     """
     All model dataclasses contain a primary key named id.

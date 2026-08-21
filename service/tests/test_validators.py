@@ -19,9 +19,6 @@ from fixtures import kwargs
 __all__ = []
 
 
-# TODO - move these @dataclass fixtures into .fixtures?
-
-
 @kwargs.factory
 @dataclass
 class _User(UserValidator):

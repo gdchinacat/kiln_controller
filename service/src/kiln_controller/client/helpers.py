@@ -70,7 +70,6 @@ def detect_bad_url(func):
     This is intended to prevent the client from making bad requests
     to clarify where the error originates from and keep it from
     reaching the server.
-    TODO - only apply it when debug is enabled?
     """
 
     @wraps(func)

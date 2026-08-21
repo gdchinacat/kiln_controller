@@ -24,9 +24,7 @@ class ScheduleBase(Base):
 
     _URL_PATH: ClassVar[str] = "schedule"
 
-    user_id: int = Field(
-        foreign_key="users.id"
-    )  # todo? - serialize user as user_id=user.id
+    user_id: int
 
 
 class Schedule(ScheduleValidator, ScheduleBase, table=True):
@@ -37,6 +35,7 @@ class Schedule(ScheduleValidator, ScheduleBase, table=True):
         back_populates="schedules",
         sa_relationship_kwargs={"viewonly": True, "lazy": True},
     )
+    user_id: int = Field(foreign_key="users.id")
 
     phases: list["Phase"] = Relationship(
         # phases: Annotated[list["Phase"], Field(exlude=True)] = Relationship(

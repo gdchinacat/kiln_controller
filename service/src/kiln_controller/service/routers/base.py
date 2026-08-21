@@ -98,6 +98,7 @@ def create_router(
                 orm.validate_create_or_update()
             return orm.model_dump(mode="json")
         except (ValidationError, PydanticValidationError):
+            # todo - move all this exception handling into the app
             raise
         except IntegrityError as e:
             # todo - we should not be getting IntegrityErrors from the database

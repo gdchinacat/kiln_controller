@@ -34,6 +34,7 @@ __all__ = [
 ]
 
 SKIP_CLEANUP = os.getenv("SKIP_CLEANUP", "false").upper() == "TRUE"
+PORT = int(os.getenv("SERVICE_PORT", "5000"))
 
 
 def cleanup(func):
@@ -76,7 +77,7 @@ def mock_service_fixture(**_) -> MockService:
 def client_fixture(mock_service, **_):
     """fixture that provides a Client"""
     with mock_service.patch():
-        return _client.Client()
+        return _client.Client(port=PORT)
 
 
 @kwargs.factory

@@ -13,7 +13,6 @@ from unittest.mock import patch
 from urllib.parse import urlparse
 
 import requests
-from jinja2.nodes import Or
 
 LIVE_SERVICE = os.getenv("LIVE_SERVICE", "false").upper() == "TRUE"
 

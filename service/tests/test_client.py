@@ -4,6 +4,7 @@ Test the kiln_controller python client library.
 
 from contextlib import contextmanager
 import random
+import os
 from typing import Any
 import unittest
 
@@ -35,6 +36,8 @@ from .mock_service import Call
 # throwaway ids to make arg lists readable
 # todo - get rid of USER_ID, use actual resources
 USER_ID = 1
+
+PORT = int(os.getenv("SERVICE_PORT", "50001"))
 
 
 class ClientTest(unittest.TestCase):
@@ -91,7 +94,7 @@ class ClientTest(unittest.TestCase):
 
         # get a new client, make sure it exists there as well
         with mock_service.patch():
-            client = Client()
+            client = Client(port=PORT)
             _list = list_getter(client)
 
             self.assertTrue(obj in _list)
@@ -121,7 +124,7 @@ class ClientTest(unittest.TestCase):
             "name",
             USER_ID,
             "host",
-            5000,
+            PORT,
             "description",
             iadd=True,
         )
@@ -132,7 +135,7 @@ class ClientTest(unittest.TestCase):
             "name",
             USER_ID,
             "host",
-            5000,
+            PORT,
             "description",
         )
 

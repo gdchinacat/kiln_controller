@@ -10,13 +10,13 @@ from sqlmodel import Field, Relationship, Column
 
 from ...common.enums import PhaseType
 from .base import Base
-from .user import User
+from .user import UserORM
 from .validators import ScheduleValidator, PhaseValidator
 
-__all__ = ["PhaseBase", "Phase", "ScheduleBase", "Schedule"]
+__all__ = ["Phase", "PhaseORM", "Schedule", "ScheduleORM"]
 
 
-class ScheduleBase(Base):
+class Schedule(Base):
     """
     A schedule is a definition of how a firing should be executed.
     """
@@ -26,28 +26,28 @@ class ScheduleBase(Base):
     user_id: int
 
 
-class Schedule(ScheduleValidator, ScheduleBase, table=True):
+class ScheduleORM(ScheduleValidator, Schedule, table=True):
 
     __tablename__ = "schedules"
     # user: Annotated[User, Field(exlude=True)] = Relationship(
-    user: User = Relationship(
+    user: UserORM = Relationship(
         back_populates="schedules",
         sa_relationship_kwargs={"viewonly": True, "lazy": True},
     )
     user_id: int = Field(foreign_key="users.id")
 
-    phases: list["Phase"] = Relationship(
+    phases: list["PhaseORM"] = Relationship(
         # phases: Annotated[list["Phase"], Field(exlude=True)] = Relationship(
         back_populates="schedule",
         sa_relationship_kwargs={
-            "order_by": "Phase.ordinal",
+            "order_by": "PhaseORM.ordinal",
             "cascade": "delete",
             "lazy": True,
         },
     )
 
 
-class PhaseBase(Base):
+class Phase(Base):
     """
     A phase in a firing schedule.
     """
@@ -107,7 +107,7 @@ class PhaseBase(Base):
     schedule_id: int | None
 
 
-class Phase(PhaseValidator, PhaseBase, table=True):
+class PhaseORM(PhaseValidator, Phase, table=True):
     __tablename__ = "phases"
     __table_args__ = (
         UniqueConstraint("schedule_id", "name"),
@@ -116,7 +116,7 @@ class Phase(PhaseValidator, PhaseBase, table=True):
 
     schedule_id: int = Field(foreign_key="schedules.id")
     # schedule: Annotated[Schedule, Field(exclude=True)] = Relationship(
-    schedule: Schedule = Relationship(
+    schedule: ScheduleORM = Relationship(
         back_populates="phases",
         sa_relationship_kwargs={"viewonly": True, "lazy": True},
     )

@@ -2,13 +2,13 @@ import unittest
 import json
 from datetime import time
 from kiln_controller.common.enums import PhaseType
-from kiln_controller.service.models import PhaseBase
+from kiln_controller.service.models import Phase
 
 
 class PhaseTest(unittest.TestCase):
 
     def test_phase_type_roundtrip(self):
-        phase = PhaseBase(
+        phase = Phase(
             name="name",
             phase_type=PhaseType.RAMP,
             duration=time(),
@@ -21,6 +21,6 @@ class PhaseTest(unittest.TestCase):
         d = phase.model_dump(mode="json")
         json_ = json.dumps(d)
 
-        phase_reconstituted = PhaseBase.model_validate_json(json_)
+        phase_reconstituted = Phase.model_validate_json(json_)
         assert isinstance(phase_reconstituted.duration, time)
         assert isinstance(phase_reconstituted.phase_type, PhaseType)

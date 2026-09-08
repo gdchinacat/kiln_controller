@@ -7,13 +7,13 @@ from typing import Annotated, ClassVar
 from sqlmodel import Field, Relationship
 
 from .base import Base, MappedBase
-from .user import User
+from .user import UserORM
 from .validators import DeviceValidator
 
-__all__ = ("DeviceBase", "Device")
+__all__ = ("Device", "DeviceORM")
 
 
-class DeviceBase(Base):
+class Device(Base):
     _URL_PATH: ClassVar[str] = "device"
 
     host: str
@@ -24,10 +24,10 @@ class DeviceBase(Base):
     description: str | None = Field(default=None)
 
 
-class Device(DeviceValidator, DeviceBase, MappedBase, table=True):
+class DeviceORM(DeviceValidator, Device, MappedBase, table=True):
     __tablename__ = "devices"
     # user: Annotated[User | None, Field(exclude=True)] = Relationship(
-    user: User | None = Relationship(
+    user: UserORM | None = Relationship(
         back_populates="devices",
         sa_relationship_kwargs={"viewonly": True, "lazy": True},
     )

@@ -32,12 +32,15 @@ def _lookup(resource_type: type[Base], session: Session, id: int) -> resource_ty
         return None
 
 
-def _format_doc[**P, R](**kwargs) -> Callable[[Callable[P, R]], Callable[P, R]]:
+def _apply_resource_type[**P, R](
+    resource_type: str,
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """format the decorated functions __doc__ with kwargs"""
 
     def dec(func: Callable[P, R]) -> Callable[P, R]:
         assert func.__doc__, f"{func} does not have a __doc__ to format"
-        func.__doc__ = func.__doc__.format(**kwargs)
+        func.__doc__ = func.__doc__.format(resource_type=resource_type)
+        func.__name__ = func.__name__ + "_" + resource_type
         return func
 
     return dec
@@ -62,8 +65,8 @@ def create_router(
     )
 
     @router.get("/")
-    @_format_doc(resource_type=resource_type.__name__)
-    async def _list_get(request: fastapi.Request) -> list[resource_type]:
+    @_apply_resource_type(resource_type=resource_type.__name__)
+    async def _list(request: fastapi.Request) -> list[resource_type]:
         """get the list of {resource_type}s"""
         query = select(orm_type)
         if request.path_params:  # schedule_id in '/schedule/{request_id}/phase
@@ -74,7 +77,7 @@ def create_router(
             ]
 
     @router.get("/{id}")
-    @_format_doc(resource_type=resource_type.__name__)
+    @_apply_resource_type(resource_type=resource_type.__name__)
     async def _get(id: int, schedule_id=None) -> resource_type:
         """get a {resource_type}"""
         with Session() as session:
@@ -91,8 +94,10 @@ def create_router(
         return orm.model_dump(mode="json")
 
     @router.post("/", status_code=HTTPStatus.CREATED)
-    @_format_doc(resource_type=resource_type.__name__)
-    async def _post(request: fastapi.Request, resource: resource_type) -> resource_type:
+    @_apply_resource_type(resource_type=resource_type.__name__)
+    async def _create(
+        request: fastapi.Request, resource: resource_type
+    ) -> resource_type:
         """create a {resource_type}"""
         # set the path parameter values on the resource (ie schedule_id on phase)
         for k, v in request.path_params.items():
@@ -105,8 +110,9 @@ def create_router(
         return orm.model_dump(mode="json")
 
     @router.put("/{id}")
-    @_format_doc(resource_type=resource_type.__name__)
-    async def _put(id: int, resource: resource_type) -> resource_type:
+    @_apply_resource_type(resource_type=resource_type.__name__)
+    async def _update(id: int, resource: resource_type) -> resource_type:
+        """Update the {resource_type}."""
         """
         There is some debate in the REST community as to whether or not clients
         should be allowed to create resources with PUT since it gives the
@@ -154,8 +160,8 @@ def create_router(
         status_code=fastapi.status.HTTP_204_NO_CONTENT,
         response_class=fastapi.Response,
     )
-    @_format_doc(resource_type=resource_type.__name__)
-    async def delete(id: int) -> None:
+    @_apply_resource_type(resource_type=resource_type.__name__)
+    async def _delete(id: int) -> None:
         """delete a {resource_type}"""
         with (session := Session()), session.begin():
             orm = _lookup(orm_type, session, id)

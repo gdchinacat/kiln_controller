@@ -1,765 +1,1429 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full bg-slate-950 text-slate-100">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Kiln Controller</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Inter', system-ui, sans-serif; background: #f8fafc; color: #0f172a; }
-    button { cursor: pointer; font-family: inherit; }
-    .serif { font-family: 'DM Serif Display', Georgia, serif; }
-    @keyframes fadeUp  { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-    @keyframes spin    { to { transform: rotate(360deg); } }
-    input, select, textarea {
-      font-family: inherit; font-size: 13px; color: #0f172a;
-      background: white; border: 1px solid #e2e8f0; border-radius: 7px;
-      padding: 8px 12px; outline: none; transition: border-color 0.15s;
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kiln Command Center - Smart Kiln Management</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js for Temperature Curves -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#fff7ed',
+              100: '#ffedd5',
+              500: '#f97316',
+              600: '#ea580c',
+              700: '#c2410c',
+            }
+          }
+        }
+      }
     }
-    input:focus, select:focus, textarea:focus { border-color: #94a3b8; }
-    label { font-size: 11px; font-weight: 600; color: #64748b; letter-spacing: 0.08em; text-transform: uppercase; display: block; margin-bottom: 5px; }
-    .field { margin-bottom: 14px; }
-    .card { background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 24px; }
-    .nav-btn { padding:7px 15px; font-size:13px; font-weight:500; border:none; background:transparent; border-radius:6px; color:#64748b; transition:all 0.15s; }
-    .nav-btn:hover { background:#f1f5f9; color:#0f172a; }
-    .nav-btn.active { background:#0f172a; color:white; }
-    .btn-primary { display:inline-flex; align-items:center; gap:6px; padding:9px 18px; background:#0f172a; color:white; border:none; border-radius:7px; font-size:13px; font-weight:500; transition:opacity 0.15s; }
-    .btn-primary:hover:not(:disabled) { opacity:0.82; }
-    .btn-primary:disabled { opacity:0.35; cursor:not-allowed; }
-    .btn-danger  { display:inline-flex; align-items:center; gap:6px; padding:9px 18px; background:#fff1f2; color:#e11d48; border:1px solid #fecdd3; border-radius:7px; font-size:13px; font-weight:500; transition:all 0.15s; }
-    .btn-danger:hover:not(:disabled)  { background:#ffe4e6; }
-    .btn-ghost   { display:inline-flex; align-items:center; gap:6px; padding:9px 18px; background:#f8fafc; color:#334155; border:1px solid #e2e8f0; border-radius:7px; font-size:13px; font-weight:500; transition:all 0.15s; }
-    .btn-ghost:hover   { background:#f1f5f9; }
-    .btn-sm { padding: 5px 12px; font-size: 12px; }
-    .row { padding:14px 0; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; gap:12px; }
-    .row:last-child { border-bottom: none; }
-    .badge { display:inline-block; padding:2px 10px; border-radius:20px; font-size:11px; font-weight:600; }
-    .badge-ramp     { background:#eff6ff; color:#2563eb; }
-    .badge-constant { background:#f0fdf4; color:#16a34a; }
-    table { width:100%; border-collapse:collapse; font-size:13px; }
-    thead th { padding:11px 16px; text-align:left; font-size:11px; font-weight:600; letter-spacing:0.08em; color:#94a3b8; text-transform:uppercase; background:#f8fafc; border-bottom:1px solid #e2e8f0; }
-    tbody td { padding:13px 16px; border-bottom:1px solid #f1f5f9; }
-    tbody tr:last-child td { border-bottom:none; }
-    tbody tr:hover td { background:#f8fafc; }
-    .modal-bg { position:fixed; inset:0; background:rgba(15,23,42,0.4); z-index:50; display:flex; align-items:center; justify-content:center; animation:fadeUp 0.15s ease; }
-    .modal { background:white; border-radius:14px; padding:28px; width:480px; max-width:90vw; box-shadow:0 20px 60px rgba(0,0,0,0.15); max-height:90vh; overflow-y:auto; }
-    .modal h3 { font-size:18px; margin-bottom:20px; }
-    .spinner { width:16px; height:16px; border:2px solid rgba(255,255,255,0.3); border-top-color:white; border-radius:50%; animation:spin 0.6s linear infinite; }
-    .empty { color:#94a3b8; font-size:14px; padding:32px 0; text-align:center; }
+  </script>
+
+  <style>
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+    .glass-panel {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
   </style>
 </head>
-<body>
-<div id="root"></div>
-<script type="text/babel">
-const { useState, useEffect, useCallback, useRef } = React;
+<body class="h-full flex flex-col font-sans overflow-hidden bg-slate-950 text-slate-100">
 
-// ── Config ────────────────────────────────────────────────────────────────────
-// Change this to your kiln controller's address
-const BASE = "http://192.168.12.188:5000";
-
-// ── API helpers ───────────────────────────────────────────────────────────────
-const req = async (method, path, body) => {
-  const opts = { method, headers: { "Content-Type": "application/json" } };
-  if (body !== undefined) opts.body = JSON.stringify(body);
-  const res = await fetch(BASE + path, opts);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || `HTTP ${res.status}`);
-  }
-  return res.json();
-};
-
-const api = {
-  // Users
-  getUsers:          ()         => req("GET",    "/user/"),
-  getUser:           (id)       => req("GET",    `/user/${id}/`),
-  createUser:        (body)     => req("POST",   "/user/",        body),
-  updateUser:        (id, body) => req("PUT",    `/user/${id}/`,  body),
-  deleteUser:        (id)       => req("DELETE", `/user/${id}/`),
-
-  // Devices
-  getDevices:        ()         => req("GET",    "/device/"),
-  getDevice:         (id)       => req("GET",    `/device/${id}/`),
-  createDevice:      (body)     => req("POST",   "/device/",       body),
-  updateDevice:      (id, body) => req("PUT",    `/device/${id}/`, body),
-  deleteDevice:      (id)       => req("DELETE", `/device/${id}/`),
-
-  // Schedules
-  getSchedules:      ()         => req("GET",    "/schedule/"),
-  getSchedule:       (id)       => req("GET",    `/schedule/${id}/`),
-  createSchedule:    (body)     => req("POST",   "/schedule/",        body),
-  updateSchedule:    (id, body) => req("PUT",    `/schedule/${id}/`,  body),
-  deleteSchedule:    (id)       => req("DELETE", `/schedule/${id}/`),
-
-  // Phases  (nested under schedule)
-  getPhases:         (sid)          => req("GET",    `/schedule/${sid}/phase/`),
-  createPhase:       (sid, body)    => req("POST",   `/schedule/${sid}/phase/`, body),
-  updatePhase:       (sid, id, body)=> req("PUT",    `/schedule/${sid}/phase/${id}/`, body),
-  deletePhase:       (sid, id)      => req("DELETE", `/schedule/${sid}/phase/${id}/`),
-};
-
-// ── Small helpers ─────────────────────────────────────────────────────────────
-const PHASE_TYPES = ["Ramp", "Hold"];
-
-function Toast({ toast }) {
-  if (!toast) return null;
-  const colors = {
-    success: { bg:"#f0fdf4", color:"#16a34a", border:"#bbf7d0" },
-    error:   { bg:"#fff1f2", color:"#e11d48", border:"#fecdd3" },
-    info:    { bg:"white",   color:"#334155", border:"#e2e8f0" },
-  }[toast.type] || {};
-  return (
-    <div style={{ position:"fixed", top:20, right:20, zIndex:999,
-      padding:"12px 18px", borderRadius:9, fontSize:13, fontWeight:500,
-      boxShadow:"0 4px 16px rgba(0,0,0,0.09)", animation:"fadeUp 0.2s ease",
-      background:colors.bg, color:colors.color, border:`1px solid ${colors.border}` }}>
-      {toast.msg}
-    </div>
-  );
-}
-
-function useToast() {
-  const [toast, setToast] = useState(null);
-  const show = (msg, type="info") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3500);
-  };
-  return [toast, show];
-}
-
-function Modal({ title, onClose, children }) {
-  return (
-    <div className="modal-bg" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal">
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
-          <h3 className="serif" style={{ fontSize:20, margin:0 }}>{title}</h3>
-          <button onClick={onClose} style={{ background:"none", border:"none", fontSize:18, color:"#94a3b8", lineHeight:1 }}>✕</button>
+  <div id="app" class="flex flex-col h-screen overflow-hidden">
+    
+    <!-- Top Navigation Bar -->
+    <header class="h-16 border-b border-slate-800 bg-slate-900/90 backdrop-blur px-6 flex items-center justify-between shrink-0 z-20">
+      <div class="flex items-center space-x-3">
+        <div class="p-2 bg-gradient-to-tr from-orange-600 to-amber-500 rounded-lg text-white shadow-lg shadow-orange-500/20">
+          <i data-lucide="flame" class="w-6 h-6"></i>
         </div>
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function Field({ label, children }) {
-  return <div className="field"><label>{label}</label>{children}</div>;
-}
-
-// ── Users view ────────────────────────────────────────────────────────────────
-function UsersView({ showToast }) {
-  const [users, setUsers]     = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [modal, setModal]     = useState(null); // null | {mode:'create'|'edit', user?}
-  const [form, setForm]       = useState({ username: "", name:"" });
-  const [saving, setSaving]   = useState(false);
-
-  const load = useCallback(async () => {
-    try { setUsers(await api.getUsers()); }
-    catch (e) { showToast(e.message, "error"); }
-    finally { setLoading(false); }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  const openCreate = () => { setForm({ username:"", name:"" }); setModal({ mode:"create" }); };
-  const openEdit   = u  => { setForm({ username: u.username, name: u.name }); setModal({ mode:"edit", user:u }); };
-
-  const save = async () => {
-    setSaving(true);
-    try {
-      if (modal.mode === "create") { await api.createUser(form); showToast("User created", "success"); }
-      else { await api.updateUser(modal.user.id, form); showToast("User updated", "success"); }
-      setModal(null); load();
-    } catch (e) { showToast(e.message, "error"); }
-    finally { setSaving(false); }
-  };
-
-  const del = async (u) => {
-    if (!confirm(`Delete user "${u.username}"?`)) return;
-    try { await api.deleteUser(u.id); showToast("User deleted", "success"); load(); }
-    catch (e) { showToast(e.message, "error"); }
-  };
-
-  return (
-    <div style={{ maxWidth:700 }}>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:24 }}>
         <div>
-          <h2 className="serif" style={{ fontSize:26, marginBottom:4 }}>Users</h2>
-          <p style={{ fontSize:14, color:"#64748b" }}>Manage user accounts.</p>
+          <h1 class="font-bold text-lg leading-none tracking-tight">Kiln Control Hub</h1>
+          <span id="server-origin-badge" class="text-xs text-slate-400 font-mono">Connected to Server</span>
         </div>
-        <button className="btn-primary" onClick={openCreate}>+ New User</button>
       </div>
 
-      <div className="card" style={{ padding:0, overflow:"hidden" }}>
-        {loading ? <div className="empty">Loading…</div> : users.length === 0 ? (
-          <div className="empty">No users yet. Create one to get started.</div>
-        ) : (
-          <table>
-            <thead><tr><th>Username</th><th>Name</th><th></th></tr></thead>
-            <tbody>
-              {users.map(u => (
-                <tr key={u.id}>
-                  <td style={{ fontWeight:500 }}>{u.username}</td>
-                  <td style={{ fontWeight:500 }}>{u.name}</td>
-                  <td style={{ textAlign:"right", width:160 }}>
-                    <button className="btn-ghost btn-sm" style={{ marginRight:6 }} onClick={() => openEdit(u)}>Edit</button>
-                    <button className="btn-danger btn-sm" onClick={() => del(u)}>Delete</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+      <!-- Center Nav Tabs -->
+      <nav class="hidden md:flex space-x-1 bg-slate-950/60 p-1 rounded-xl border border-slate-800">
+        <button onclick="switchTab('dashboard')" id="nav-dashboard" class="px-4 py-1.5 text-sm font-medium rounded-lg transition-all flex items-center gap-2 bg-orange-600 text-white shadow">
+          <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Dashboard
+        </button>
+        <button onclick="switchTab('users')" id="nav-users" class="px-4 py-1.5 text-sm font-medium rounded-lg text-slate-400 hover:text-white transition-all flex items-center gap-2">
+          <i data-lucide="users" class="w-4 h-4"></i> Users
+        </button>
+        <button onclick="switchTab('devices')" id="nav-devices" class="px-4 py-1.5 text-sm font-medium rounded-lg text-slate-400 hover:text-white transition-all flex items-center gap-2">
+          <i data-lucide="cpu" class="w-4 h-4"></i> Devices
+        </button>
+        <button onclick="switchTab('schedules')" id="nav-schedules" class="px-4 py-1.5 text-sm font-medium rounded-lg text-slate-400 hover:text-white transition-all flex items-center gap-2">
+          <i data-lucide="calendar" class="w-4 h-4"></i> Firing Schedules
+        </button>
+      </nav>
 
-      {modal && (
-        <Modal title={modal.mode === "create" ? "New User" : "Edit User"} onClose={() => setModal(null)}>
-          <Field label="Username">
-            <input style={{ width:"100%" }} value={form.username}
-              onChange={e => setForm(f => ({ ...f, username: e.target.value }))}
-              placeholder="e.g. alice" />
-          </Field>
-          <Field label="Name">
-            <input style={{ width:"100%" }} value={form.name}
-              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              placeholder="e.g. Alice" />
-          </Field>
-          <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:8 }}>
-            <button className="btn-ghost" onClick={() => setModal(null)}>Cancel</button>
-            <button className="btn-primary" onClick={save} disabled={saving || !form.name.trim() ||!form.username.trim() }>
-              {saving ? <span className="spinner"/> : null}
-              {modal.mode === "create" ? "Create" : "Save"}
-            </button>
-          </div>
-        </Modal>
-      )}
-    </div>
-  );
-}
-
-function RequireUsers(users, loading) {
-    if(users.length === 0 && !loading) {
-        return (
-        <div style={{ padding:"12px 16px", borderRadius:8, background:"#fffbeb", border:"1px solid #fde68a", fontSize:13, color:"#92400e", marginBottom:16 }}>
-          ⚠ Create a user first before adding schedules.
-        </div>
-      )
-    }
-}
-
-// ── Devices view ──────────────────────────────────────────────────────────────
-function DevicesView({ showToast }) {
-  const [devices, setDevices] = useState([]);
-  const [users, setUsers]           = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [modal, setModal]     = useState(null);
-  const [form, setForm]       = useState({ name:"", host: "", port: "", url: "", user_id: "" });
-  const [saving, setSaving]   = useState(false);
-
-  const load = useCallback(async () => {
-    try {
-      const [d, u] = await Promise.all([api.getDevices(), api.getUsers()]);
-      setDevices(d); setUsers(u);
-    } catch (e) { showToast(e.message, "error"); }
-    finally { setLoading(false); }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  const openCreate = () => { setForm({ name:"" , host: "", port: "", url: "", user_id: users[0]?.id ?? ""}); setModal({ mode:"create" }); };
-  const openEdit   = d  => { setForm({ name: d.name, host: d.host, port: String(d.port), url: d.url, user_id: d.user_id }); setModal({ mode:"edit", device:d }); };  // todo user name
-
-  const save = async () => {
-    setSaving(true);
-    try {
-      if (modal.mode === "create") { await api.createDevice(form); showToast("Device created", "success"); }
-      else { await api.updateDevice(modal.device.id, form); showToast("Device updated", "success"); }
-      setModal(null); load();
-    } catch (e) { showToast(e.message, "error"); }
-    finally { setSaving(false); }
-  };
-
-  const del = async (d) => {
-    if (!confirm(`Delete device "${d.name}"?`)) return;
-    try { await api.deleteDevice(d.id); showToast("Device deleted", "success"); load(); }
-    catch (e) { showToast(e.message, "error"); }
-  };
-
-  const userName = (uid) => users.find(u => u.id === uid)?.name || `User ${uid}`;
-
-  return (
-    <div style={{ maxWidth:700 }}>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:24 }}>
-        <div>
-          <h2 className="serif" style={{ fontSize:26, marginBottom:4 }}>Devices</h2>
-          <p style={{ fontSize:14, color:"#64748b" }}>Manage connected kiln devices.</p>
-        </div>
-        <button className="btn-primary" onClick={openCreate} disabled={users.length === 0}>
-          + New Device
+      <!-- Right Side Controls -->
+      <div class="flex items-center space-x-3">
+        <button onclick="refreshCurrentView()" title="Refresh Data" class="p-2 text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800 rounded-lg border border-slate-700/60 transition-all flex items-center gap-1.5 text-xs font-medium">
+          <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+          <span class="hidden sm:inline">Refresh</span>
+        </button>
+        <button onclick="toggleConsoleDrawer()" title="API Activity Logs" class="relative p-2 text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800 rounded-lg border border-slate-700/60 transition-all">
+          <i data-lucide="terminal" class="w-5 h-5"></i>
+          <span id="console-badge" class="hidden absolute -top-1 -right-1 w-2.5 h-2.5 bg-orange-500 rounded-full animate-pulse"></span>
         </button>
       </div>
+    </header>
 
-      {RequireUsers(users, loading)}
+    <main class="flex-1 overflow-y-auto p-6 space-y-6">
+      
+      <!-- DASHBOARD VIEW -->
+      <section id="view-dashboard" class="space-y-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-2xl font-bold text-white">System Overview</h2>
+            <p class="text-sm text-slate-400">Live kiln management metrics and active schedule monitoring</p>
+          </div>
+          <button onclick="renderDashboard()" class="text-xs text-slate-400 hover:text-orange-400 flex items-center gap-1">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Reload Dashboard
+          </button>
+        </div>
 
-      <div className="card" style={{ padding:0, overflow:"hidden" }}>
-        {loading ? <div className="empty">Loading…</div> : devices.length === 0 ? (
-          <div className="empty">No devices registered yet.</div>
-        ) : (
-          <table>
-            <thead><tr>
-                       <th>Name</th>
-                       <th>URL</th>
-                       <th>Operator</th>
-                       <th></th>
-            </tr></thead>
-            <tbody>
-              {devices.map(d => (
-                <tr key={d.id}>
-                  <td style={{ fontWeight:500 }}>{d.name}</td>
-                  <td style={{ fontWeight:500 }}>http://{d.host}:{d.port}{d.url}</td>
-                  <td style={{ fontWeight:500 }}>{userName(d.user_id)}</td>
-                  <td style={{ textAlign:"right", width:160 }}>
-                    <button className="btn-ghost btn-sm" style={{ marginRight:6 }} onClick={() => openEdit(d)}>Edit</button>
-                    <button className="btn-danger btn-sm" onClick={() => del(d)}>Delete</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+        <!-- Overview Stats Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="glass-panel p-5 rounded-2xl border border-slate-800 flex items-center justify-between">
+            <div>
+              <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Active Users</p>
+              <h3 id="stat-users-count" class="text-3xl font-bold mt-1 text-slate-100">--</h3>
+            </div>
+            <div class="p-3 bg-blue-500/10 text-blue-400 rounded-xl border border-blue-500/20">
+              <i data-lucide="users" class="w-6 h-6"></i>
+            </div>
+          </div>
 
-      {modal && (
-        <Modal title={modal.mode === "create" ? "New Device" : "Edit Device"} onClose={() => setModal(null)}>
-          <Field label="Name">
-            <input style={{ width:"100%" }} value={form.name}
-              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              placeholder="e.g. Front Kiln" />
-          </Field>
-          <Field label="Host">
-            <input style={{ width:"100%" }} value={form.host}
-              onChange={e => setForm(f => ({ ...f, host: e.target.value }))}
-              placeholder="e.g. localhost" />
-          </Field>
-          <Field label="Port">
-            <input style={{ width:"100%" }} value={form.port}
-              onChange={e => setForm(f => ({ ...f, port: e.target.value }))}
-              placeholder="e.g. 5000" />
-          </Field>
-          <Field label="Url">
-            <input style={{ width:"100%" }} value={form.url}
-              onChange={e => setForm(f => ({ ...f, url: e.target.value }))}
-              placeholder="e.g. /" />
-          </Field>
-          <Field label="Operator (User)">
-            <select style={{ width:"100%" }} value={form.user_id}
-              onChange={e => setForm(f => ({ ...f, user_id: e.target.value }))}>
-              {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-            </select>
-          </Field>
-          <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:8 }}>
-            <button className="btn-ghost" onClick={() => setModal(null)}>Cancel</button>
-            <button className="btn-primary" onClick={save} disabled={saving || !form.name.trim() || !form.port.trim() || !form.host.trim() || !form.url.trim() }>
-              {saving ? <span className="spinner"/> : null}
-              {modal.mode === "create" ? "Create" : "Save"}
+          <div class="glass-panel p-5 rounded-2xl border border-slate-800 flex items-center justify-between">
+            <div>
+              <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Connected Kilns</p>
+              <h3 id="stat-devices-count" class="text-3xl font-bold mt-1 text-slate-100">--</h3>
+            </div>
+            <div class="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20">
+              <i data-lucide="cpu" class="w-6 h-6"></i>
+            </div>
+          </div>
+
+          <div class="glass-panel p-5 rounded-2xl border border-slate-800 flex items-center justify-between">
+            <div>
+              <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Firing Schedules</p>
+              <h3 id="stat-schedules-count" class="text-3xl font-bold mt-1 text-slate-100">--</h3>
+            </div>
+            <div class="p-3 bg-orange-500/10 text-orange-400 rounded-xl border border-orange-500/20">
+              <i data-lucide="calendar" class="w-6 h-6"></i>
+            </div>
+          </div>
+
+          <div class="glass-panel p-5 rounded-2xl border border-slate-800 flex items-center justify-between">
+            <div>
+              <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Total Profile Phases</p>
+              <h3 id="stat-phases-count" class="text-3xl font-bold mt-1 text-slate-100">--</h3>
+            </div>
+            <div class="p-3 bg-amber-500/10 text-amber-400 rounded-xl border border-amber-500/20">
+              <i data-lucide="activity" class="w-6 h-6"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- Featured Active Schedule Visualizer -->
+        <div class="glass-panel rounded-2xl border border-slate-800 p-6">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-orange-500/20 text-orange-400 border border-orange-500/30">Active Curve Monitor</span>
+                <span id="dash-selected-schedule-user" class="text-xs text-slate-400"></span>
+              </div>
+              <h2 id="dash-schedule-title" class="text-2xl font-bold text-white mt-1">Select a Schedule Below</h2>
+            </div>
+            <div class="flex items-center gap-3">
+              <select id="dash-schedule-select" onchange="loadDashboardScheduleChart(this.value)" class="bg-slate-900 border border-slate-700 text-sm rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-orange-500">
+                <option value="">Select Schedule...</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="w-full h-72 relative">
+            <canvas id="dashboardChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Quick Summary Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Recent Devices -->
+          <div class="glass-panel rounded-2xl border border-slate-800 p-5">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="font-bold text-slate-200 flex items-center gap-2">
+                <i data-lucide="cpu" class="w-4 h-4 text-emerald-400"></i> Kiln Hardware Status
+              </h3>
+              <button onclick="switchTab('devices')" class="text-xs text-orange-400 hover:text-orange-300 font-medium">Manage All &rarr;</button>
+            </div>
+            <div id="dash-devices-list" class="space-y-3">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- Quick Users -->
+          <div class="glass-panel rounded-2xl border border-slate-800 p-5">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="font-bold text-slate-200 flex items-center gap-2">
+                <i data-lucide="users" class="w-4 h-4 text-blue-400"></i> Registered Studio Operators
+              </h3>
+              <button onclick="switchTab('users')" class="text-xs text-orange-400 hover:text-orange-300 font-medium">Manage All &rarr;</button>
+            </div>
+            <div id="dash-users-list" class="space-y-3">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- USERS VIEW -->
+      <section id="view-users" class="hidden space-y-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-2xl font-bold text-white">Users Directory</h2>
+            <p class="text-sm text-slate-400">Manage studio operators, artists, and technicians</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="renderUsers()" class="p-2 text-slate-400 hover:text-white bg-slate-900 border border-slate-800 rounded-xl text-xs flex items-center gap-1">
+              <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+            </button>
+            <button onclick="openUserModal()" class="bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 shadow-lg shadow-orange-600/20">
+              <i data-lucide="user-plus" class="w-4 h-4"></i> Add User
             </button>
           </div>
-        </Modal>
-      )}
-    </div>
-  );
-}
-
-// ── Phase form modal ──────────────────────────────────────────────────────────
-function PhaseModal({ scheduleId, phase, nextOrdinal, onClose, onSaved, showToast }) {
-  const isEdit = !!phase;
-  const [form, setForm] = useState(isEdit ? {
-    name:       phase.name       || "",
-    ordinal:    phase.ordinal    ?? nextOrdinal,
-    phase_type: phase.phase_type || "RAMP",
-    temperature: phase.temperature ?? "",
-    rate:        phase.rate        ?? "",
-    duration:    phase.duration    || "",
-  } : {
-    name:"", ordinal: nextOrdinal, phase_type:"RAMP", temperature:"", rate:"", duration:"",
-  });
-  const [saving, setSaving] = useState(false);
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-
-  const save = async () => {
-    setSaving(true);
-    try {
-      const body = {
-        name:       form.name,
-        ordinal:    Number(form.ordinal),
-        phase_type: form.phase_type,
-        temperature: form.temperature !== "" ? Number(form.temperature) : null,
-        rate:        form.rate        !== "" ? Number(form.rate)        : null,
-        duration:    form.phase_type === "CONSTANT" && form.duration ? form.duration : null,
-      };
-      if (isEdit) await api.updatePhase(scheduleId, phase.id, body);
-      else        await api.createPhase(scheduleId, body);
-      showToast(isEdit ? "Phase updated" : "Phase created", "success");
-      onSaved();
-    } catch (e) { showToast(e.message, "error"); }
-    finally { setSaving(false); }
-  };
-
-  return (
-    <Modal title={isEdit ? "Edit Phase" : "New Phase"} onClose={onClose}>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 16px" }}>
-        <div style={{ gridColumn:"1/-1" }}>
-          <Field label="Name">
-            <input style={{ width:"100%" }} value={form.name}
-              onChange={e => set("name", e.target.value)} placeholder="e.g. Slow climb" />
-          </Field>
         </div>
-        <Field label="Type">
-          <select style={{ width:"100%" }} value={form.phase_type} onChange={e => set("phase_type", e.target.value)}>
-            <option value="RAMP">RAMP — change temperature</option>
-            <option value="CONSTANT">CONSTANT — hold temperature</option>
-          </select>
-        </Field>
-        <Field label="Ordinal">
-          <input style={{ width:"100%" }} type="number" value={form.ordinal}
-            onChange={e => set("ordinal", e.target.value)} placeholder="10" />
-        </Field>
-        <Field label="Target Temp (°C)">
-          <input style={{ width:"100%" }} type="number" value={form.temperature}
-            onChange={e => set("temperature", e.target.value)} placeholder="e.g. 1000" />
-        </Field>
-        {form.phase_type === "RAMP" && (
-          <Field label="Rate (°C/min) — blank = max">
-            <input style={{ width:"100%" }} type="number" value={form.rate}
-              onChange={e => set("rate", e.target.value)} placeholder="e.g. 100" />
-          </Field>
-        )}
-        {form.phase_type === "CONSTANT" && (
-          <Field label="Duration (HH:MM:SS)">
-            <input style={{ width:"100%" }} value={form.duration}
-              onChange={e => set("duration", e.target.value)} placeholder="e.g. 01:30:00" />
-          </Field>
-        )}
-      </div>
-      <div style={{ background:"#f8fafc", borderRadius:8, padding:"10px 14px", fontSize:12, color:"#64748b", marginBottom:16 }}>
-        {form.phase_type === "RAMP"
-          ? "RAMP: temperature changes at the given rate until the target is reached. Leave rate blank for maximum speed."
-          : "CONSTANT: temperature is held at the target for the given duration."}
-      </div>
-      <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
-        <button className="btn-ghost" onClick={onClose}>Cancel</button>
-        <button className="btn-primary" onClick={save} disabled={saving || !form.name.trim()}>
-          {saving ? <span className="spinner"/> : null}
-          {isEdit ? "Save" : "Create"}
-        </button>
-      </div>
-    </Modal>
-  );
-}
 
-// ── Schedule detail (phases) ──────────────────────────────────────────────────
-function ScheduleDetail({ schedule, onBack, showToast }) {
-  const [phases, setPhases]     = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [phaseModal, setPhaseModal] = useState(null); // null | {mode, phase?}
-
-  const load = useCallback(async () => {
-    try { setPhases(await api.getPhases(schedule.id)); }
-    catch (e) { showToast(e.message, "error"); }
-    finally { setLoading(false); }
-  }, [schedule.id]);
-
-  useEffect(() => { load(); }, [load]);
-
-  const nextOrdinal = phases.length > 0
-    ? Math.max(...phases.map(p => p.ordinal)) + 10
-    : 10;
-
-  const delPhase = async (p) => {
-    if (!confirm(`Delete phase "${p.name}"?`)) return;
-    try { await api.deletePhase(schedule.id, p.id); showToast("Phase deleted", "success"); load(); }
-    catch (e) { showToast(e.message, "error"); }
-  };
-
-  const tempLabel = (p) => p.temperature != null ? `${p.temperature}°C` : "ambient";
-  const rateLabel = (p) => p.rate != null ? `${p.rate}°C/min` : "max rate";
-
-  return (
-    <div style={{ maxWidth:800 }}>
-      <button className="btn-ghost btn-sm" style={{ marginBottom:20 }} onClick={onBack}>← Back to Schedules</button>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:24 }}>
-        <div>
-          <h2 className="serif" style={{ fontSize:26, marginBottom:4 }}>{schedule.name}</h2>
-          <p style={{ fontSize:14, color:"#64748b" }}>Schedule ID {schedule.id} · {phases.length} phase{phases.length !== 1 ? "s" : ""}</p>
+        <div class="glass-panel rounded-2xl border border-slate-800 overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-slate-950/60 border-b border-slate-800 text-slate-400 text-xs uppercase tracking-wider">
+                  <th class="p-4">ID</th>
+                  <th class="p-4">Name</th>
+                  <th class="p-4">Username</th>
+                  <th class="p-4">Email</th>
+                  <th class="p-4">Phone Number</th>
+                  <th class="p-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="users-table-body" class="divide-y divide-slate-800 text-sm">
+                <!-- Dynamically filled -->
+              </tbody>
+            </table>
+          </div>
         </div>
-        <button className="btn-primary" onClick={() => setPhaseModal({ mode:"create" })}>+ Add Phase</button>
-      </div>
+      </section>
 
-      {/* Visual phase timeline */}
-      {phases.length > 0 && (
-        <div className="card" style={{ marginBottom:16, padding:"18px 24px" }}>
-          <p style={{ fontSize:11, fontWeight:600, letterSpacing:"0.1em", color:"#94a3b8", textTransform:"uppercase", marginBottom:14 }}>
-            Firing Profile
-          </p>
-          <div style={{ display:"flex", alignItems:"flex-end", gap:2, height:80 }}>
-            {phases.map((p, i) => {
-              const maxTemp = Math.max(...phases.map(ph => ph.temperature || 0)) || 1;
-              const h = p.temperature ? Math.max(12, (p.temperature / maxTemp) * 72) : 12;
-              const isRamp = p.phase_type === "RAMP";
-              return (
-                <div key={p.id} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
-                  <div style={{ fontSize:10, color:"#94a3b8", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:"100%", textAlign:"center" }}>
-                    {p.temperature != null ? `${p.temperature}°` : "amb"}
+      <!-- DEVICES VIEW -->
+      <section id="view-devices" class="hidden space-y-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-2xl font-bold text-white">Kiln Devices</h2>
+            <p class="text-sm text-slate-400">Hardware controllers connected to the server ecosystem</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="renderDevices()" class="p-2 text-slate-400 hover:text-white bg-slate-900 border border-slate-800 rounded-xl text-xs flex items-center gap-1">
+              <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+            </button>
+            <button onclick="openDeviceModal()" class="bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 shadow-lg shadow-orange-600/20">
+              <i data-lucide="plus" class="w-4 h-4"></i> Add Kiln Device
+            </button>
+          </div>
+        </div>
+
+        <div id="devices-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <!-- Dynamically populated -->
+        </div>
+      </section>
+
+      <!-- SCHEDULES VIEW (Includes Phases inline & detail visualizer) -->
+      <section id="view-schedules" class="hidden space-y-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-2xl font-bold text-white">Firing Schedules & Curves</h2>
+            <p class="text-sm text-slate-400">Define firing ramp/hold profiles for ceramics, glass, and pottery</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="renderSchedules()" class="p-2 text-slate-400 hover:text-white bg-slate-900 border border-slate-800 rounded-xl text-xs flex items-center gap-1">
+              <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+            </button>
+            <button onclick="openScheduleModal()" class="bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 shadow-lg shadow-orange-600/20">
+              <i data-lucide="calendar-plus" class="w-4 h-4"></i> Create Schedule
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <!-- Schedules List Side Column -->
+          <div class="lg:col-span-4 space-y-3">
+            <h3 class="text-xs uppercase font-bold text-slate-400 tracking-wider mb-2">Available Profiles</h3>
+            <div id="schedules-list" class="space-y-3">
+              <!-- Dynamically populated cards -->
+            </div>
+          </div>
+
+          <!-- Schedule Detailed View & Phase Editor -->
+          <div class="lg:col-span-8 space-y-6">
+            <div id="schedule-detail-panel" class="glass-panel rounded-2xl border border-slate-800 p-6">
+              <div id="schedule-detail-empty" class="text-center py-12 text-slate-500">
+                <i data-lucide="flame" class="w-12 h-12 mx-auto mb-3 opacity-30"></i>
+                <p>Select or create a firing schedule to view its curve and edit phases.</p>
+              </div>
+
+              <div id="schedule-detail-content" class="hidden space-y-6">
+                <!-- Header -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+                  <div>
+                    <span id="selected-schedule-id-badge" class="text-xs font-mono bg-slate-800 text-orange-400 px-2 py-0.5 rounded">ID: #</span>
+                    <h2 id="selected-schedule-name" class="text-2xl font-bold text-white mt-1">--</h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Assigned Operator: <span id="selected-schedule-owner" class="text-slate-200 font-medium">--</span></p>
                   </div>
-                  <div style={{
-                    width:"100%", height:h, borderRadius:"3px 3px 0 0",
-                    background: isRamp
-                      ? "linear-gradient(to top, #fbbf24, #ef4444)"
-                      : "linear-gradient(to top, #34d399, #059669)",
-                    transition:"height 0.3s",
-                  }} title={p.name} />
-                  <div style={{ fontSize:9, color:"#cbd5e1", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:"100%", textAlign:"center" }}>
-                    {p.name}
+                  <div class="flex items-center gap-2">
+                    <button onclick="openPhaseModal()" class="bg-slate-800 hover:bg-slate-700 text-orange-400 border border-orange-500/30 px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5">
+                      <i data-lucide="plus-circle" class="w-4 h-4"></i> Add Phase
+                    </button>
+                    <button id="edit-schedule-btn" class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2 rounded-lg text-xs">
+                      <i data-lucide="edit-3" class="w-4 h-4"></i>
+                    </button>
+                    <button id="delete-schedule-btn" class="bg-red-500/10 hover:bg-red-500/20 text-red-400 p-2 rounded-lg text-xs">
+                      <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
                   </div>
                 </div>
-              );
-            })}
+
+                <!-- Temperature Chart -->
+                <div>
+                  <h4 class="text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Temperature Curve (°C)</h4>
+                  <div class="w-full h-64 bg-slate-950/50 p-2 rounded-xl border border-slate-800/80">
+                    <canvas id="scheduleDetailChart"></canvas>
+                  </div>
+                </div>
+
+                <!-- Phases Table -->
+                <div>
+                  <div class="flex items-center justify-between mb-3">
+                    <h4 class="text-xs font-bold uppercase text-slate-400 tracking-wider">Sequential Firing Phases</h4>
+                  </div>
+                  <div class="border border-slate-800 rounded-xl overflow-hidden bg-slate-950/40">
+                    <table class="w-full text-left text-xs">
+                      <thead>
+                        <tr class="bg-slate-900 text-slate-400 border-b border-slate-800">
+                          <th class="p-3">Ord</th>
+                          <th class="p-3">Phase Name</th>
+                          <th class="p-3">Type</th>
+                          <th class="p-3">Target Temp</th>
+                          <th class="p-3">Rate (°/h)</th>
+                          <th class="p-3">Hold Duration</th>
+                          <th class="p-3 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody id="phases-table-body" class="divide-y divide-slate-800">
+                        <!-- Filled dynamically -->
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      )}
+      </section>
 
-      <div className="card" style={{ padding:0, overflow:"hidden" }}>
-        {loading ? <div className="empty">Loading…</div> : phases.length === 0 ? (
-          <div className="empty">No phases yet. Add one to define the firing profile.</div>
-        ) : (
-          <table>
-            <thead>
-              <tr>
-                <th style={{ width:50 }}>#</th>
-                <th>Name</th>
-                <th>Type</th>
-                <th>Target</th>
-                <th>Rate / Duration</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {phases.map((p) => (
-                <tr key={p.id}>
-                  <td style={{ color:"#94a3b8" }}>{p.ordinal}</td>
-                  <td style={{ fontWeight:500 }}>{p.name}</td>
-                  <td>
-                    <span className={`badge badge-${p.phase_type?.toLowerCase()}`}>
-                      {p.phase_type}
-                    </span>
-                  </td>
-                  <td>{tempLabel(p)}</td>
-                  <td style={{ color:"#64748b" }}>
-                    {p.phase_type === "RAMP"
-                      ? rateLabel(p)
-                      : p.duration || "—"}
-                  </td>
-                  <td style={{ textAlign:"right", whiteSpace:"nowrap" }}>
-                    <button className="btn-ghost btn-sm" style={{ marginRight:6 }}
-                      onClick={() => setPhaseModal({ mode:"edit", phase:p })}>Edit</button>
-                    <button className="btn-danger btn-sm" onClick={() => delPhase(p)}>Delete</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+    </main>
+
+    <!-- Console / Telemetry Drawer -->
+    <div id="console-drawer" class="fixed bottom-0 right-0 left-0 bg-slate-950 border-t border-slate-800 shadow-2xl transition-all duration-300 transform translate-y-full z-40 flex flex-col h-72">
+      <div class="bg-slate-900 px-4 py-2 border-b border-slate-800 flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-2">
+          <i data-lucide="terminal" class="w-4 h-4 text-orange-400"></i>
+          <span class="text-xs font-bold text-slate-200 uppercase tracking-wider">API Request & Response Logs</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <button onclick="clearConsoleLogs()" class="text-xs text-slate-400 hover:text-white">Clear</button>
+          <button onclick="toggleConsoleDrawer()" class="text-slate-400 hover:text-white">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
       </div>
-
-      {phaseModal && (
-        <PhaseModal
-          scheduleId={schedule.id}
-          phase={phaseModal.phase}
-          nextOrdinal={nextOrdinal}
-          onClose={() => setPhaseModal(null)}
-          onSaved={() => { setPhaseModal(null); load(); }}
-          showToast={showToast}
-        />
-      )}
+      <div id="console-logs" class="p-4 font-mono text-xs overflow-y-auto space-y-2 flex-1 bg-slate-950/90 text-slate-300">
+        <!-- Live API Logs Stream -->
+      </div>
     </div>
-  );
-}
+  </div>
 
-// ── Schedules view ────────────────────────────────────────────────────────────
-function SchedulesView({ showToast }) {
-  const [schedules, setSchedules]   = useState([]);
-  const [users, setUsers]           = useState([]);
-  const [loading, setLoading]       = useState(true);
-  const [detail, setDetail]         = useState(null); // selected schedule
-  const [modal, setModal]           = useState(null);
-  const [form, setForm]             = useState({ name:"", user_id:"" });
-  const [saving, setSaving]         = useState(false);
-
-  const load = useCallback(async () => {
-    try {
-      const [s, u] = await Promise.all([api.getSchedules(), api.getUsers()]);
-      setSchedules(s); setUsers(u);
-    } catch (e) { showToast(e.message, "error"); }
-    finally { setLoading(false); }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  if (detail) return <ScheduleDetail schedule={detail} onBack={() => setDetail(null)} showToast={showToast} />;
-
-  const openCreate = () => { setForm({ name:"", user_id: users[0]?.id ?? "" }); setModal({ mode:"create" }); };
-  const openEdit   = s  => { setForm({ name: s.name, user_id: s.user_id }); setModal({ mode:"edit", schedule:s }); };
-
-  const save = async () => {
-    setSaving(true);
-    try {
-      const body = { name: form.name, user_id: Number(form.user_id) };
-      if (modal.mode === "create") { await api.createSchedule(body); showToast("Schedule created", "success"); }
-      else { await api.updateSchedule(modal.schedule.id, body); showToast("Schedule updated", "success"); }
-      setModal(null); load();
-    } catch (e) { showToast(e.message, "error"); }
-    finally { setSaving(false); }
-  };
-
-  const del = async (s) => {
-    if (!confirm(`Delete schedule "${s.name}"?`)) return;
-    try { await api.deleteSchedule(s.id); showToast("Schedule deleted", "success"); load(); }
-    catch (e) { showToast(e.message, "error"); }
-  };
-
-  const userName = (uid) => users.find(u => u.id === uid)?.name || `User ${uid}`;
-
-  return (
-    <div style={{ maxWidth:800 }}>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:24 }}>
+  <!-- USER MODAL -->
+  <div id="user-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+      <div class="flex items-center justify-between mb-4">
+        <h3 id="user-modal-title" class="text-lg font-bold text-white">Add User</h3>
+        <button onclick="closeUserModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <form id="user-form" onsubmit="handleUserSubmit(event)" class="space-y-4">
+        <input type="hidden" id="user-id">
         <div>
-          <h2 className="serif" style={{ fontSize:26, marginBottom:4 }}>Schedules</h2>
-          <p style={{ fontSize:14, color:"#64748b" }}>Define firing schedules and their phases.</p>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Full Name *</label>
+          <input type="text" id="user-name" required maxlength="30" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
         </div>
-        <button className="btn-primary" onClick={openCreate} disabled={users.length === 0}>
-          + New Schedule
-        </button>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Username *</label>
+          <input type="text" id="user-username" required maxlength="16" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Email Address</label>
+          <input type="email" id="user-email" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Phone Number</label>
+          <input type="text" id="user-phone" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
+        </div>
+        <div class="flex justify-end gap-3 pt-2">
+          <button type="button" onclick="closeUserModal()" class="px-4 py-2 text-xs text-slate-400 hover:text-white">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-xs font-semibold">Save User</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- DEVICE MODAL -->
+  <div id="device-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+      <div class="flex items-center justify-between mb-4">
+        <h3 id="device-modal-title" class="text-lg font-bold text-white">Add Device</h3>
+        <button onclick="closeDeviceModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
       </div>
+      <form id="device-form" onsubmit="handleDeviceSubmit(event)" class="space-y-4">
+        <input type="hidden" id="device-id">
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Device Name *</label>
+          <input type="text" id="device-name" required maxlength="30" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Host IP / Name *</label>
+            <input type="text" id="device-host" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Port *</label>
+            <input type="number" id="device-port" required value="8080" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Assigned User *</label>
+          <select id="device-user-id" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
+            <!-- Dynamic Users -->
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Device URL</label>
+          <input type="text" id="device-url" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500" placeholder="http://192.168.1.50">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Description</label>
+          <textarea id="device-desc" rows="2" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500"></textarea>
+        </div>
+        <div class="flex justify-end gap-3 pt-2">
+          <button type="button" onclick="closeDeviceModal()" class="px-4 py-2 text-xs text-slate-400 hover:text-white">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-xs font-semibold">Save Device</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
-      {RequireUsers(users, loading)}
-
-      <div className="card" style={{ padding:0, overflow:"hidden" }}>
-        {loading ? <div className="empty">Loading…</div> : schedules.length === 0 ? (
-          <div className="empty">No schedules yet. Create one to define a firing profile.</div>
-        ) : (
-          <table>
-            <thead><tr><th>ID</th><th>Name</th><th>Owner</th><th>Phases</th><th></th></tr></thead>
-            <tbody>
-              {schedules.map(s => (
-                <tr key={s.id}>
-                  <td style={{ color:"#94a3b8", width:50 }}>{s.id}</td>
-                  <td>
-                    <button onClick={() => setDetail(s)}
-                      style={{ background:"none", border:"none", fontWeight:600, fontSize:13, color:"#0f172a", cursor:"pointer", textDecoration:"underline", textDecorationColor:"#e2e8f0", padding:0 }}>
-                      {s.name}
-                    </button>
-                  </td>
-                  <td style={{ color:"#64748b" }}>{userName(s.user_id)}</td>
-                  <td>
-                    <span style={{ fontSize:12, color:"#94a3b8" }}>
-                      {s.phases ? s.phases.length : "—"} phases
-                    </span>
-                  </td>
-                  <td style={{ textAlign:"right", whiteSpace:"nowrap" }}>
-                    <button className="btn-ghost btn-sm" style={{ marginRight:6 }} onClick={() => openEdit(s)}>Edit</button>
-                    <button className="btn-danger btn-sm" onClick={() => del(s)}>Delete</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+  <!-- SCHEDULE MODAL -->
+  <div id="schedule-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+      <div class="flex items-center justify-between mb-4">
+        <h3 id="schedule-modal-title" class="text-lg font-bold text-white">Create Schedule</h3>
+        <button onclick="closeScheduleModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
       </div>
+      <form id="schedule-form" onsubmit="handleScheduleSubmit(event)" class="space-y-4">
+        <input type="hidden" id="schedule-id">
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Schedule Name *</label>
+          <input type="text" id="schedule-name" required maxlength="30" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500" placeholder="e.g. Cone 6 Glaze Firing">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Assigned Artist/User *</label>
+          <select id="schedule-user-id" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
+            <!-- Dynamic Users -->
+          </select>
+        </div>
+        <div class="flex justify-end gap-3 pt-2">
+          <button type="button" onclick="closeScheduleModal()" class="px-4 py-2 text-xs text-slate-400 hover:text-white">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-xs font-semibold">Save Schedule</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
-      {modal && (
-        <Modal title={modal.mode === "create" ? "New Schedule" : "Edit Schedule"} onClose={() => setModal(null)}>
-          <Field label="Schedule Name">
-            <input style={{ width:"100%" }} value={form.name}
-              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              placeholder="e.g. Bisque Cone 04" />
-          </Field>
-          <Field label="Owner (User)">
-            <select style={{ width:"100%" }} value={form.user_id}
-              onChange={e => setForm(f => ({ ...f, user_id: e.target.value }))}>
-              {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+  <!-- PHASE MODAL -->
+  <div id="phase-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+      <div class="flex items-center justify-between mb-4">
+        <h3 id="phase-modal-title" class="text-lg font-bold text-white">Add Phase to Schedule</h3>
+        <button onclick="closePhaseModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <form id="phase-form" onsubmit="handlePhaseSubmit(event)" class="space-y-4">
+        <input type="hidden" id="phase-id">
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Phase Name *</label>
+          <input type="text" id="phase-name" required maxlength="30" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500" placeholder="e.g. Bisque Heat Up">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Ordinal Step *</label>
+            <input type="number" id="phase-ordinal" required min="1" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Phase Type *</label>
+            <select id="phase-type" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
+              <option value="ramp">ramp</option>
+              <option value="constant">constant (hold)</option>
             </select>
-          </Field>
-          <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:8 }}>
-            <button className="btn-ghost" onClick={() => setModal(null)}>Cancel</button>
-            <button className="btn-primary" onClick={save} disabled={saving || !form.name.trim()}>
-              {saving ? <span className="spinner"/> : null}
-              {modal.mode === "create" ? "Create" : "Save"}
-            </button>
           </div>
-        </Modal>
-      )}
-    </div>
-  );
-}
+        </div>
 
-
-// ── App shell ─────────────────────────────────────────────────────────────────
-function App() {
-  const [view, setView] = useState("schedules");
-  const [toast, showToast] = useToast();
-
-  const VIEWS = [
-    { id:"schedules", label:"Schedules" },
-    { id:"devices",   label:"Devices"   },
-    { id:"users",     label:"Users"     },
-  ];
-
-  return (
-    <div style={{ minHeight:"100vh", background:"#f8fafc" }}>
-      <Toast toast={toast} />
-
-      {/* Header */}
-      <header style={{ background:"white", borderBottom:"1px solid #e2e8f0", padding:"0 32px", height:58, display:"flex", alignItems:"center", justifyContent:"space-between", position:"sticky", top:0, zIndex:10 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:24 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:9 }}>
-            <span style={{ fontSize:20 }}>🔥</span>
-            <span className="serif" style={{ fontSize:19 }}>Kiln Controller</span>
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Temp (°C)</label>
+            <input type="number" id="phase-temperature" placeholder="1220" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
           </div>
-          <nav style={{ display:"flex", gap:3 }}>
-            {VIEWS.map(v => (
-              <button key={v.id} className={`nav-btn${view===v.id?" active":""}`} onClick={() => setView(v.id)}>
-                {v.label}
-              </button>
-            ))}
-          </nav>
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Rate (°/h)</label>
+            <input type="number" id="phase-rate" placeholder="150" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Duration (HH:MM:SS)</label>
+            <input type="text" id="phase-duration" placeholder="01:30:00" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
+          </div>
         </div>
-        <div style={{ fontSize:12, color:"#94a3b8" }}>
-          <code style={{ background:"#f1f5f9", padding:"3px 8px", borderRadius:5 }}>{BASE}</code>
+
+        <div class="flex justify-end gap-3 pt-2">
+          <button type="button" onclick="closePhaseModal()" class="px-4 py-2 text-xs text-slate-400 hover:text-white">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-xs font-semibold">Save Phase</button>
         </div>
-      </header>
-
-      {/* Main */}
-      <main style={{ maxWidth:980, margin:"0 auto", padding:"36px 24px" }}>
-        {view === "schedules" && <SchedulesView showToast={showToast} />}
-        {view === "devices"   && <DevicesView   showToast={showToast} />}
-        {view === "users"     && <UsersView     showToast={showToast} />}
-        {view === "api"       && <ApiRefView />}
-      </main>
-
-      <footer style={{ borderTop:"1px solid #e2e8f0", padding:"14px 32px", marginTop:48, display:"flex", justifyContent:"space-between", fontSize:12, color:"#94a3b8" }}>
-        <span>gdchinacat/kiln_controller · Flask-RESTful + SQLAlchemy</span>
-        <span>Change BASE_URL at the top of this file to point at your server</span>
-      </footer>
+      </form>
     </div>
-  );
-}
+  </div>
 
-const root = ReactDOM.createRoot(document.getElementById("root"));
-root.render(<App />);
-</script>
+  <!-- CONFIRM DELETE DIALOG -->
+  <div id="confirm-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-sm p-6 shadow-2xl space-y-4">
+      <div class="flex items-center gap-3 text-red-400">
+        <div class="p-2 bg-red-500/10 rounded-lg border border-red-500/20">
+          <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+        </div>
+        <h3 class="text-lg font-bold text-white">Confirm Deletion</h3>
+      </div>
+      <p id="confirm-modal-msg" class="text-xs text-slate-300">Are you sure you want to delete this resource?</p>
+      <div class="flex justify-end gap-3 pt-2">
+        <button id="confirm-cancel-btn" class="px-4 py-2 text-xs text-slate-400 hover:text-white">Cancel</button>
+        <button id="confirm-ok-btn" class="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-semibold">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST CONTAINER -->
+  <div id="toast-container" class="fixed top-20 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+  <script>
+    // --- APP STATE ---
+    let appState = {
+      activeTab: 'dashboard',
+      selectedScheduleId: null,
+      dashboardChartInstance: null,
+      detailChartInstance: null,
+    };
+
+    // Generic API Fetch Wrapper pointing directly to relative paths on origin server
+    async function apiRequest(endpoint, method = 'GET', body = null) {
+      logConsoleRequest(method, endpoint, body);
+      
+      try {
+        const options = {
+          method: method,
+          headers: { 'Content-Type': 'application/json' }
+        };
+        if (body) {
+          options.body = JSON.stringify(body);
+        }
+
+        const res = await fetch(endpoint, options);
+        const status = res.status;
+        let data = null;
+
+        if (status !== 204) {
+          const text = await res.text();
+          data = text ? JSON.parse(text) : null;
+        }
+
+        logConsoleResponse(status, data);
+
+        if (!res.ok) {
+          let errorMsg = `Server error (${status})`;
+          if (data && data.detail) {
+            if (Array.isArray(data.detail)) {
+              errorMsg = data.detail.map(e => `${e.loc ? e.loc.join('.') + ': ' : ''}${e.msg}`).join(', ');
+            } else if (typeof data.detail === 'string') {
+              errorMsg = data.detail;
+            }
+          }
+          showToast(errorMsg, 'error');
+          throw new Error(errorMsg);
+        }
+
+        return data;
+      } catch (err) {
+        if (!err.message.includes('Server error')) {
+          showToast(`Server Connection Error: ${err.message}`, 'error');
+        }
+        throw err;
+      }
+    }
+
+    // Navigation Tab Manager
+    function switchTab(tabId) {
+      appState.activeTab = tabId;
+      ['dashboard', 'users', 'devices', 'schedules'].forEach(t => {
+        const btn = document.getElementById(`nav-${t}`);
+        const view = document.getElementById(`view-${t}`);
+        if (t === tabId) {
+          btn.className = "px-4 py-1.5 text-sm font-medium rounded-lg transition-all flex items-center gap-2 bg-orange-600 text-white shadow";
+          view.classList.remove('hidden');
+        } else {
+          btn.className = "px-4 py-1.5 text-sm font-medium rounded-lg text-slate-400 hover:text-white transition-all flex items-center gap-2";
+          view.classList.add('hidden');
+        }
+      });
+      refreshCurrentView();
+    }
+
+    async function refreshCurrentView() {
+      try {
+        if (appState.activeTab === 'dashboard') {
+          await renderDashboard();
+        } else if (appState.activeTab === 'users') {
+          await renderUsers();
+        } else if (appState.activeTab === 'devices') {
+          await renderDevices();
+        } else if (appState.activeTab === 'schedules') {
+          await renderSchedules();
+        }
+      } catch (e) {
+        console.error("View refresh failed:", e);
+      }
+    }
+
+    // RENDER DASHBOARD
+    async function renderDashboard() {
+      try {
+        const [users, devices, schedules] = await Promise.all([
+          apiRequest('/user/').catch(() => []),
+          apiRequest('/device/').catch(() => []),
+          apiRequest('/schedule/').catch(() => [])
+        ]);
+
+        // Calculate total phases count across schedules
+        let phaseCount = 0;
+        for (let s of schedules) {
+          try {
+            const phases = await apiRequest(`/schedule/${s.id}/phase/`);
+            phaseCount += phases.length;
+          } catch (e) {
+            // Ignore empty phase lists
+          }
+        }
+
+        document.getElementById('stat-users-count').innerText = users.length;
+        document.getElementById('stat-devices-count').innerText = devices.length;
+        document.getElementById('stat-schedules-count').innerText = schedules.length;
+        document.getElementById('stat-phases-count').innerText = phaseCount;
+
+        // Select dropdown for chart
+        const select = document.getElementById('dash-schedule-select');
+        select.innerHTML = `<option value="">Select Schedule...</option>` + 
+          schedules.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+
+        if (schedules.length > 0 && !appState.selectedScheduleId) {
+          appState.selectedScheduleId = schedules[0].id;
+        }
+
+        if (appState.selectedScheduleId) {
+          select.value = appState.selectedScheduleId;
+          await loadDashboardScheduleChart(appState.selectedScheduleId);
+        }
+
+        // Quick Lists
+        const devList = document.getElementById('dash-devices-list');
+        if (devices.length === 0) {
+          devList.innerHTML = `<p class="text-xs text-slate-500 italic p-2">No hardware devices registered on server.</p>`;
+        } else {
+          devList.innerHTML = devices.slice(0, 3).map(d => {
+            const user = users.find(u => u.id === d.user_id);
+            return `
+              <div class="flex items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+                <div>
+                  <p class="font-medium text-slate-200 text-sm">${d.name}</p>
+                  <p class="text-xs text-slate-500 font-mono">${d.host}:${d.port}</p>
+                </div>
+                <span class="text-xs px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> ${user ? user.name : 'User #' + d.user_id}
+                </span>
+              </div>
+            `;
+          }).join('');
+        }
+
+        const userList = document.getElementById('dash-users-list');
+        if (users.length === 0) {
+          userList.innerHTML = `<p class="text-xs text-slate-500 italic p-2">No users found on the server.</p>`;
+        } else {
+          userList.innerHTML = users.slice(0, 3).map(u => `
+            <div class="flex items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-orange-600/20 text-orange-400 flex items-center justify-center font-bold text-xs border border-orange-500/30">
+                  ${u.name.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <p class="font-medium text-slate-200 text-sm">${u.name}</p>
+                  <p class="text-xs text-slate-500">@${u.username}</p>
+                </div>
+              </div>
+              <span class="text-xs text-slate-400 font-mono">${u.phone_number || u.email || 'No contact'}</span>
+            </div>
+          `).join('');
+        }
+      } catch (e) {
+        console.error("Dashboard render failed:", e);
+      }
+    }
+
+    async function loadDashboardScheduleChart(scheduleId) {
+      if (!scheduleId) return;
+      appState.selectedScheduleId = parseInt(scheduleId);
+      
+      try {
+        const [schedules, users, phases] = await Promise.all([
+          apiRequest('/schedule/'),
+          apiRequest('/user/').catch(() => []),
+          apiRequest(`/schedule/${scheduleId}/phase/`).catch(() => [])
+        ]);
+
+        const sched = schedules.find(s => s.id === parseInt(scheduleId));
+        const user = users.find(u => u.id === (sched ? sched.user_id : null));
+
+        document.getElementById('dash-schedule-title').innerText = sched ? sched.name : 'Unknown Schedule';
+        document.getElementById('dash-selected-schedule-user').innerText = user ? `Created by ${user.name}` : (sched ? `User ID: #${sched.user_id}` : '');
+
+        // Compute curve data points
+        const dataPoints = computeTemperatureProfilePoints(phases);
+
+        const ctx = document.getElementById('dashboardChart').getContext('2d');
+        if (appState.dashboardChartInstance) appState.dashboardChartInstance.destroy();
+
+        appState.dashboardChartInstance = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: dataPoints.map(p => p.time),
+            datasets: [{
+              label: 'Temperature (°C)',
+              data: dataPoints.map(p => p.temp),
+              borderColor: '#f97316',
+              backgroundColor: 'rgba(249, 115, 22, 0.1)',
+              borderWidth: 3,
+              fill: true,
+              tension: 0.1,
+              pointBackgroundColor: '#ea580c',
+              pointRadius: 4
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: {
+                title: { display: true, text: 'Timeline Steps / Duration', color: '#94a3b8' },
+                grid: { color: '#1e293b' },
+                ticks: { color: '#64748b' }
+              },
+              y: {
+                title: { display: true, text: 'Target Temp (°C)', color: '#94a3b8' },
+                grid: { color: '#1e293b' },
+                ticks: { color: '#64748b' },
+                beginAtZero: true
+              }
+            },
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: (ctx) => ` Temp: ${ctx.parsed.y}°C`
+                }
+              }
+            }
+          }
+        });
+      } catch (e) {
+        console.error("Dashboard chart error:", e);
+      }
+    }
+
+    function computeTemperatureProfilePoints(phases) {
+      if (!phases || phases.length === 0) {
+        return [
+          { time: 'Start', temp: 20 },
+          { time: 'No Phases Configured', temp: 20 }
+        ];
+      }
+
+      // Sort phases by ordinal
+      const sorted = [...phases].sort((a,b) => a.ordinal - b.ordinal);
+      let points = [{ time: '00:00 (Start)', temp: 20 }]; // Start at room temp 20°C
+      
+      let currentTemp = 20;
+      sorted.forEach((p) => {
+        const targetTemp = p.temperature !== null && p.temperature !== undefined ? p.temperature : currentTemp;
+        const phaseLabel = `P${p.ordinal}: ${p.name}`;
+        
+        if (p.phase_type === 'constant') {
+          points.push({ time: `${phaseLabel} (Hold ${p.duration || '01:00'})`, temp: targetTemp });
+        } else {
+          points.push({ time: `${phaseLabel} (${targetTemp}°C)`, temp: targetTemp });
+        }
+        currentTemp = targetTemp;
+      });
+
+      return points;
+    }
+
+    // RENDER USERS VIEW
+    async function renderUsers() {
+      try {
+        const users = await apiRequest('/user/');
+        const tbody = document.getElementById('users-table-body');
+        
+        if (!users || users.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-500">No users found on server. Click "Add User" above.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = users.map(u => `
+          <tr class="hover:bg-slate-900/50 transition-colors">
+            <td class="p-4 font-mono text-slate-500">#${u.id}</td>
+            <td class="p-4 font-medium text-slate-200">${u.name}</td>
+            <td class="p-4 text-orange-400 font-mono">@${u.username}</td>
+            <td class="p-4 text-slate-400">${u.email || '--'}</td>
+            <td class="p-4 text-slate-400">${u.phone_number || '--'}</td>
+            <td class="p-4 text-right space-x-2">
+              <button onclick="editUser(${u.id})" class="text-slate-400 hover:text-white p-1"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
+              <button onclick="deleteUser(${u.id})" class="text-red-400 hover:text-red-300 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+            </td>
+          </tr>
+        `).join('');
+        lucide.createIcons();
+      } catch (e) {
+        console.error("Render users error:", e);
+      }
+    }
+
+    // RENDER DEVICES VIEW
+    async function renderDevices() {
+      try {
+        const [devices, users] = await Promise.all([
+          apiRequest('/device/'),
+          apiRequest('/user/').catch(() => [])
+        ]);
+
+        const grid = document.getElementById('devices-grid');
+        if (!devices || devices.length === 0) {
+          grid.innerHTML = `<div class="col-span-full glass-panel p-8 rounded-2xl text-center text-slate-500">No devices connected. Click "Add Kiln Device" above.</div>`;
+          return;
+        }
+
+        grid.innerHTML = devices.map(d => {
+          const user = users.find(u => u.id === d.user_id);
+          return `
+            <div class="glass-panel rounded-2xl border border-slate-800 p-5 flex flex-col justify-between space-y-4">
+              <div>
+                <div class="flex items-start justify-between">
+                  <div>
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Active
+                    </span>
+                    <h3 class="text-lg font-bold text-slate-100 mt-2">${d.name}</h3>
+                  </div>
+                  <div class="flex items-center gap-1">
+                    <button onclick="editDevice(${d.id})" class="text-slate-400 hover:text-white p-1"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
+                    <button onclick="deleteDevice(${d.id})" class="text-red-400 hover:text-red-300 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                  </div>
+                </div>
+                <p class="text-xs text-slate-400 mt-2 line-clamp-2">${d.description || 'No device description provided.'}</p>
+              </div>
+
+              <div class="space-y-2 border-t border-slate-800/80 pt-3 text-xs">
+                <div class="flex justify-between">
+                  <span class="text-slate-500">Host / IP:</span>
+                  <span class="font-mono text-slate-300">${d.host}:${d.port}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-slate-500">URL Endpoint:</span>
+                  <span class="font-mono text-slate-300 truncate max-w-[150px]">${d.url || '--'}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-slate-500">Assigned Operator:</span>
+                  <span class="text-orange-400 font-medium">${user ? user.name : 'User ID #' + d.user_id}</span>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+        lucide.createIcons();
+      } catch (e) {
+        console.error("Render devices error:", e);
+      }
+    }
+
+    // RENDER SCHEDULES VIEW
+    async function renderSchedules() {
+      try {
+        const [schedules, users] = await Promise.all([
+          apiRequest('/schedule/'),
+          apiRequest('/user/').catch(() => [])
+        ]);
+
+        const container = document.getElementById('schedules-list');
+        if (!schedules || schedules.length === 0) {
+          container.innerHTML = `<div class="p-4 text-center text-xs text-slate-500">No schedules. Click "Create Schedule" above.</div>`;
+          document.getElementById('schedule-detail-empty').classList.remove('hidden');
+          document.getElementById('schedule-detail-content').classList.add('hidden');
+          return;
+        }
+
+        if (!appState.selectedScheduleId || !schedules.some(s => s.id === appState.selectedScheduleId)) {
+          appState.selectedScheduleId = schedules[0].id;
+        }
+
+        container.innerHTML = schedules.map(s => {
+          const user = users.find(u => u.id === s.user_id);
+          const isSelected = appState.selectedScheduleId === s.id;
+          return `
+            <div onclick="selectSchedule(${s.id})" class="p-4 rounded-xl border transition-all cursor-pointer ${
+              isSelected 
+                ? 'bg-orange-600/10 border-orange-500/50 shadow-lg shadow-orange-500/5' 
+                : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
+            }">
+              <div class="flex items-center justify-between">
+                <h4 class="font-bold text-slate-200 text-sm">${s.name}</h4>
+                <span class="text-xs font-mono text-slate-500">#${s.id}</span>
+              </div>
+              <p class="text-xs text-slate-400 mt-1">Operator: <span class="text-slate-300">${user ? user.name : 'User ID #' + s.user_id}</span></p>
+            </div>
+          `;
+        }).join('');
+
+        if (appState.selectedScheduleId) {
+          await loadScheduleDetail(appState.selectedScheduleId);
+        }
+      } catch (e) {
+        console.error("Render schedules error:", e);
+      }
+    }
+
+    async function selectSchedule(id) {
+      appState.selectedScheduleId = id;
+      await renderSchedules();
+    }
+
+    // LOAD SCHEDULE DETAIL & PHASES
+    async function loadScheduleDetail(scheduleId) {
+      document.getElementById('schedule-detail-empty').classList.add('hidden');
+      document.getElementById('schedule-detail-content').classList.remove('hidden');
+
+      try {
+        const [schedules, users, phases] = await Promise.all([
+          apiRequest('/schedule/'),
+          apiRequest('/user/').catch(() => []),
+          apiRequest(`/schedule/${scheduleId}/phase/`).catch(() => [])
+        ]);
+
+        const sched = schedules.find(s => s.id === scheduleId);
+        if (!sched) return;
+        const user = users.find(u => u.id === sched.user_id);
+
+        document.getElementById('selected-schedule-id-badge').innerText = `ID: #${sched.id}`;
+        document.getElementById('selected-schedule-name').innerText = sched.name;
+        document.getElementById('selected-schedule-owner').innerText = user ? user.name : `User #${sched.user_id}`;
+
+        // Set action buttons
+        document.getElementById('edit-schedule-btn').onclick = () => editSchedule(sched.id);
+        document.getElementById('delete-schedule-btn').onclick = () => deleteSchedule(sched.id);
+
+        // Render Phases Table
+        const tbody = document.getElementById('phases-table-body');
+        if (!phases || phases.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-500">No phases defined for this schedule yet. Click "+ Add Phase".</td></tr>`;
+        } else {
+          const sortedPhases = [...phases].sort((a, b) => a.ordinal - b.ordinal);
+          tbody.innerHTML = sortedPhases.map(p => `
+            <tr class="hover:bg-slate-900/80">
+              <td class="p-3 font-mono text-slate-400">${p.ordinal}</td>
+              <td class="p-3 font-semibold text-slate-200">${p.name}</td>
+              <td class="p-3">
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${p.phase_type === 'ramp' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'}">
+                  ${p.phase_type}
+                </span>
+              </td>
+              <td class="p-3 font-mono text-slate-300">${p.temperature !== null && p.temperature !== undefined ? `${p.temperature}°C` : '--'}</td>
+              <td class="p-3 font-mono text-slate-300">${p.rate !== null && p.rate !== undefined ? `${p.rate}°/h` : '--'}</td>
+              <td class="p-3 font-mono text-slate-300">${p.duration || '--'}</td>
+              <td class="p-3 text-right space-x-1">
+                <button onclick="editPhase(${sched.id}, ${p.id})" class="text-slate-400 hover:text-white p-1"><i data-lucide="edit-2" class="w-3.5 h-3.5"></i></button>
+                <button onclick="deletePhase(${sched.id}, ${p.id})" class="text-red-400 hover:text-red-300 p-1"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+              </td>
+            </tr>
+          `).join('');
+        }
+        lucide.createIcons();
+
+        // Render Temperature Chart Detail
+        const dataPoints = computeTemperatureProfilePoints(phases);
+        const ctx = document.getElementById('scheduleDetailChart').getContext('2d');
+        if (appState.detailChartInstance) appState.detailChartInstance.destroy();
+
+        appState.detailChartInstance = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: dataPoints.map(p => p.time),
+            datasets: [{
+              label: 'Temperature Curve',
+              data: dataPoints.map(p => p.temp),
+              borderColor: '#f97316',
+              backgroundColor: 'rgba(249, 115, 22, 0.15)',
+              borderWidth: 2,
+              fill: true,
+              tension: 0.1,
+              pointRadius: 5,
+              pointHoverRadius: 7
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: { grid: { color: '#1e293b' }, ticks: { color: '#64748b', font: { size: 10 } } },
+              y: { grid: { color: '#1e293b' }, ticks: { color: '#64748b', font: { size: 10 } }, beginAtZero: true }
+            },
+            plugins: { legend: { display: false } }
+          }
+        });
+      } catch (e) {
+        console.error("Load schedule detail error:", e);
+      }
+    }
+
+    function openUserModal(user = null) {
+      document.getElementById('user-modal-title').innerText = user ? 'Edit User' : 'Add User';
+      document.getElementById('user-id').value = user ? user.id : '';
+      document.getElementById('user-name').value = user ? user.name : '';
+      document.getElementById('user-username').value = user ? user.username : '';
+      document.getElementById('user-email').value = user ? user.email || '' : '';
+      document.getElementById('user-phone').value = user ? user.phone_number || '' : '';
+      document.getElementById('user-modal').classList.remove('hidden');
+    }
+
+    function closeUserModal() {
+      document.getElementById('user-modal').classList.add('hidden');
+    }
+
+    async function handleUserSubmit(e) {
+      e.preventDefault();
+      const id = document.getElementById('user-id').value;
+      const payload = {
+        name: document.getElementById('user-name').value,
+        username: document.getElementById('user-username').value,
+        email: document.getElementById('user-email').value || null,
+        phone_number: document.getElementById('user-phone').value || null
+      };
+
+      try {
+        if (id) {
+          await apiRequest(`/user/${id}`, 'PUT', payload);
+          showToast("User updated successfully!", "success");
+        } else {
+          await apiRequest('/user/', 'POST', payload);
+          showToast("User created successfully!", "success");
+        }
+        closeUserModal();
+        refreshCurrentView();
+      } catch (e) {}
+    }
+
+    async function editUser(id) {
+      try {
+        const users = await apiRequest('/user/');
+        const u = users.find(x => x.id === id);
+        if (u) openUserModal(u);
+      } catch (e) {}
+    }
+
+    function deleteUser(id) {
+      showConfirmDialog("Are you sure you want to delete this user?", async () => {
+        try {
+          await apiRequest(`/user/${id}`, 'DELETE');
+          showToast("User deleted", "warning");
+          refreshCurrentView();
+        } catch (e) {}
+      });
+    }
+
+    async function openDeviceModal(device = null) {
+      try {
+        const users = await apiRequest('/user/').catch(() => []);
+        const userSelect = document.getElementById('device-user-id');
+        
+        if (users.length === 0) {
+          userSelect.innerHTML = `<option value="">No users available (Create User first)</option>`;
+        } else {
+          userSelect.innerHTML = users.map(u => `<option value="${u.id}">${u.name} (@${u.username})</option>`).join('');
+        }
+
+        document.getElementById('device-modal-title').innerText = device ? 'Edit Device' : 'Add Device';
+        document.getElementById('device-id').value = device ? device.id : '';
+        document.getElementById('device-name').value = device ? device.name : '';
+        document.getElementById('device-host').value = device ? device.host : '';
+        document.getElementById('device-port').value = device ? device.port : 8080;
+        document.getElementById('device-url').value = device ? device.url || '' : '';
+        document.getElementById('device-desc').value = device ? device.description || '' : '';
+        if (device && device.user_id) userSelect.value = device.user_id;
+
+        document.getElementById('device-modal').classList.remove('hidden');
+      } catch (e) {}
+    }
+
+    function closeDeviceModal() {
+      document.getElementById('device-modal').classList.add('hidden');
+    }
+
+    async function handleDeviceSubmit(e) {
+      e.preventDefault();
+      const id = document.getElementById('device-id').value;
+      const userIdVal = document.getElementById('device-user-id').value;
+
+      if (!userIdVal) {
+        showToast("Please select a valid user for this device", "error");
+        return;
+      }
+
+      const payload = {
+        name: document.getElementById('device-name').value,
+        host: document.getElementById('device-host').value,
+        port: parseInt(document.getElementById('device-port').value),
+        user_id: parseInt(userIdVal),
+        url: document.getElementById('device-url').value || null,
+        description: document.getElementById('device-desc').value || null
+      };
+
+      try {
+        if (id) {
+          await apiRequest(`/device/${id}`, 'PUT', payload);
+          showToast("Device updated successfully!", "success");
+        } else {
+          await apiRequest('/device/', 'POST', payload);
+          showToast("Device added successfully!", "success");
+        }
+        closeDeviceModal();
+        refreshCurrentView();
+      } catch (e) {}
+    }
+
+    async function editDevice(id) {
+      try {
+        const devices = await apiRequest('/device/');
+        const d = devices.find(x => x.id === id);
+        if (d) openDeviceModal(d);
+      } catch (e) {}
+    }
+
+    function deleteDevice(id) {
+      showConfirmDialog("Are you sure you want to delete this device?", async () => {
+        try {
+          await apiRequest(`/device/${id}`, 'DELETE');
+          showToast("Device removed", "warning");
+          refreshCurrentView();
+        } catch (e) {}
+      });
+    }
+
+    async function openScheduleModal(schedule = null) {
+      try {
+        const users = await apiRequest('/user/').catch(() => []);
+        const userSelect = document.getElementById('schedule-user-id');
+        
+        if (users.length === 0) {
+          userSelect.innerHTML = `<option value="">No users available (Create User first)</option>`;
+        } else {
+          userSelect.innerHTML = users.map(u => `<option value="${u.id}">${u.name} (@${u.username})</option>`).join('');
+        }
+
+        document.getElementById('schedule-modal-title').innerText = schedule ? 'Edit Schedule' : 'Create Schedule';
+        document.getElementById('schedule-id').value = schedule ? schedule.id : '';
+        document.getElementById('schedule-name').value = schedule ? schedule.name : '';
+        if (schedule && schedule.user_id) userSelect.value = schedule.user_id;
+
+        document.getElementById('schedule-modal').classList.remove('hidden');
+      } catch (e) {}
+    }
+
+    function closeScheduleModal() {
+      document.getElementById('schedule-modal').classList.add('hidden');
+    }
+
+    async function handleScheduleSubmit(e) {
+      e.preventDefault();
+      const id = document.getElementById('schedule-id').value;
+      const userIdVal = document.getElementById('schedule-user-id').value;
+
+      if (!userIdVal) {
+        showToast("Please select a user for this schedule", "error");
+        return;
+      }
+
+      const payload = {
+        name: document.getElementById('schedule-name').value,
+        user_id: parseInt(userIdVal)
+      };
+
+      try {
+        if (id) {
+          await apiRequest(`/schedule/${id}`, 'PUT', payload);
+          showToast("Schedule updated!", "success");
+        } else {
+          const created = await apiRequest('/schedule/', 'POST', payload);
+          if (created && created.id) appState.selectedScheduleId = created.id;
+          showToast("Schedule created!", "success");
+        }
+        closeScheduleModal();
+        refreshCurrentView();
+      } catch (e) {}
+    }
+
+    async function editSchedule(id) {
+      try {
+        const schedules = await apiRequest('/schedule/');
+        const s = schedules.find(x => x.id === id);
+        if (s) openScheduleModal(s);
+      } catch (e) {}
+    }
+
+    function deleteSchedule(id) {
+      showConfirmDialog("Are you sure you want to delete this firing schedule and all its phases?", async () => {
+        try {
+          await apiRequest(`/schedule/${id}`, 'DELETE');
+          appState.selectedScheduleId = null;
+          showToast("Schedule deleted", "warning");
+          refreshCurrentView();
+        } catch (e) {}
+      });
+    }
+
+    async function openPhaseModal(phase = null) {
+      if (!appState.selectedScheduleId) {
+        showToast("Select a schedule first", "warning");
+        return;
+      }
+
+      document.getElementById('phase-modal-title').innerText = phase ? 'Edit Phase' : 'Add Phase';
+      document.getElementById('phase-id').value = phase ? phase.id : '';
+      document.getElementById('phase-name').value = phase ? phase.name : '';
+      document.getElementById('phase-ordinal').value = phase ? phase.ordinal : 1;
+      document.getElementById('phase-type').value = phase ? phase.phase_type : 'ramp';
+      document.getElementById('phase-temperature').value = phase && phase.temperature !== null && phase.temperature !== undefined ? phase.temperature : '';
+      document.getElementById('phase-rate').value = phase && phase.rate !== null && phase.rate !== undefined ? phase.rate : '';
+      document.getElementById('phase-duration').value = phase ? phase.duration || '' : '';
+
+      document.getElementById('phase-modal').classList.remove('hidden');
+    }
+
+    function closePhaseModal() {
+      document.getElementById('phase-modal').classList.add('hidden');
+    }
+
+    async function handlePhaseSubmit(e) {
+      e.preventDefault();
+      const phaseId = document.getElementById('phase-id').value;
+      const scheduleId = appState.selectedScheduleId;
+
+      const tempVal = document.getElementById('phase-temperature').value;
+      const rateVal = document.getElementById('phase-rate').value;
+
+      const payload = {
+        name: document.getElementById('phase-name').value,
+        ordinal: parseInt(document.getElementById('phase-ordinal').value),
+        phase_type: document.getElementById('phase-type').value,
+        schedule_id: parseInt(scheduleId),
+        temperature: tempVal !== "" ? parseInt(tempVal) : null,
+        rate: rateVal !== "" ? parseInt(rateVal) : null,
+        duration: document.getElementById('phase-duration').value || null
+      };
+
+      try {
+        if (phaseId) {
+          await apiRequest(`/schedule/${scheduleId}/phase/${phaseId}`, 'PUT', payload);
+          showToast("Phase updated!", "success");
+        } else {
+          await apiRequest(`/schedule/${scheduleId}/phase/`, 'POST', payload);
+          showToast("Phase added!", "success");
+        }
+        closePhaseModal();
+        refreshCurrentView();
+      } catch (e) {}
+    }
+
+    async function editPhase(scheduleId, phaseId) {
+      try {
+        const phases = await apiRequest(`/schedule/${scheduleId}/phase/`);
+        const p = phases.find(x => x.id === phaseId);
+        if (p) openPhaseModal(p);
+      } catch (e) {}
+    }
+
+    function deletePhase(scheduleId, phaseId) {
+      showConfirmDialog("Delete this phase from the schedule?", async () => {
+        try {
+          await apiRequest(`/schedule/${scheduleId}/phase/${phaseId}`, 'DELETE');
+          showToast("Phase removed", "warning");
+          refreshCurrentView();
+        } catch (e) {}
+      });
+    }
+
+    function showConfirmDialog(message, onConfirm) {
+      const modal = document.getElementById('confirm-modal');
+      const msgEl = document.getElementById('confirm-modal-msg');
+      const okBtn = document.getElementById('confirm-ok-btn');
+      const cancelBtn = document.getElementById('confirm-cancel-btn');
+
+      msgEl.innerText = message;
+      modal.classList.remove('hidden');
+
+      const cleanup = () => {
+        modal.classList.add('hidden');
+        okBtn.onclick = null;
+        cancelBtn.onclick = null;
+      };
+
+      okBtn.onclick = () => {
+        cleanup();
+        onConfirm();
+      };
+      cancelBtn.onclick = cleanup;
+    }
+
+    function toggleConsoleDrawer() {
+      const drawer = document.getElementById('console-drawer');
+      const badge = document.getElementById('console-badge');
+      drawer.classList.toggle('translate-y-full');
+      badge.classList.add('hidden');
+    }
+
+    function logConsoleRequest(method, endpoint, body) {
+      const container = document.getElementById('console-logs');
+      const time = new Date().toLocaleTimeString();
+      const log = document.createElement('div');
+      log.className = "flex items-start gap-2 border-b border-slate-900 pb-1";
+      log.innerHTML = `
+        <span class="text-slate-500">${time}</span>
+        <span class="font-bold ${method === 'GET' ? 'text-blue-400' : method === 'POST' ? 'text-emerald-400' : method === 'PUT' ? 'text-amber-400' : 'text-red-400'}">${method}</span>
+        <span class="text-slate-200">${endpoint}</span>
+        ${body ? `<span class="text-slate-500 truncate max-w-xs">${JSON.stringify(body)}</span>` : ''}
+      `;
+      container.appendChild(log);
+      container.scrollTop = container.scrollHeight;
+      document.getElementById('console-badge').classList.remove('hidden');
+    }
+
+    function logConsoleResponse(status, data) {
+      const container = document.getElementById('console-logs');
+      const log = document.createElement('div');
+      log.className = "pl-4 text-xs font-mono mb-1";
+      const isOk = status >= 200 && status < 300;
+      log.innerHTML = `
+        <span class="${isOk ? 'text-emerald-400' : 'text-red-400'} font-bold">STATUS ${status}</span>
+        <span class="text-slate-400">${data ? JSON.stringify(data).substring(0, 150) : 'No content'}</span>
+      `;
+      container.appendChild(log);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function clearConsoleLogs() {
+      document.getElementById('console-logs').innerHTML = '';
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      
+      const colors = {
+        success: 'bg-emerald-900/90 border-emerald-500 text-emerald-100',
+        error: 'bg-red-900/90 border-red-500 text-red-100',
+        warning: 'bg-amber-900/90 border-amber-500 text-amber-100',
+        info: 'bg-slate-800/90 border-slate-600 text-slate-100'
+      };
+
+      toast.className = `px-4 py-3 rounded-xl border text-xs font-medium shadow-xl backdrop-blur flex items-center gap-2 transform transition-all duration-300 pointer-events-auto ${colors[type] || colors.info}`;
+      toast.innerHTML = `
+        <i data-lucide="${type === 'success' ? 'check-circle' : type === 'error' ? 'alert-circle' : 'info'}" class="w-4 h-4"></i>
+        <span>${message}</span>
+      `;
+
+      container.appendChild(toast);
+      lucide.createIcons();
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-10px)';
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
+
+    window.onload = function() {
+      document.getElementById('server-origin-badge').innerText = `Connected: ${window.location.origin}`;
+      lucide.createIcons();
+      refreshCurrentView();
+    };
+  </script>
 </body>
 </html>

@@ -331,7 +331,7 @@
                   </div>
                 </div>
 
-                <!-- Phases Table -->
+                <!-- Sequential Firing Phases Table -->
                 <div>
                   <div class="flex items-center justify-between mb-3">
                     <h4 class="text-xs font-bold uppercase text-slate-400 tracking-wider">Sequential Firing Phases</h4>
@@ -340,12 +340,11 @@
                     <table class="w-full text-left text-xs">
                       <thead>
                         <tr class="bg-slate-900 text-slate-400 border-b border-slate-800">
-                          <th class="p-3">Ord</th>
                           <th class="p-3">Phase Name</th>
                           <th class="p-3">Type</th>
                           <th class="p-3">Target Temp</th>
                           <th class="p-3">Rate (°/h)</th>
-                          <th class="p-3">Hold Duration</th>
+                          <th class="p-3">Duration</th>
                           <th class="p-3 text-right">Actions</th>
                         </tr>
                       </thead>
@@ -492,42 +491,50 @@
   <div id="phase-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
     <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
       <div class="flex items-center justify-between mb-4">
-        <h3 id="phase-modal-title" class="text-lg font-bold text-white">Add Phase to Schedule</h3>
+        <h3 id="phase-modal-title" class="text-lg font-bold text-white">Add Phase</h3>
         <button onclick="closePhaseModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
       </div>
       <form id="phase-form" onsubmit="handlePhaseSubmit(event)" class="space-y-4">
         <input type="hidden" id="phase-id">
+        <input type="hidden" id="phase-ordinal"> <!-- Ordinal hidden from user -->
+
         <div>
           <label class="block text-xs font-medium text-slate-400 mb-1">Phase Name *</label>
-          <input type="text" id="phase-name" required maxlength="30" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500" placeholder="e.g. Bisque Heat Up">
+          <input type="text" id="phase-name" required maxlength="30" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500" placeholder="e.g. Ramp to Cone">
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Phase Type *</label>
+          <select id="phase-type" onchange="onPhaseTypeChange()" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
+            <option value="ramp">Ramp</option>
+            <option value="constant">Constant (Hold)</option>
+          </select>
+        </div>
+
+        <!-- Temperature Input -->
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Target Temp (°C) *</label>
+          <input type="number" id="phase-temperature" oninput="recalculateRampValues()" required placeholder="e.g. 1220" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
+          <span id="temp-hint" class="hidden text-[10px] text-slate-400 mt-1 block">Holds preceding phase temperature (Read-Only)</span>
         </div>
 
         <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs font-medium text-slate-400 mb-1">Ordinal Step *</label>
-            <input type="number" id="phase-ordinal" required min="1" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
+          <!-- Rate Input container -->
+          <div id="rate-container">
+            <div class="flex items-center justify-between mb-1">
+              <label class="block text-xs font-medium text-slate-400">Rate (°/h)</label>
+              <span id="rate-mode-badge" class="hidden text-[9px] px-1.5 py-0.2 rounded font-mono uppercase bg-slate-800 text-slate-400">Calculated</span>
+            </div>
+            <input type="number" id="phase-rate" onfocus="setActiveRampMode('rate')" oninput="recalculateRampValues()" placeholder="150" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
           </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-400 mb-1">Phase Type *</label>
-            <select id="phase-type" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
-              <option value="ramp">ramp</option>
-              <option value="constant">constant (hold)</option>
-            </select>
-          </div>
-        </div>
 
-        <div class="grid grid-cols-3 gap-3">
-          <div>
-            <label class="block text-xs font-medium text-slate-400 mb-1">Temp (°C)</label>
-            <input type="number" id="phase-temperature" placeholder="1220" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-400 mb-1">Rate (°/h)</label>
-            <input type="number" id="phase-rate" placeholder="150" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-400 mb-1">Duration (HH:MM:SS)</label>
-            <input type="text" id="phase-duration" placeholder="01:30:00" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
+          <!-- Duration Input container -->
+          <div id="duration-container">
+            <div class="flex items-center justify-between mb-1">
+              <label class="block text-xs font-medium text-slate-400">Duration (HH:MM)</label>
+              <span id="duration-mode-badge" class="hidden text-[9px] px-1.5 py-0.2 rounded font-mono uppercase bg-slate-800 text-slate-400">Calculated</span>
+            </div>
+            <input type="text" id="phase-duration" onfocus="setActiveRampMode('duration')" oninput="recalculateRampValues()" placeholder="01:30" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
           </div>
         </div>
 
@@ -567,6 +574,177 @@
       dashboardChartInstance: null,
       detailChartInstance: null,
     };
+
+    // Active mode tracking for ramp phases ('rate' or 'duration')
+    let activeRampMode = 'rate';
+    let currentSchedulePhases = [];
+    const DEFAULT_ROOM_TEMP = 20;
+
+    // Helper: Convert HH:MM or HH:MM:SS string to hours float
+    function durationToHours(durationStr) {
+      if (!durationStr) return 0;
+      const parts = durationStr.split(':').map(Number);
+      if (parts.some(isNaN)) return 0;
+      if (parts.length === 3) return parts[0] + parts[1] / 60 + parts[2] / 3600;
+      if (parts.length === 2) return parts[0] + parts[1] / 60;
+      return 0;
+    }
+
+    // Helper: Convert hours float to HH:MM format string
+    function hoursToDuration(hours) {
+      if (!hours || isNaN(hours) || hours <= 0) return '';
+      const totalMinutes = Math.round(hours * 60);
+      const h = Math.floor(totalMinutes / 60);
+      const m = totalMinutes % 60;
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    }
+
+    // Calculate preceding temperature based on position/ordinal
+    function getPrecedingTemperature(editingOrdinal = null) {
+      const sorted = [...currentSchedulePhases].sort((a, b) => a.ordinal - b.ordinal);
+      let targetList = sorted;
+      
+      if (editingOrdinal !== null) {
+        targetList = sorted.filter(p => p.ordinal < editingOrdinal);
+      }
+      
+      if (targetList.length === 0) return DEFAULT_ROOM_TEMP;
+      
+      const lastPhase = targetList[targetList.length - 1];
+      return lastPhase.temperature !== null && lastPhase.temperature !== undefined 
+        ? lastPhase.temperature 
+        : DEFAULT_ROOM_TEMP;
+    }
+
+    // Switch active input calculation focus mode for Ramp phase
+    function setActiveRampMode(mode) {
+      if (document.getElementById('phase-type').value !== 'ramp') return;
+      activeRampMode = mode;
+      updateCalculatedUIState();
+    }
+
+    // Update badges and styling indicating calculated vs manual fields
+    function updateCalculatedUIState() {
+      const isRamp = document.getElementById('phase-type').value === 'ramp';
+      const rateBadge = document.getElementById('rate-mode-badge');
+      const durBadge = document.getElementById('duration-mode-badge');
+      const rateInput = document.getElementById('phase-rate');
+      const durInput = document.getElementById('phase-duration');
+
+      if (!isRamp) {
+        rateBadge.classList.add('hidden');
+        durBadge.classList.add('hidden');
+        rateInput.classList.remove('bg-slate-900', 'text-orange-400', 'border-orange-500/30');
+        durInput.classList.remove('bg-slate-900', 'text-orange-400', 'border-orange-500/30');
+        return;
+      }
+
+      if (activeRampMode === 'rate') {
+        rateBadge.classList.add('hidden');
+        durBadge.classList.remove('hidden');
+        durInput.classList.add('bg-slate-900', 'text-orange-400', 'border-orange-500/30');
+        rateInput.classList.remove('bg-slate-900', 'text-orange-400', 'border-orange-500/30');
+      } else {
+        durBadge.classList.add('hidden');
+        rateBadge.classList.remove('hidden');
+        rateInput.classList.add('bg-slate-900', 'text-orange-400', 'border-orange-500/30');
+        durInput.classList.remove('bg-slate-900', 'text-orange-400', 'border-orange-500/30');
+      }
+    }
+
+    // Perform calculations on inputs in real-time
+    function recalculateRampValues() {
+      const type = document.getElementById('phase-type').value;
+      if (type !== 'ramp') return;
+
+      const targetTemp = parseFloat(document.getElementById('phase-temperature').value);
+      const phaseId = document.getElementById('phase-id').value;
+      const currentOrdinal = phaseId ? parseInt(document.getElementById('phase-ordinal').value) : (currentSchedulePhases.length + 1);
+      const startTemp = getPrecedingTemperature(currentOrdinal);
+
+      if (isNaN(targetTemp)) return;
+
+      const tempDiff = Math.abs(targetTemp - startTemp);
+
+      if (activeRampMode === 'rate') {
+        const rate = parseFloat(document.getElementById('phase-rate').value);
+        if (!isNaN(rate) && rate > 0) {
+          const hours = tempDiff / rate;
+          document.getElementById('phase-duration').value = hoursToDuration(hours);
+        }
+      } else if (activeRampMode === 'duration') {
+        const durationStr = document.getElementById('phase-duration').value;
+        const hours = durationToHours(durationStr);
+        if (hours > 0) {
+          const rate = Math.round(tempDiff / hours);
+          document.getElementById('phase-rate').value = rate;
+        }
+      }
+    }
+
+    // Form State Management based on selected Phase Type
+    function onPhaseTypeChange() {
+      const type = document.getElementById('phase-type').value;
+      const tempInput = document.getElementById('phase-temperature');
+      const tempHint = document.getElementById('temp-hint');
+      const rateContainer = document.getElementById('rate-container');
+      const rateInput = document.getElementById('phase-rate');
+      const durationInput = document.getElementById('phase-duration');
+
+      const phaseId = document.getElementById('phase-id').value;
+      const currentOrdinal = phaseId ? parseInt(document.getElementById('phase-ordinal').value) : (currentSchedulePhases.length + 1);
+
+      if (type === 'constant') {
+        // Validate Constant Phase sequence rules
+        const sorted = [...currentSchedulePhases].sort((a, b) => a.ordinal - b.ordinal);
+        const prevPhase = sorted.length > 0 ? sorted[sorted.length - 1] : null;
+
+        if (!prevPhase || (phaseId && prevPhase.id === parseInt(phaseId))) {
+          // Find relative preceding step when editing
+          const precedingPhases = sorted.filter(p => p.ordinal < currentOrdinal);
+          const relativePrev = precedingPhases.length > 0 ? precedingPhases[precedingPhases.length - 1] : null;
+
+          if (!relativePrev || relativePrev.phase_type !== 'ramp') {
+            showToast("Constant phases must immediately follow a Ramp phase.", "error");
+            document.getElementById('phase-type').value = 'ramp';
+            onPhaseTypeChange();
+            return;
+          }
+        } else if (prevPhase.phase_type !== 'ramp') {
+          showToast("Constant phases can only follow a Ramp phase.", "error");
+          document.getElementById('phase-type').value = 'ramp';
+          onPhaseTypeChange();
+          return;
+        }
+
+        // Lock Temperature to previous phase temperature
+        const prevTemp = getPrecedingTemperature(currentOrdinal);
+        tempInput.value = prevTemp;
+        tempInput.readOnly = true;
+        tempInput.classList.add('opacity-60', 'bg-slate-900');
+        tempHint.classList.remove('hidden');
+
+        // Hide Rate Input
+        rateContainer.classList.add('hidden');
+        rateInput.value = '';
+        rateInput.required = false;
+
+        // Require Duration Input
+        durationInput.required = true;
+      } else {
+        // Ramp Phase Config
+        tempInput.readOnly = false;
+        tempInput.classList.remove('opacity-60', 'bg-slate-900');
+        tempHint.classList.add('hidden');
+
+        rateContainer.classList.remove('hidden');
+        rateInput.required = false;
+        durationInput.required = false;
+
+        recalculateRampValues();
+      }
+      updateCalculatedUIState();
+    }
 
     // Generic API Fetch Wrapper pointing directly to relative paths on origin server
     async function apiRequest(endpoint, method = 'GET', body = null) {
@@ -757,10 +935,9 @@
         appState.dashboardChartInstance = new Chart(ctx, {
           type: 'line',
           data: {
-            labels: dataPoints.map(p => p.time),
             datasets: [{
               label: 'Temperature (°C)',
-              data: dataPoints.map(p => p.temp),
+              data: dataPoints.map(p => ({ x: p.x, y: p.temp })),
               borderColor: '#f97316',
               backgroundColor: 'rgba(249, 115, 22, 0.1)',
               borderWidth: 3,
@@ -775,9 +952,13 @@
             maintainAspectRatio: false,
             scales: {
               x: {
-                title: { display: true, text: 'Timeline Steps / Duration', color: '#94a3b8' },
+                type: 'linear',
+                title: { display: true, text: 'Time (Hours)', color: '#94a3b8' },
                 grid: { color: '#1e293b' },
-                ticks: { color: '#64748b' }
+                ticks: {
+                  color: '#64748b',
+                  callback: (value) => hoursToDuration(value)
+                }
               },
               y: {
                 title: { display: true, text: 'Target Temp (°C)', color: '#94a3b8' },
@@ -790,7 +971,7 @@
               legend: { display: false },
               tooltip: {
                 callbacks: {
-                  label: (ctx) => ` Temp: ${ctx.parsed.y}°C`
+                  label: (ctx) => ` Temp: ${ctx.parsed.y}°C (${hoursToDuration(ctx.parsed.x)})`
                 }
               }
             }
@@ -804,25 +985,31 @@
     function computeTemperatureProfilePoints(phases) {
       if (!phases || phases.length === 0) {
         return [
-          { time: 'Start', temp: 20 },
-          { time: 'No Phases Configured', temp: 20 }
+          { x: 0, temp: 20 },
+          { x: 1, temp: 20 }
         ];
       }
 
       // Sort phases by ordinal
       const sorted = [...phases].sort((a,b) => a.ordinal - b.ordinal);
-      let points = [{ time: '00:00 (Start)', temp: 20 }]; // Start at room temp 20°C
+      let points = [{ x: 0, temp: 20 }]; // Start at room temp 20°C
       
       let currentTemp = 20;
+      let totalHours = 0;
+
       sorted.forEach((p) => {
         const targetTemp = p.temperature !== null && p.temperature !== undefined ? p.temperature : currentTemp;
-        const phaseLabel = `P${p.ordinal}: ${p.name}`;
-        
-        if (p.phase_type === 'constant') {
-          points.push({ time: `${phaseLabel} (Hold ${p.duration || '01:00'})`, temp: targetTemp });
-        } else {
-          points.push({ time: `${phaseLabel} (${targetTemp}°C)`, temp: targetTemp });
+        let durationHours = 0;
+
+        if (p.duration) {
+          durationHours = durationToHours(p.duration);
+        } else if (p.phase_type === 'ramp' && p.rate && p.rate > 0) {
+          const tempDiff = Math.abs(targetTemp - currentTemp);
+          durationHours = tempDiff / p.rate;
         }
+
+        totalHours += durationHours;
+        points.push({ x: totalHours, temp: targetTemp });
         currentTemp = targetTemp;
       });
 
@@ -979,6 +1166,8 @@
           apiRequest(`/schedule/${scheduleId}/phase/`).catch(() => [])
         ]);
 
+        currentSchedulePhases = phases || []; // Store globally for calculation context
+
         const sched = schedules.find(s => s.id === scheduleId);
         if (!sched) return;
         const user = users.find(u => u.id === sched.user_id);
@@ -987,38 +1176,60 @@
         document.getElementById('selected-schedule-name').innerText = sched.name;
         document.getElementById('selected-schedule-owner').innerText = user ? user.name : `User #${sched.user_id}`;
 
-        // Set action buttons
         document.getElementById('edit-schedule-btn').onclick = () => editSchedule(sched.id);
         document.getElementById('delete-schedule-btn').onclick = () => deleteSchedule(sched.id);
 
-        // Render Phases Table
+        // Render Table without Ordinal column displayed
         const tbody = document.getElementById('phases-table-body');
         if (!phases || phases.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-500">No phases defined for this schedule yet. Click "+ Add Phase".</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-500">No phases defined for this schedule yet. Click "+ Add Phase".</td></tr>`;
         } else {
           const sortedPhases = [...phases].sort((a, b) => a.ordinal - b.ordinal);
-          tbody.innerHTML = sortedPhases.map(p => `
-            <tr class="hover:bg-slate-900/80">
-              <td class="p-3 font-mono text-slate-400">${p.ordinal}</td>
-              <td class="p-3 font-semibold text-slate-200">${p.name}</td>
-              <td class="p-3">
-                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${p.phase_type === 'ramp' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'}">
-                  ${p.phase_type}
-                </span>
-              </td>
-              <td class="p-3 font-mono text-slate-300">${p.temperature !== null && p.temperature !== undefined ? `${p.temperature}°C` : '--'}</td>
-              <td class="p-3 font-mono text-slate-300">${p.rate !== null && p.rate !== undefined ? `${p.rate}°/h` : '--'}</td>
-              <td class="p-3 font-mono text-slate-300">${p.duration || '--'}</td>
-              <td class="p-3 text-right space-x-1">
-                <button onclick="editPhase(${sched.id}, ${p.id})" class="text-slate-400 hover:text-white p-1"><i data-lucide="edit-2" class="w-3.5 h-3.5"></i></button>
-                <button onclick="deletePhase(${sched.id}, ${p.id})" class="text-red-400 hover:text-red-300 p-1"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
-              </td>
-            </tr>
-          `).join('');
+          tbody.innerHTML = sortedPhases.map((p, idx) => {
+            let displayDuration = p.duration || '--';
+            let displayRate = p.rate !== null && p.rate !== undefined ? `${p.rate}°/h` : '--';
+
+            if (p.phase_type === 'ramp') {
+              const startTemp = getPrecedingTemperature(p.ordinal);
+              const targetTemp = p.temperature !== null && p.temperature !== undefined ? p.temperature : startTemp;
+              const tempDiff = Math.abs(targetTemp - startTemp);
+
+              if (p.duration && (!p.rate || p.rate <= 0)) {
+                const hours = durationToHours(p.duration);
+                if (hours > 0) {
+                  const calculatedRate = Math.round(tempDiff / hours);
+                  displayRate = `~${calculatedRate}°/h`;
+                }
+              } else if (p.rate && p.rate > 0 && !p.duration) {
+                const hours = tempDiff / p.rate;
+                displayDuration = hoursToDuration(hours);
+              }
+            } else if (p.phase_type === 'constant') {
+              displayRate = 'N/A';
+            }
+
+            return `
+              <tr class="hover:bg-slate-900/80">
+                <td class="p-3 font-semibold text-slate-200">${p.name}</td>
+                <td class="p-3">
+                  <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${p.phase_type === 'ramp' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'}">
+                    ${p.phase_type}
+                  </span>
+                </td>
+                <td class="p-3 font-mono text-slate-300">${p.temperature !== null && p.temperature !== undefined ? `${p.temperature}°C` : '--'}</td>
+                <td class="p-3 font-mono text-slate-300">${displayRate}</td>
+                <td class="p-3 font-mono text-slate-300">${displayDuration}</td>
+                <td class="p-3 text-right space-x-1">
+                  <button onclick="editPhase(${sched.id}, ${p.id})" class="text-slate-400 hover:text-white p-1"><i data-lucide="edit-2" class="w-3.5 h-3.5"></i></button>
+                  <button onclick="deletePhase(${sched.id}, ${p.id})" class="text-red-400 hover:text-red-300 p-1"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                </td>
+              </tr>
+            `;
+          }).join('');
         }
         lucide.createIcons();
 
-        // Render Temperature Chart Detail
+        // Chart detail computation
         const dataPoints = computeTemperatureProfilePoints(phases);
         const ctx = document.getElementById('scheduleDetailChart').getContext('2d');
         if (appState.detailChartInstance) appState.detailChartInstance.destroy();
@@ -1026,10 +1237,9 @@
         appState.detailChartInstance = new Chart(ctx, {
           type: 'line',
           data: {
-            labels: dataPoints.map(p => p.time),
             datasets: [{
               label: 'Temperature Curve',
-              data: dataPoints.map(p => p.temp),
+              data: dataPoints.map(p => ({ x: p.x, y: p.temp })),
               borderColor: '#f97316',
               backgroundColor: 'rgba(249, 115, 22, 0.15)',
               borderWidth: 2,
@@ -1043,10 +1253,31 @@
             responsive: true,
             maintainAspectRatio: false,
             scales: {
-              x: { grid: { color: '#1e293b' }, ticks: { color: '#64748b', font: { size: 10 } } },
-              y: { grid: { color: '#1e293b' }, ticks: { color: '#64748b', font: { size: 10 } }, beginAtZero: true }
+              x: {
+                type: 'linear',
+                title: { display: true, text: 'Time (Hours)', color: '#94a3b8' },
+                grid: { color: '#1e293b' },
+                ticks: {
+                  color: '#64748b',
+                  font: { size: 10 },
+                  callback: (value) => hoursToDuration(value)
+                }
+              },
+              y: {
+                title: { display: true, text: 'Temperature (°C)', color: '#94a3b8' },
+                grid: { color: '#1e293b' },
+                ticks: { color: '#64748b', font: { size: 10 } },
+                beginAtZero: true
+              }
             },
-            plugins: { legend: { display: false } }
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: (ctx) => ` Temp: ${ctx.parsed.y}°C (${hoursToDuration(ctx.parsed.x)})`
+                }
+              }
+            }
           }
         });
       } catch (e) {
@@ -1259,6 +1490,7 @@
       });
     }
 
+    // Open Phase Modal
     async function openPhaseModal(phase = null) {
       if (!appState.selectedScheduleId) {
         showToast("Select a schedule first", "warning");
@@ -1268,12 +1500,19 @@
       document.getElementById('phase-modal-title').innerText = phase ? 'Edit Phase' : 'Add Phase';
       document.getElementById('phase-id').value = phase ? phase.id : '';
       document.getElementById('phase-name').value = phase ? phase.name : '';
-      document.getElementById('phase-ordinal').value = phase ? phase.ordinal : 1;
+      
+      // Calculate default ordinal dynamically based on position count
+      const nextOrdinal = phase ? phase.ordinal : (currentSchedulePhases.length + 1);
+      document.getElementById('phase-ordinal').value = nextOrdinal;
+
       document.getElementById('phase-type').value = phase ? phase.phase_type : 'ramp';
       document.getElementById('phase-temperature').value = phase && phase.temperature !== null && phase.temperature !== undefined ? phase.temperature : '';
       document.getElementById('phase-rate').value = phase && phase.rate !== null && phase.rate !== undefined ? phase.rate : '';
       document.getElementById('phase-duration').value = phase ? phase.duration || '' : '';
 
+      activeRampMode = (phase && !phase.rate && phase.duration) ? 'duration' : 'rate';
+
+      onPhaseTypeChange();
       document.getElementById('phase-modal').classList.remove('hidden');
     }
 
@@ -1281,22 +1520,30 @@
       document.getElementById('phase-modal').classList.add('hidden');
     }
 
+    // Form Submit Handler
     async function handlePhaseSubmit(e) {
       e.preventDefault();
       const phaseId = document.getElementById('phase-id').value;
       const scheduleId = appState.selectedScheduleId;
+      const phaseType = document.getElementById('phase-type').value;
 
       const tempVal = document.getElementById('phase-temperature').value;
       const rateVal = document.getElementById('phase-rate').value;
+      const durationVal = document.getElementById('phase-duration').value;
+
+      if (phaseType === 'ramp' && !rateVal && !durationVal) {
+        showToast("Please enter either a Rate or Duration for Ramp phases.", "error");
+        return;
+      }
 
       const payload = {
         name: document.getElementById('phase-name').value,
         ordinal: parseInt(document.getElementById('phase-ordinal').value),
-        phase_type: document.getElementById('phase-type').value,
+        phase_type: phaseType,
         schedule_id: parseInt(scheduleId),
         temperature: tempVal !== "" ? parseInt(tempVal) : null,
-        rate: rateVal !== "" ? parseInt(rateVal) : null,
-        duration: document.getElementById('phase-duration').value || null
+        rate: phaseType === 'constant' ? null : (rateVal !== "" ? parseInt(rateVal) : null),
+        duration: durationVal || null
       };
 
       try {

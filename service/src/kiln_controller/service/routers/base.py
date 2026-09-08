@@ -32,6 +32,17 @@ def _lookup(resource_type: type[Base], session: Session, id: int) -> resource_ty
         return None
 
 
+def _format_doc[**P, R](**kwargs) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    """format the decorated functions __doc__ with kwargs"""
+
+    def dec(func: Callable[P, R]) -> Callable[P, R]:
+        assert func.__doc__, f"{func} does not have a __doc__ to format"
+        func.__doc__ = func.__doc__.format(**kwargs)
+        return func
+
+    return dec
+
+
 def create_router(
     resource_type: type[Base], orm_type: type[MappedBase], url_prefix=""
 ) -> fastapi.APIRouter:
@@ -51,8 +62,9 @@ def create_router(
     )
 
     @router.get("/")
+    @_format_doc(resource_type=resource_type.__name__)
     async def _list_get(request: fastapi.Request) -> list[resource_type]:
-        """get the list of resource_type resources"""
+        """get the list of {resource_type}s"""
         query = select(orm_type)
         if request.path_params:  # schedule_id in '/schedule/{request_id}/phase
             query = query.filter_by(**request.path_params)
@@ -62,8 +74,9 @@ def create_router(
             ]
 
     @router.get("/{id}")
+    @_format_doc(resource_type=resource_type.__name__)
     async def _get(id: int, schedule_id=None) -> resource_type:
-        """get the resource"""
+        """get a {resource_type}"""
         with Session() as session:
             orm = _lookup(orm_type, session, id)
         if not orm:
@@ -78,8 +91,9 @@ def create_router(
         return orm.model_dump(mode="json")
 
     @router.post("/", status_code=HTTPStatus.CREATED)
+    @_format_doc(resource_type=resource_type.__name__)
     async def _post(request: fastapi.Request, resource: resource_type) -> resource_type:
-        """create a resource of resource_type"""
+        """create a {resource_type}"""
         # set the path parameter values on the resource (ie schedule_id on phase)
         for k, v in request.path_params.items():
             setattr(resource, k, v)
@@ -91,6 +105,7 @@ def create_router(
         return orm.model_dump(mode="json")
 
     @router.put("/{id}")
+    @_format_doc(resource_type=resource_type.__name__)
     async def _put(id: int, resource: resource_type) -> resource_type:
         """
         There is some debate in the REST community as to whether or not clients
@@ -139,8 +154,9 @@ def create_router(
         status_code=fastapi.status.HTTP_204_NO_CONTENT,
         response_class=fastapi.Response,
     )
+    @_format_doc(resource_type=resource_type.__name__)
     async def delete(id: int) -> None:
-        """delete the resource"""
+        """delete a {resource_type}"""
         with (session := Session()), session.begin():
             orm = _lookup(orm_type, session, id)
             if orm is not None:

@@ -19,7 +19,7 @@ from kiln_controller.client import (
     Phase,
     NotFoundException,
 )
-from kiln_controller.client.client import DEFAULT_TIMEOUT
+from kiln_controller.client.client import DEFAULT_TIMEOUT, ValidationError
 from kiln_controller.common.enums import PhaseType
 
 from ._fixtures import (
@@ -38,6 +38,14 @@ from .mock_service import Call
 USER_ID = 1
 
 PORT = int(os.getenv("SERVICE_PORT", "50001"))
+
+
+class AsDict:
+    def __init__(self, d):
+        self._dict = d
+
+    def asdict(self):
+        return self._dict
 
 
 class ClientTest(unittest.TestCase):
@@ -204,6 +212,18 @@ class ClientTest(unittest.TestCase):
             resource.id = int(random.random() * 1000000)
             resource.put(client)
             self.assertIsNotNone(resource.id, "put failed to assign id to resource")
+
+            # Test put without resource.id succeeds and doesn't create a new
+            # resource.
+            resource_dict = resource.asdict()
+            url = resource._url
+            del resource_dict["id"]
+            resp = client._client.put(url, AsDict(resource_dict))
+            assert resp["id"] == resource.id
+
+            with self.assertRaises(ValidationError):
+                resource_dict["id"] = -1
+                resp = client._client.put(url, AsDict(resource_dict))
 
             # test put with resource.id succeeds, attribute changes
             name = resource.name * 2

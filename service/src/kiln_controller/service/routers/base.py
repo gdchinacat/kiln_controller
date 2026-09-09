@@ -16,6 +16,7 @@ from sqlalchemy.exc import NoResultFound, IntegrityError
 from ..models import Session
 from ..models.base import Base, MappedBase
 from ..models.validators import PhaseType
+from ...common.validators import ValidationError, ValidationErrors
 
 __all__ = []
 
@@ -150,6 +151,14 @@ def create_router(
                clients will clobber existing entities.
         Create or update a resource by id.
         """
+        if resource.id:
+            if resource.id != id:
+                raise ValidationError(
+                    ValidationErrors.MISMATCHED_ID,
+                    f"path id ({id}) does not match resource id ({resource.id})",
+                )
+        else:
+            resource.id = id
         orm = orm_type.model_validate(resource)
         with (session := Session()), session.begin():
             session.merge(orm)

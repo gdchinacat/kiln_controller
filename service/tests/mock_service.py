@@ -11,6 +11,7 @@ import os
 from typing import Dict, List, Any, Callable
 from unittest.mock import patch
 from urllib.parse import urlparse
+from kiln_controller.common.validators import ValidationError, ValidationErrors
 
 import requests
 
@@ -284,7 +285,12 @@ class MockService(Resource):
     def put(self, url: str, json: Dict[str, Any], **_) -> requests.Response:
         # get the id from the url and store it on the obj
         paths = self.get_paths(url)
-        json["id"] = int(paths[-1])
+        id = int(paths[-1])
+        if (rid := json.get("id")) and rid != id:
+            raise ValidationError(
+                ValidationErrors.MISMATCHED_ID, f'{id} != {json["id"]}'
+            )
+        json["id"] = id
 
         # find the parent, makes handling not existing easier
         url = "/".join(paths[:-1])

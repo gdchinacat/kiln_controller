@@ -25,6 +25,7 @@ class ValidationErrors(Enum):
     DUPLICATE_RAMP_TEMPERATURES = 4
     USER_HAS_SCHEDULES = 5
     USER_MANAGES_DEVICES = 6
+    MISMATCHED_ID = 7
 
 
 class ValidationError(Exception):

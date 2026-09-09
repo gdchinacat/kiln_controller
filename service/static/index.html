@@ -106,7 +106,7 @@
         users: [],
         devices: [],
         schedules: [],
-        phases: [], // todo phases are schedule specific, there is no aggregation that makes sense
+        schedulePhases: [],
         serverOrigin: '',
         
         // Console & Toasts State
@@ -114,6 +114,7 @@
         hasUnreadLogs: false,
         consoleLogs: [],
         toasts: [],
+        requestCounter: 0,
 
         // Modal Visibility & Form Data
         modals: {
@@ -162,7 +163,8 @@
 
         // --- API Helper ---
         async apiRequest(endpoint, method = 'GET', body = null) {
-          this.logConsoleRequest(method, endpoint, body);
+          const reqId = ++this.requestCounter;
+          this.logConsoleRequest(reqId, method, endpoint, body);
           try {
             const options = { method, headers: { 'Content-Type': 'application/json' } };
             if (body) options.body = JSON.stringify(body);
@@ -176,7 +178,7 @@
               data = text ? JSON.parse(text) : null;
             }
 
-            this.logConsoleResponse(status, data);
+            this.logConsoleResponse(reqId, status, data);
 
             if (!res.ok) {
               let errorMsg = `Server error (${status})`;
@@ -187,13 +189,14 @@
                   errorMsg = data.detail;
                 }
               }
-              this.showToast(errorMsg, 'error');
-              throw new Error(errorMsg);  // todo this causes multiple toast notices because it's shown here, thrown and caught below, don't double report
+              throw new Error(errorMsg);
             }
             return data;
           } catch (err) {
             if (!err.message.includes('Server error')) {
               this.showToast(`Server Connection Error: ${err.message}`, 'error');
+            } else {
+              this.showToast(err.message, 'error');
             }
             throw err;
           }
@@ -210,15 +213,6 @@
           this.users = users;
           this.devices = devices;
           this.schedules = schedules;
-
-          let phaseCount = 0;  // todo remove phaseCount from Dashboard, it makes no sense
-          for (let s of schedules) {
-            try {
-              const phs = await this.apiRequest(`/schedule/${s.id}/phase/`);
-              phaseCount += phs.length;
-            } catch (e) {}
-          }
-          this.statPhasesCount = phaseCount;
 
           if (schedules.length > 0 && !this.selectedScheduleId) {
             this.selectedScheduleId = schedules[0].id;
@@ -260,7 +254,7 @@
             await this.loadScheduleDetail(this.selectedScheduleId);
           } else {
             this.selectedScheduleId = null;
-            this.phases = [];
+            this.schedulePhases = [];
           }
           this.$nextTick(() => lucide.createIcons());
         },
@@ -271,25 +265,22 @@
         },
 
         async loadDashboardScheduleChart(scheduleId) {
-          if (!scheduleId) return;
-          this.selectedScheduleId = parseInt(scheduleId);
-          
-          const [schedules, users, phases] = await Promise.all([
-            this.apiRequest('/schedule/'),
-            this.apiRequest('/user/').catch(() => []),
-            this.apiRequest(`/schedule/${scheduleId}/phase/`).catch(() => [])
-          ]);
-
-          const dataPoints = computeTemperatureProfilePoints(phases);
           const ctx = document.getElementById('dashboardChart')?.getContext('2d');
           if (!ctx) return;
 
-          if (this.dashboardChartInstance) this.dashboardChartInstance.destroy();
+          this.selectedScheduleId = parseInt(scheduleId);
 
-          this.dashboardChartInstance = new Chart(ctx, {
-            type: 'line',
-            data: {
-              datasets: [{
+		  let datasets = null;
+          if (scheduleId) {
+            const [schedules, users, phases] = await Promise.all([
+              this.apiRequest('/schedule/'),
+              this.apiRequest('/user/').catch(() => []),
+              this.apiRequest(`/schedule/${scheduleId}/phase/`).catch(() => [])
+            ]);
+
+            const dataPoints = computeTemperatureProfilePoints(phases);
+
+			datasets = [{
                 label: 'Temperature (°C)',
                 data: dataPoints.map(p => ({ x: p.x, y: p.temp })),
                 borderColor: '#f97316',
@@ -301,6 +292,14 @@
                 pointRadius: 4,
                 pointHoverRadius: 7
               }]
+		  }
+
+          if (this.dashboardChartInstance) this.dashboardChartInstance.destroy();
+
+          this.dashboardChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+              datasets: datasets
             },
             options: {
               responsive: true,
@@ -337,9 +336,9 @@
 
           this.schedules = schedules;
           this.users = users;
-          this.phases = (phases || []).sort((a, b) => a.ordinal - b.ordinal);
+          this.schedulePhases = (phases || []).sort((a, b) => a.ordinal - b.ordinal);
 
-          const dataPoints = computeTemperatureProfilePoints(this.phases);
+          const dataPoints = computeTemperatureProfilePoints(this.schedulePhases);
           const ctx = document.getElementById('scheduleDetailChart')?.getContext('2d');
           if (!ctx) return;
 
@@ -400,7 +399,7 @@
 
         // Helper calculations for Phase Table
         getPrecedingTemperature(editingOrdinal = null) {
-          let targetList = [...this.phases];
+          let targetList = [...this.schedulePhases];
           if (editingOrdinal !== null) {
             targetList = targetList.filter(p => p.ordinal < editingOrdinal);
           }
@@ -409,7 +408,7 @@
           return (lastPhase.temperature !== null && lastPhase.temperature !== undefined) ? lastPhase.temperature : DEFAULT_ROOM_TEMP;
         },
 
-        getDisplayRate(p) {  // todo rename to reflect that it calculates the rate for a duration based phase
+        getDisplayRateForDurationPhase(p) {
           if (p.phase_type === 'constant') return 'N/A';
           if (p.rate !== null && p.rate !== undefined && p.rate > 0) return `${p.rate}°/h`;
           
@@ -425,7 +424,7 @@
           return '--';
         },
 
-        getDisplayDuration(p) { // todo rename to reflect that it calculates the duration for a rate based phase
+        getDisplayDurationForRatePhase(p) {
           if (p.duration) return p.duration;
           if (p.phase_type === 'ramp' && p.rate && p.rate > 0) {
             const startTemp = this.getPrecedingTemperature(p.ordinal);
@@ -460,18 +459,21 @@
           this.refreshCurrentView();
         },
 
-		// todo identify the user by name and user name in confirmation dialog (do this for all other resource types as well)
-        deleteUser(id) {
-          this.showConfirmDialog("Are you sure you want to delete this user?", async () => {
-            await this.apiRequest(`/user/${id}`, 'DELETE');
+        deleteUser(user) {
+          const nameStr = user.name ? `${user.name} (@${user.username})` : `User #${user.id}`;
+          this.showConfirmDialog(`Are you sure you want to delete user "${nameStr}"?`, async () => {
+            await this.apiRequest(`/user/${user.id}`, 'DELETE');
             this.showToast("User deleted", "warning");
             this.refreshCurrentView();
           });
         },
 
         // --- Device Actions ---
-        async openDeviceModal(device = null) {
-          this.users = await this.apiRequest('/user/').catch(() => []); //todo why does opening the device modal populate the global users? It should already be populated, and if not, the modal shouldn't be able to be activated until the data it needs has been populated. General principle here and elsewhere.
+        openDeviceModal(device = null) {
+          if (this.users.length === 0) {
+            this.showToast("Cannot add or edit kiln until users are loaded", "warning");
+            return;
+          }
           this.forms.device = device 
             ? { ...device, description: device.description || '', url: device.url || '' } 
             : { id: '', name: '', host: '', port: 5000, user_id: this.users[0]?.id || '', url: '', description: '' };
@@ -501,17 +503,21 @@
           this.refreshCurrentView();
         },
 
-        deleteDevice(id) {
-          this.showConfirmDialog("Are you sure you want to delete this device?", async () => { // todo identify the device in confirmation dialog
-            await this.apiRequest(`/device/${id}`, 'DELETE');
+        deleteDevice(device) {
+          const deviceStr = device.name ? `"${device.name}" (${device.host}:${device.port})` : `Device #${device.id}`;
+          this.showConfirmDialog(`Are you sure you want to delete kiln ${deviceStr}?`, async () => {
+            await this.apiRequest(`/device/${device.id}`, 'DELETE');
             this.showToast("Kiln removed", "warning");
             this.refreshCurrentView();
           });
         },
 
         // --- Schedule Actions ---
-        async openScheduleModal(schedule = null) {
-          this.users = await this.apiRequest('/user/').catch(() => []);
+        openScheduleModal(schedule = null) {
+          if (this.users.length === 0) {
+            this.showToast("Cannot add or edit schedule until users are loaded", "warning");
+            return;
+          }
           this.forms.schedule = schedule 
             ? { ...schedule } 
             : { id: '', name: '', user_id: this.users[0]?.id || '' };
@@ -539,8 +545,11 @@
           this.refreshCurrentView();
         },
 
-        deleteSchedule(id) {
-          this.showConfirmDialog("Are you sure you want to delete this firing schedule and all its phases?", async () => { // todo identify the schedule in confirmation dialog
+        deleteSchedule(schedule) {
+          const sch = typeof schedule === 'object' ? schedule : this.schedules.find(s => s.id === schedule);
+          const schStr = sch ? `"${sch.name}"` : `Schedule #${schedule}`;
+          this.showConfirmDialog(`Are you sure you want to delete firing schedule ${schStr} and all its phases?`, async () => {
+            const id = sch ? sch.id : schedule;
             await this.apiRequest(`/schedule/${id}`, 'DELETE');
             this.selectedScheduleId = null;
             this.showToast("Schedule deleted", "warning");
@@ -554,7 +563,7 @@
             this.showToast("Select a schedule first", "warning");
             return;
           }
-          const nextOrdinal = phase ? phase.ordinal : (this.phases.length + 1);
+          const nextOrdinal = phase ? phase.ordinal : (this.schedulePhases[this.schedulePhases.length - 1].ordinal + 1);
           this.forms.phase = phase ? { 
             id: phase.id,
             name: phase.name,
@@ -610,7 +619,7 @@
         onPhaseTypeChange() {
           const currentOrdinal = parseInt(this.forms.phase.ordinal);
           if (this.forms.phase.phase_type === 'constant') {
-            const sorted = [...this.phases].sort((a, b) => a.ordinal - b.ordinal);
+            const sorted = [...this.schedulePhases].sort((a, b) => a.ordinal - b.ordinal);
             const precedingPhases = sorted.filter(p => p.ordinal < currentOrdinal);
             const relativePrev = precedingPhases.length > 0 ? precedingPhases[precedingPhases.length - 1] : null;
 
@@ -655,9 +664,10 @@
           this.refreshCurrentView();
         },
 
-        deletePhase(scheduleId, phaseId) {
-          this.showConfirmDialog("Delete this phase from the schedule?", async () => { // todo identify phase
-            await this.apiRequest(`/schedule/${scheduleId}/phase/${phaseId}`, 'DELETE');
+        deletePhase(scheduleId, phase) {
+          const phStr = phase.name ? `"${phase.name}" (Ordinal: ${phase.ordinal})` : `Phase #${phase.id}`;
+          this.showConfirmDialog(`Delete phase ${phStr} from the schedule?`, async () => {
+            await this.apiRequest(`/schedule/${scheduleId}/phase/${phase.id}`, 'DELETE');
             this.showToast("Phase removed", "warning");
             this.refreshCurrentView();
           });
@@ -681,14 +691,14 @@
           if (this.consoleDrawerOpen) this.hasUnreadLogs = false;
         },
 
-        logConsoleRequest(method, endpoint, body) {
+        logConsoleRequest(reqId, method, endpoint, body) {
           const time = new Date().toLocaleTimeString();
-          this.consoleLogs.push({ time, method, endpoint, body, type: 'req' });
+          this.consoleLogs.push({ reqId, time, method, endpoint, body, type: 'req' });
           if (!this.consoleDrawerOpen) this.hasUnreadLogs = true;
         },
 
-        logConsoleResponse(status, data) { // todo identify the request the response is for
-          this.consoleLogs.push({ status, data, type: 'res' });
+        logConsoleResponse(reqId, status, data) {
+          this.consoleLogs.push({ reqId, status, data, type: 'res' });
         },
 
         clearConsoleLogs() {
@@ -735,7 +745,10 @@
           <i data-lucide="cpu" class="w-4 h-4"></i> Kilns
         </button>
         <button @click="switchTab('schedules')" :class="activeTab === 'schedules' ? 'bg-orange-600 text-white shadow' : 'text-slate-400 hover:text-white'" class="px-4 py-1.5 text-sm font-medium rounded-lg transition-all flex items-center gap-2">
-          <i data-lucide="calendar" class="w-4 h-4"></i> Firing Schedules
+          <i data-lucide="calendar" class="w-4 h-4"></i> Schedules
+        </button>
+        <button @click="switchTab('firings')" :class="activeTab === 'firings' ? 'bg-orange-600 text-white shadow' : 'text-slate-400 hover:text-white'" class="px-4 py-1.5 text-sm font-medium rounded-lg transition-all flex items-center gap-2">
+          <i data-lucide="calendar" class="w-4 h-4"></i> Firings
         </button>
       </nav>
 
@@ -752,7 +765,7 @@
       </div>
     </header>
 
-    <main class="flex-1 overflow-y-auto p-6 space-y-6">
+    <main class="flex-1 overflow-y-auto p-6 space-y-6 min-h-0">
       
       <!-- DASHBOARD VIEW -->
       <section x-show="activeTab === 'dashboard'" class="space-y-6">
@@ -767,7 +780,7 @@
         </div>
 
         <!-- Overview Stats Cards -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div class="glass-panel p-5 rounded-2xl border border-slate-800 flex items-center justify-between">
             <div>
               <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Active Users</p>
@@ -797,31 +810,22 @@
               <i data-lucide="calendar" class="w-6 h-6"></i>
             </div>
           </div>
-
-          <div class="glass-panel p-5 rounded-2xl border border-slate-800 flex items-center justify-between">
-            <div>
-              <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Total Profile Phases</p>
-              <h3 x-text="statPhasesCount || '--'" class="text-3xl font-bold mt-1 text-slate-100">--</h3>
-            </div>
-            <div class="p-3 bg-amber-500/10 text-amber-400 rounded-xl border border-amber-500/20">
-              <i data-lucide="activity" class="w-6 h-6"></i>
-            </div>
-          </div>
         </div>
 
-        <!-- Featured Active Schedule Visualizer -->
+        <!-- Active Firing Visualizer -->
+        <!-- TODO this should use currentFiring -->
         <div class="glass-panel rounded-2xl border border-slate-800 p-6">
           <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
             <div>
               <div class="flex items-center gap-2">
-                <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-orange-500/20 text-orange-400 border border-orange-500/30">Active Curve Monitor</span>
+                <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-orange-500/20 text-orange-400 border border-orange-500/30">Active Firing Monitor</span>
                 <span x-text="currentSchedule ? 'Created by ' + currentScheduleOwnerName : ''" class="text-xs text-slate-400"></span>
               </div>
-              <h2 x-text="currentSchedule ? currentSchedule.name : 'Select a Schedule Below'" class="text-2xl font-bold text-white mt-1">Select a Schedule Below</h2>
+              <h2 x-text="currentSchedule ? currentSchedule.name : 'Select a Firing'" class="text-2xl font-bold text-white mt-1">Select a Schedule Below</h2>
             </div>
             <div class="flex items-center gap-3">
               <select x-model="selectedScheduleId" @change="loadDashboardScheduleChart($event.target.value)" class="bg-slate-900 border border-slate-700 text-sm rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-orange-500">
-                <option value="">Select Schedule...</option>
+                <option value="">Select Firing...</option> <!-- todo - once firings have been added to api allow any active firing to be seen; add marker showing where in schedule it is -->
                 <template x-for="s in schedules" :key="s.id">
                   <option :value="s.id" x-text="s.name"></option>
                 </template>
@@ -933,7 +937,7 @@
                     <td x-text="u.phone_number || '--'" class="p-4 text-slate-400"></td>
                     <td class="p-4 text-right space-x-2">
                       <button @click="openUserModal(u)" class="text-slate-400 hover:text-white p-1"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
-                      <button @click="deleteUser(u.id)" class="text-red-400 hover:text-red-300 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                      <button @click="deleteUser(u)" class="text-red-400 hover:text-red-300 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                     </td>
                   </tr>
                 </template>
@@ -976,7 +980,7 @@
                   </div>
                   <div class="flex items-center gap-1">
                     <button @click="openDeviceModal(d)" class="text-slate-400 hover:text-white p-1"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
-                    <button @click="deleteDevice(d.id)" class="text-red-400 hover:text-red-300 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    <button @click="deleteDevice(d)" class="text-red-400 hover:text-red-300 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                   </div>
                 </div>
                 <p x-text="d.description || 'No device description provided.'" class="text-xs text-slate-400 mt-2 line-clamp-2"></p>
@@ -1092,21 +1096,21 @@
                         </tr>
                       </thead>
                       <tbody class="divide-y divide-slate-800">
-                        <template x-if="phases.length === 0">
+                        <template x-if="schedulePhases.length === 0">
                           <tr><td colspan="6" class="p-6 text-center text-slate-500">No phases defined for this schedule yet. Click "+ Add Phase".</td></tr>
                         </template>
-                        <template x-for="p in phases" :key="p.id">
+                        <template x-for="p in schedulePhases" :key="p.id">
                           <tr class="hover:bg-slate-900/80">
                             <td x-text="p.name" class="p-3 font-semibold text-slate-200"></td>
                             <td class="p-3">
                               <span :class="p.phase_type === 'ramp' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'" class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider" x-text="p.phase_type"></span>
                             </td>
                             <td x-text="p.temperature !== null && p.temperature !== undefined ? `${p.temperature}°C` : '--'" class="p-3 font-mono text-slate-300"></td>
-                            <td x-text="getDisplayRate(p)" class="p-3 font-mono text-slate-300"></td>
-                            <td x-text="getDisplayDuration(p)" class="p-3 font-mono text-slate-300"></td>
+                            <td x-text="getDisplayRateForDurationPhase(p)" class="p-3 font-mono text-slate-300"></td>
+                            <td x-text="getDisplayDurationForRatePhase(p)" class="p-3 font-mono text-slate-300"></td>
                             <td class="p-3 text-right space-x-1">
                               <button @click="openPhaseModal(p)" class="text-slate-400 hover:text-white p-1"><i data-lucide="edit-2" class="w-3.5 h-3.5"></i></button>
-                              <button @click="deletePhase(selectedScheduleId, p.id)" class="text-red-400 hover:text-red-300 p-1"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                              <button @click="deletePhase(selectedScheduleId, p)" class="text-red-400 hover:text-red-300 p-1"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
                             </td>
                           </tr>
                         </template>
@@ -1123,7 +1127,7 @@
     </main>
 
     <!-- Console / Telemetry Drawer -->
-    <div :class="consoleDrawerOpen ? 'translate-y-0' : 'translate-y-full'" class="fixed bottom-0 right-0 left-0 bg-slate-950 border-t border-slate-800 shadow-2xl transition-all duration-300 transform z-40 flex flex-col h-72"> <!--todo console drawer should not be an overlay on top but rather should move the main content up-->
+    <div x-show="consoleDrawerOpen" class="bg-slate-950 border-t border-slate-800 shadow-2xl transition-all duration-300 shrink-0 flex flex-col h-72 z-40">
       <div class="bg-slate-900 px-4 py-2 border-b border-slate-800 flex items-center justify-between shrink-0">
         <div class="flex items-center gap-2">
           <i data-lucide="terminal" class="w-4 h-4 text-orange-400"></i>
@@ -1141,6 +1145,7 @@
           <div>
             <template x-if="log.type === 'req'">
               <div class="flex items-start gap-2 border-b border-slate-900 pb-1">
+                <span x-text="`[#${log.reqId}]`" class="text-slate-500 font-bold"></span>
                 <span x-text="log.time" class="text-slate-500"></span>
                 <span x-text="log.method" :class="log.method === 'GET' ? 'text-blue-400' : log.method === 'POST' ? 'text-emerald-400' : log.method === 'PUT' ? 'text-amber-400' : 'text-red-400'" class="font-bold"></span>
                 <span x-text="log.endpoint" class="text-slate-200"></span>
@@ -1148,7 +1153,8 @@
               </div>
             </template>
             <template x-if="log.type === 'res'">
-              <div class="pl-4 text-xs font-mono mb-1">
+              <div class="pl-4 text-xs font-mono mb-1 flex items-center gap-2">
+                <span x-text="`[#${log.reqId}]`" class="text-slate-500 font-bold"></span>
                 <span x-text="`STATUS ${log.status}`" :class="log.status >= 200 && log.status < 300 ? 'text-emerald-400' : 'text-red-400'" class="font-bold"></span>
                 <span x-text="log.data ? JSON.stringify(log.data).substring(0, 150) : 'No content'" class="text-slate-400"></span>
               </div>
@@ -1223,7 +1229,7 @@
         </div>
         <div>
           <label class="block text-xs font-medium text-slate-400 mb-1">URL</label>
-          <input type="text" x-model="forms.device.url" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500" placeholder="http://192.168.1.50">
+          <input type="text" x-model="forms.device.url" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500" placeholder="/">
         </div>
         <div>
           <label class="block text-xs font-medium text-slate-400 mb-1">Description</label>

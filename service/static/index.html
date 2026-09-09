@@ -5,12 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Kiln Command Center - Smart Kiln Management</title>
   
-  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Chart.js for Temperature Curves -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
   
   <script>
     tailwind.config = {
@@ -53,8 +51,663 @@
       border: 1px solid rgba(255, 255, 255, 0.08);
     }
   </style>
+
+  <script>
+    document.addEventListener('alpine:init', () => {
+      const DEFAULT_ROOM_TEMP = 20;
+
+      // Helper functions
+      function durationToHours(durationStr) {
+        if (!durationStr) return 0;
+        const parts = durationStr.split(':').map(Number);
+        if (parts.some(isNaN)) return 0;
+        if (parts.length === 3) return parts[0] + parts[1] / 60 + parts[2] / 3600;
+        if (parts.length === 2) return parts[0] + parts[1] / 60;
+        return 0;
+      }
+
+      function hoursToDuration(hours) {
+        if (!hours || isNaN(hours) || hours <= 0) return '';
+        const totalMinutes = Math.round(hours * 60);
+        const h = Math.floor(totalMinutes / 60);
+        const m = totalMinutes % 60;
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+      }
+
+      function computeTemperatureProfilePoints(phases) {
+        if (!phases || phases.length === 0) {
+          return [{ x: 0, temp: 20 }, { x: 1, temp: 20 }];
+        }
+        const sorted = [...phases].sort((a,b) => a.ordinal - b.ordinal);
+        let points = [{ x: 0, temp: 20 }];
+        let currentTemp = 20;
+        let totalHours = 0;
+
+        sorted.forEach((p) => {
+          const targetTemp = p.temperature !== null && p.temperature !== undefined ? p.temperature : currentTemp;
+          let durationHours = 0;
+          if (p.duration) {
+            durationHours = durationToHours(p.duration);
+          } else if (p.phase_type === 'ramp' && p.rate && p.rate > 0) {
+            const tempDiff = Math.abs(targetTemp - currentTemp);
+            durationHours = tempDiff / p.rate;
+          }
+          totalHours += durationHours;
+          points.push({ x: totalHours, temp: targetTemp });
+          currentTemp = targetTemp;
+        });
+        return points;
+      }
+
+      Alpine.data('kilnApp', () => ({
+        // App State & Data Collections
+        activeTab: 'dashboard',
+        selectedScheduleId: null,
+        users: [],
+        devices: [],
+        schedules: [],
+        phases: [], // todo phases are schedule specific, there is no aggregation that makes sense
+        serverOrigin: '',
+        
+        // Console & Toasts State
+        consoleDrawerOpen: false,
+        hasUnreadLogs: false,
+        consoleLogs: [],
+        toasts: [],
+
+        // Modal Visibility & Form Data
+        modals: {
+          user: false,
+          device: false,
+          schedule: false,
+          phase: false,
+          confirm: false
+        },
+
+        forms: {
+          user: { id: '', name: '', username: '', email: '', phone_number: '' },
+          device: { id: '', name: '', host: '', port: 5000, user_id: '', url: '', description: '' },
+          schedule: { id: '', name: '', user_id: '' },
+          phase: { id: '', name: '', ordinal: 1, phase_type: 'ramp', temperature: '', rate: '', duration: '' }
+        },
+
+        // Ramp/Phase logic states
+        activeRampMode: 'rate',
+        confirmDialog: { message: '', action: null },
+        dashboardChartInstance: null,
+        detailChartInstance: null,
+
+        init() {
+          this.serverOrigin = `Connected: ${window.location.origin}`;
+          this.refreshCurrentView();
+          this.$nextTick(() => lucide.createIcons());
+        },
+
+        // --- Navigation ---
+        switchTab(tab) {
+          this.activeTab = tab;
+          this.refreshCurrentView();
+        },
+
+        async refreshCurrentView() {
+          try {
+            if (this.activeTab === 'dashboard') await this.renderDashboard();
+            else if (this.activeTab === 'users') await this.renderUsers();
+            else if (this.activeTab === 'devices') await this.renderDevices();
+            else if (this.activeTab === 'schedules') await this.renderSchedules();
+          } catch (e) {
+            console.error("View refresh error:", e);
+          }
+        },
+
+        // --- API Helper ---
+        async apiRequest(endpoint, method = 'GET', body = null) {
+          this.logConsoleRequest(method, endpoint, body);
+          try {
+            const options = { method, headers: { 'Content-Type': 'application/json' } };
+            if (body) options.body = JSON.stringify(body);
+
+            const res = await fetch(endpoint, options);
+            const status = res.status;
+            let data = null;
+
+            if (status !== 204) {
+              const text = await res.text();
+              data = text ? JSON.parse(text) : null;
+            }
+
+            this.logConsoleResponse(status, data);
+
+            if (!res.ok) {
+              let errorMsg = `Server error (${status})`;
+              if (data && data.detail) {
+                if (Array.isArray(data.detail)) {
+                  errorMsg = data.detail.map(e => `${e.loc ? e.loc.join('.') + ': ' : ''}${e.msg}: ${e.input}`).join(', ');
+                } else if (typeof data.detail === 'string') {
+                  errorMsg = data.detail;
+                }
+              }
+              this.showToast(errorMsg, 'error');
+              throw new Error(errorMsg);  // todo this causes multiple toast notices because it's shown here, thrown and caught below, don't double report
+            }
+            return data;
+          } catch (err) {
+            if (!err.message.includes('Server error')) {
+              this.showToast(`Server Connection Error: ${err.message}`, 'error');
+            }
+            throw err;
+          }
+        },
+
+        // --- Views Rendering ---
+        async renderDashboard() {
+          const [users, devices, schedules] = await Promise.all([
+            this.apiRequest('/user/').catch(() => []),
+            this.apiRequest('/device/').catch(() => []),
+            this.apiRequest('/schedule/').catch(() => [])
+          ]);
+
+          this.users = users;
+          this.devices = devices;
+          this.schedules = schedules;
+
+          let phaseCount = 0;  // todo remove phaseCount from Dashboard, it makes no sense
+          for (let s of schedules) {
+            try {
+              const phs = await this.apiRequest(`/schedule/${s.id}/phase/`);
+              phaseCount += phs.length;
+            } catch (e) {}
+          }
+          this.statPhasesCount = phaseCount;
+
+          if (schedules.length > 0 && !this.selectedScheduleId) {
+            this.selectedScheduleId = schedules[0].id;
+          }
+
+          if (this.selectedScheduleId) {
+            await this.loadDashboardScheduleChart(this.selectedScheduleId);
+          }
+          this.$nextTick(() => lucide.createIcons());
+        },
+
+        async renderUsers() {
+          this.users = await this.apiRequest('/user/').catch(() => []);
+          this.$nextTick(() => lucide.createIcons());
+        },
+
+        async renderDevices() {
+          const [devices, users] = await Promise.all([
+            this.apiRequest('/device/').catch(() => []),
+            this.apiRequest('/user/').catch(() => [])
+          ]);
+          this.devices = devices;
+          this.users = users;
+          this.$nextTick(() => lucide.createIcons());
+        },
+
+        async renderSchedules() {
+          const [schedules, users] = await Promise.all([
+            this.apiRequest('/schedule/').catch(() => []),
+            this.apiRequest('/user/').catch(() => [])
+          ]);
+          this.schedules = schedules;
+          this.users = users;
+
+          if (schedules.length > 0) {
+            if (!this.selectedScheduleId || !schedules.some(s => s.id === this.selectedScheduleId)) {
+              this.selectedScheduleId = schedules[0].id;
+            }
+            await this.loadScheduleDetail(this.selectedScheduleId);
+          } else {
+            this.selectedScheduleId = null;
+            this.phases = [];
+          }
+          this.$nextTick(() => lucide.createIcons());
+        },
+
+        async selectSchedule(id) {
+          this.selectedScheduleId = id;
+          await this.loadScheduleDetail(id);
+        },
+
+        async loadDashboardScheduleChart(scheduleId) {
+          if (!scheduleId) return;
+          this.selectedScheduleId = parseInt(scheduleId);
+          
+          const [schedules, users, phases] = await Promise.all([
+            this.apiRequest('/schedule/'),
+            this.apiRequest('/user/').catch(() => []),
+            this.apiRequest(`/schedule/${scheduleId}/phase/`).catch(() => [])
+          ]);
+
+          const dataPoints = computeTemperatureProfilePoints(phases);
+          const ctx = document.getElementById('dashboardChart')?.getContext('2d');
+          if (!ctx) return;
+
+          if (this.dashboardChartInstance) this.dashboardChartInstance.destroy();
+
+          this.dashboardChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+              datasets: [{
+                label: 'Temperature (°C)',
+                data: dataPoints.map(p => ({ x: p.x, y: p.temp })),
+                borderColor: '#f97316',
+                backgroundColor: 'rgba(249, 115, 22, 0.15)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.0,
+                pointBackgroundColor: '#ea580c',
+                pointRadius: 4,
+                pointHoverRadius: 7
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: {
+                x: {
+                  type: 'linear',
+                  title: { display: true, text: 'Time (Hours)', color: '#94a3b8' },
+                  grid: { color: '#1e293b' },
+                  ticks: { color: '#64748b', callback: (val) => hoursToDuration(val) }
+                },
+                y: {
+                  title: { display: true, text: 'Target Temp (°C)', color: '#94a3b8' },
+                  grid: { color: '#1e293b' },
+                  ticks: { color: '#64748b' },
+                  beginAtZero: true
+                }
+              },
+              plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: (ctx) => ` Temp: ${ctx.parsed.y}°C (${hoursToDuration(ctx.parsed.x)})` } }
+              }
+            }
+          });
+        },
+
+        async loadScheduleDetail(scheduleId) {
+          if (!scheduleId) return;
+          const [schedules, users, phases] = await Promise.all([
+            this.apiRequest('/schedule/'),
+            this.apiRequest('/user/').catch(() => []),
+            this.apiRequest(`/schedule/${scheduleId}/phase/`).catch(() => [])
+          ]);
+
+          this.schedules = schedules;
+          this.users = users;
+          this.phases = (phases || []).sort((a, b) => a.ordinal - b.ordinal);
+
+          const dataPoints = computeTemperatureProfilePoints(this.phases);
+          const ctx = document.getElementById('scheduleDetailChart')?.getContext('2d');
+          if (!ctx) return;
+
+          if (this.detailChartInstance) this.detailChartInstance.destroy();
+
+          this.detailChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+              datasets: [{
+                label: 'Temperature (°C)',
+                data: dataPoints.map(p => ({ x: p.x, y: p.temp })),
+                borderColor: '#f97316',
+                backgroundColor: 'rgba(249, 115, 22, 0.15)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.0,
+                pointBackgroundColor: '#ea580c',
+                pointRadius: 4,
+                pointHoverRadius: 7
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: {
+                x: {
+                  type: 'linear',
+                  title: { display: true, text: 'Time (Hours)', color: '#94a3b8' },
+                  grid: { color: '#1e293b' },
+                  ticks: { color: '#64748b', font: { size: 10 }, callback: (val) => hoursToDuration(val) }
+                },
+                y: {
+                  title: { display: true, text: 'Temperature (°C)', color: '#94a3b8' },
+                  grid: { color: '#1e293b' },
+                  ticks: { color: '#64748b', font: { size: 10 } },
+                  beginAtZero: true
+                }
+              },
+              plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: (ctx) => ` Temp: ${ctx.parsed.y}°C (${hoursToDuration(ctx.parsed.x)})` } }
+              }
+            }
+          });
+          this.$nextTick(() => lucide.createIcons());
+        },
+
+        // --- Computed Properties for Detail View ---
+        get currentSchedule() {
+          return this.schedules.find(s => s.id === this.selectedScheduleId) || null;
+        },
+
+        get currentScheduleOwnerName() {
+          if (!this.currentSchedule) return '--';
+          const u = this.users.find(x => x.id === this.currentSchedule.user_id);
+          return u ? u.name : `User #${this.currentSchedule.user_id}`;
+        },
+
+        // Helper calculations for Phase Table
+        getPrecedingTemperature(editingOrdinal = null) {
+          let targetList = [...this.phases];
+          if (editingOrdinal !== null) {
+            targetList = targetList.filter(p => p.ordinal < editingOrdinal);
+          }
+          if (targetList.length === 0) return DEFAULT_ROOM_TEMP;
+          const lastPhase = targetList[targetList.length - 1];
+          return (lastPhase.temperature !== null && lastPhase.temperature !== undefined) ? lastPhase.temperature : DEFAULT_ROOM_TEMP;
+        },
+
+        getDisplayRate(p) {  // todo rename to reflect that it calculates the rate for a duration based phase
+          if (p.phase_type === 'constant') return 'N/A';
+          if (p.rate !== null && p.rate !== undefined && p.rate > 0) return `${p.rate}°/h`;
+          
+          if (p.duration) {
+            const startTemp = this.getPrecedingTemperature(p.ordinal);
+            const targetTemp = p.temperature !== null && p.temperature !== undefined ? p.temperature : startTemp;
+            const tempDiff = Math.abs(targetTemp - startTemp);
+            const hours = durationToHours(p.duration);
+            if (hours > 0) {
+              return `~${Math.round(tempDiff / hours)}°/h`;
+            }
+          }
+          return '--';
+        },
+
+        getDisplayDuration(p) { // todo rename to reflect that it calculates the duration for a rate based phase
+          if (p.duration) return p.duration;
+          if (p.phase_type === 'ramp' && p.rate && p.rate > 0) {
+            const startTemp = this.getPrecedingTemperature(p.ordinal);
+            const targetTemp = p.temperature !== null && p.temperature !== undefined ? p.temperature : startTemp;
+            const tempDiff = Math.abs(targetTemp - startTemp);
+            const hours = tempDiff / p.rate;
+            return hoursToDuration(hours);
+          }
+          return '--';
+        },
+
+        // --- User Actions ---
+        openUserModal(user = null) {
+          this.forms.user = user ? { ...user } : { id: '', name: '', username: '', email: '', phone_number: '' };
+          this.modals.user = true;
+          this.$nextTick(() => lucide.createIcons());
+        },
+
+        async handleUserSubmit() {
+          const { id, ...payload } = this.forms.user;
+          payload.email = payload.email || null;
+          payload.phone_number = payload.phone_number || null;
+
+          if (id) {
+            await this.apiRequest(`/user/${id}`, 'PUT', payload);
+            this.showToast("User updated successfully!", "success");
+          } else {
+            await this.apiRequest('/user/', 'POST', payload);
+            this.showToast("User created successfully!", "success");
+          }
+          this.modals.user = false;
+          this.refreshCurrentView();
+        },
+
+		// todo identify the user by name and user name in confirmation dialog (do this for all other resource types as well)
+        deleteUser(id) {
+          this.showConfirmDialog("Are you sure you want to delete this user?", async () => {
+            await this.apiRequest(`/user/${id}`, 'DELETE');
+            this.showToast("User deleted", "warning");
+            this.refreshCurrentView();
+          });
+        },
+
+        // --- Device Actions ---
+        async openDeviceModal(device = null) {
+          this.users = await this.apiRequest('/user/').catch(() => []); //todo why does opening the device modal populate the global users? It should already be populated, and if not, the modal shouldn't be able to be activated until the data it needs has been populated. General principle here and elsewhere.
+          this.forms.device = device 
+            ? { ...device, description: device.description || '', url: device.url || '' } 
+            : { id: '', name: '', host: '', port: 5000, user_id: this.users[0]?.id || '', url: '', description: '' };
+          this.modals.device = true;
+          this.$nextTick(() => lucide.createIcons());
+        },
+
+        async handleDeviceSubmit() {
+          if (!this.forms.device.user_id) {
+            this.showToast("Please select a valid user for this device", "error");
+            return;
+          }
+          const { id, ...payload } = this.forms.device;
+          payload.port = parseInt(payload.port);
+          payload.user_id = parseInt(payload.user_id);
+          payload.url = payload.url || null;
+          payload.description = payload.description || null;
+
+          if (id) {
+            await this.apiRequest(`/device/${id}`, 'PUT', payload);
+            this.showToast("Kiln updated successfully!", "success");
+          } else {
+            await this.apiRequest('/device/', 'POST', payload);
+            this.showToast("Kiln added successfully!", "success");
+          }
+          this.modals.device = false;
+          this.refreshCurrentView();
+        },
+
+        deleteDevice(id) {
+          this.showConfirmDialog("Are you sure you want to delete this device?", async () => { // todo identify the device in confirmation dialog
+            await this.apiRequest(`/device/${id}`, 'DELETE');
+            this.showToast("Kiln removed", "warning");
+            this.refreshCurrentView();
+          });
+        },
+
+        // --- Schedule Actions ---
+        async openScheduleModal(schedule = null) {
+          this.users = await this.apiRequest('/user/').catch(() => []);
+          this.forms.schedule = schedule 
+            ? { ...schedule } 
+            : { id: '', name: '', user_id: this.users[0]?.id || '' };
+          this.modals.schedule = true;
+          this.$nextTick(() => lucide.createIcons());
+        },
+
+        async handleScheduleSubmit() {
+          if (!this.forms.schedule.user_id) {
+            this.showToast("Please select a user for this schedule", "error");
+            return;
+          }
+          const { id, ...payload } = this.forms.schedule;
+          payload.user_id = parseInt(payload.user_id);
+
+          if (id) {
+            await this.apiRequest(`/schedule/${id}`, 'PUT', payload);
+            this.showToast("Schedule updated!", "success");
+          } else {
+            const created = await this.apiRequest('/schedule/', 'POST', payload);
+            if (created && created.id) this.selectedScheduleId = created.id;
+            this.showToast("Schedule created!", "success");
+          }
+          this.modals.schedule = false;
+          this.refreshCurrentView();
+        },
+
+        deleteSchedule(id) {
+          this.showConfirmDialog("Are you sure you want to delete this firing schedule and all its phases?", async () => { // todo identify the schedule in confirmation dialog
+            await this.apiRequest(`/schedule/${id}`, 'DELETE');
+            this.selectedScheduleId = null;
+            this.showToast("Schedule deleted", "warning");
+            this.refreshCurrentView();
+          });
+        },
+
+        // --- Phase Actions & Calculations ---
+        openPhaseModal(phase = null) {
+          if (!this.selectedScheduleId) {
+            this.showToast("Select a schedule first", "warning");
+            return;
+          }
+          const nextOrdinal = phase ? phase.ordinal : (this.phases.length + 1);
+          this.forms.phase = phase ? { 
+            id: phase.id,
+            name: phase.name,
+            ordinal: phase.ordinal,
+            phase_type: phase.phase_type,
+            temperature: phase.temperature ?? '',
+            rate: phase.rate ?? '',
+            duration: phase.duration || ''
+          } : {
+            id: '',
+            name: '',
+            ordinal: nextOrdinal,
+            phase_type: 'ramp',
+            temperature: '',
+            rate: '',
+            duration: ''
+          };
+
+          this.activeRampMode = (phase && !phase.rate && phase.duration) ? 'duration' : 'rate';
+          this.onPhaseTypeChange();
+          this.modals.phase = true;
+          this.$nextTick(() => lucide.createIcons());
+        },
+
+        setActiveRampMode(mode) {
+          if (this.forms.phase.phase_type !== 'ramp') return;
+          this.activeRampMode = mode;
+        },
+
+        recalculateRampValues() {
+          if (this.forms.phase.phase_type !== 'ramp') return;
+          const targetTemp = parseFloat(this.forms.phase.temperature);
+          const currentOrdinal = parseInt(this.forms.phase.ordinal);
+          const startTemp = this.getPrecedingTemperature(currentOrdinal);
+
+          if (isNaN(targetTemp)) return;
+          const tempDiff = Math.abs(targetTemp - startTemp);
+
+          if (this.activeRampMode === 'rate') {
+            const rate = parseFloat(this.forms.phase.rate);
+            if (!isNaN(rate) && rate > 0) {
+              const hours = tempDiff / rate;
+              this.forms.phase.duration = hoursToDuration(hours);
+            }
+          } else if (this.activeRampMode === 'duration') {
+            const hours = durationToHours(this.forms.phase.duration);
+            if (hours > 0) {
+              this.forms.phase.rate = Math.round(tempDiff / hours);
+            }
+          }
+        },
+
+        onPhaseTypeChange() {
+          const currentOrdinal = parseInt(this.forms.phase.ordinal);
+          if (this.forms.phase.phase_type === 'constant') {
+            const sorted = [...this.phases].sort((a, b) => a.ordinal - b.ordinal);
+            const precedingPhases = sorted.filter(p => p.ordinal < currentOrdinal);
+            const relativePrev = precedingPhases.length > 0 ? precedingPhases[precedingPhases.length - 1] : null;
+
+            if (!relativePrev || relativePrev.phase_type !== 'ramp') {
+              this.showToast("Constant phases must immediately follow a Ramp phase.", "error");
+              this.forms.phase.phase_type = 'ramp';
+              return;
+            }
+
+            this.forms.phase.temperature = this.getPrecedingTemperature(currentOrdinal);
+            this.forms.phase.rate = '';
+          } else {
+            this.recalculateRampValues();
+          }
+        },
+
+        async handlePhaseSubmit() {
+          const p = this.forms.phase;
+          if (p.phase_type === 'ramp' && !p.rate && !p.duration) {
+            this.showToast("Please enter either a Rate or Duration for Ramp phases.", "error");
+            return;
+          }
+
+          const payload = {
+            name: p.name,
+            ordinal: parseInt(p.ordinal),
+            phase_type: p.phase_type,
+            schedule_id: parseInt(this.selectedScheduleId),
+            temperature: p.temperature !== "" ? parseInt(p.temperature) : null,
+            rate: p.phase_type === 'constant' ? null : (p.rate !== "" ? parseInt(p.rate) : null),
+            duration: p.duration || null
+          };
+
+          if (p.id) {
+            await this.apiRequest(`/schedule/${this.selectedScheduleId}/phase/${p.id}`, 'PUT', payload);
+            this.showToast("Phase updated!", "success");
+          } else {
+            await this.apiRequest(`/schedule/${this.selectedScheduleId}/phase/`, 'POST', payload);
+            this.showToast("Phase added!", "success");
+          }
+          this.modals.phase = false;
+          this.refreshCurrentView();
+        },
+
+        deletePhase(scheduleId, phaseId) {
+          this.showConfirmDialog("Delete this phase from the schedule?", async () => { // todo identify phase
+            await this.apiRequest(`/schedule/${scheduleId}/phase/${phaseId}`, 'DELETE');
+            this.showToast("Phase removed", "warning");
+            this.refreshCurrentView();
+          });
+        },
+
+        // --- Dialogs, Drawer & Toasts ---
+        showConfirmDialog(message, action) {
+          this.confirmDialog.message = message;
+          this.confirmDialog.action = action;
+          this.modals.confirm = true;
+          this.$nextTick(() => lucide.createIcons());
+        },
+
+        confirmAction() {
+          if (this.confirmDialog.action) this.confirmDialog.action();
+          this.modals.confirm = false;
+        },
+
+        toggleConsoleDrawer() {
+          this.consoleDrawerOpen = !this.consoleDrawerOpen;
+          if (this.consoleDrawerOpen) this.hasUnreadLogs = false;
+        },
+
+        logConsoleRequest(method, endpoint, body) {
+          const time = new Date().toLocaleTimeString();
+          this.consoleLogs.push({ time, method, endpoint, body, type: 'req' });
+          if (!this.consoleDrawerOpen) this.hasUnreadLogs = true;
+        },
+
+        logConsoleResponse(status, data) { // todo identify the request the response is for
+          this.consoleLogs.push({ status, data, type: 'res' });
+        },
+
+        clearConsoleLogs() {
+          this.consoleLogs = [];
+        },
+
+        showToast(message, type = 'info') {
+          const toast = { id: Date.now(), message, type };
+          this.toasts.push(toast);
+          this.$nextTick(() => lucide.createIcons());
+          setTimeout(() => {
+            this.toasts = this.toasts.filter(t => t.id !== toast.id);
+          }, 4000);
+        }
+      }));
+    });
+  </script>
 </head>
-<body class="h-full flex flex-col font-sans overflow-hidden bg-slate-950 text-slate-100">
+<body class="h-full flex flex-col font-sans overflow-hidden bg-slate-950 text-slate-100" x-data="kilnApp">
 
   <div id="app" class="flex flex-col h-screen overflow-hidden">
     
@@ -66,35 +719,35 @@
         </div>
         <div>
           <h1 class="font-bold text-lg leading-none tracking-tight">Kiln Control Hub</h1>
-          <span id="server-origin-badge" class="text-xs text-slate-400 font-mono">Connected to Server</span>
+          <span x-text="serverOrigin" class="text-xs text-slate-400 font-mono">Connected to Server</span>
         </div>
       </div>
 
       <!-- Center Nav Tabs -->
       <nav class="hidden md:flex space-x-1 bg-slate-950/60 p-1 rounded-xl border border-slate-800">
-        <button onclick="switchTab('dashboard')" id="nav-dashboard" class="px-4 py-1.5 text-sm font-medium rounded-lg transition-all flex items-center gap-2 bg-orange-600 text-white shadow">
+        <button @click="switchTab('dashboard')" :class="activeTab === 'dashboard' ? 'bg-orange-600 text-white shadow' : 'text-slate-400 hover:text-white'" class="px-4 py-1.5 text-sm font-medium rounded-lg transition-all flex items-center gap-2">
           <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Dashboard
         </button>
-        <button onclick="switchTab('users')" id="nav-users" class="px-4 py-1.5 text-sm font-medium rounded-lg text-slate-400 hover:text-white transition-all flex items-center gap-2">
+        <button @click="switchTab('users')" :class="activeTab === 'users' ? 'bg-orange-600 text-white shadow' : 'text-slate-400 hover:text-white'" class="px-4 py-1.5 text-sm font-medium rounded-lg transition-all flex items-center gap-2">
           <i data-lucide="users" class="w-4 h-4"></i> Users
         </button>
-        <button onclick="switchTab('devices')" id="nav-devices" class="px-4 py-1.5 text-sm font-medium rounded-lg text-slate-400 hover:text-white transition-all flex items-center gap-2">
+        <button @click="switchTab('devices')" :class="activeTab === 'devices' ? 'bg-orange-600 text-white shadow' : 'text-slate-400 hover:text-white'" class="px-4 py-1.5 text-sm font-medium rounded-lg transition-all flex items-center gap-2">
           <i data-lucide="cpu" class="w-4 h-4"></i> Kilns
         </button>
-        <button onclick="switchTab('schedules')" id="nav-schedules" class="px-4 py-1.5 text-sm font-medium rounded-lg text-slate-400 hover:text-white transition-all flex items-center gap-2">
+        <button @click="switchTab('schedules')" :class="activeTab === 'schedules' ? 'bg-orange-600 text-white shadow' : 'text-slate-400 hover:text-white'" class="px-4 py-1.5 text-sm font-medium rounded-lg transition-all flex items-center gap-2">
           <i data-lucide="calendar" class="w-4 h-4"></i> Firing Schedules
         </button>
       </nav>
 
       <!-- Right Side Controls -->
       <div class="flex items-center space-x-3">
-        <button onclick="refreshCurrentView()" title="Refresh Data" class="p-2 text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800 rounded-lg border border-slate-700/60 transition-all flex items-center gap-1.5 text-xs font-medium">
+        <button @click="refreshCurrentView()" title="Refresh Data" class="p-2 text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800 rounded-lg border border-slate-700/60 transition-all flex items-center gap-1.5 text-xs font-medium">
           <i data-lucide="refresh-cw" class="w-4 h-4"></i>
           <span class="hidden sm:inline">Refresh</span>
         </button>
-        <button onclick="toggleConsoleDrawer()" title="API Activity Logs" class="relative p-2 text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800 rounded-lg border border-slate-700/60 transition-all">
+        <button @click="toggleConsoleDrawer()" title="API Activity Logs" class="relative p-2 text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800 rounded-lg border border-slate-700/60 transition-all">
           <i data-lucide="terminal" class="w-5 h-5"></i>
-          <span id="console-badge" class="hidden absolute -top-1 -right-1 w-2.5 h-2.5 bg-orange-500 rounded-full animate-pulse"></span>
+          <span x-show="hasUnreadLogs" class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-orange-500 rounded-full animate-pulse"></span>
         </button>
       </div>
     </header>
@@ -102,13 +755,13 @@
     <main class="flex-1 overflow-y-auto p-6 space-y-6">
       
       <!-- DASHBOARD VIEW -->
-      <section id="view-dashboard" class="space-y-6">
+      <section x-show="activeTab === 'dashboard'" class="space-y-6">
         <div class="flex items-center justify-between">
           <div>
             <h2 class="text-2xl font-bold text-white">System Overview</h2>
             <p class="text-sm text-slate-400">Live kiln management metrics and active schedule monitoring</p>
           </div>
-          <button onclick="renderDashboard()" class="text-xs text-slate-400 hover:text-orange-400 flex items-center gap-1">
+          <button @click="renderDashboard()" class="text-xs text-slate-400 hover:text-orange-400 flex items-center gap-1">
             <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Reload Dashboard
           </button>
         </div>
@@ -118,7 +771,7 @@
           <div class="glass-panel p-5 rounded-2xl border border-slate-800 flex items-center justify-between">
             <div>
               <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Active Users</p>
-              <h3 id="stat-users-count" class="text-3xl font-bold mt-1 text-slate-100">--</h3>
+              <h3 x-text="users.length" class="text-3xl font-bold mt-1 text-slate-100">--</h3>
             </div>
             <div class="p-3 bg-blue-500/10 text-blue-400 rounded-xl border border-blue-500/20">
               <i data-lucide="users" class="w-6 h-6"></i>
@@ -128,7 +781,7 @@
           <div class="glass-panel p-5 rounded-2xl border border-slate-800 flex items-center justify-between">
             <div>
               <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Connected Kilns</p>
-              <h3 id="stat-devices-count" class="text-3xl font-bold mt-1 text-slate-100">--</h3>
+              <h3 x-text="devices.length" class="text-3xl font-bold mt-1 text-slate-100">--</h3>
             </div>
             <div class="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20">
               <i data-lucide="cpu" class="w-6 h-6"></i>
@@ -138,7 +791,7 @@
           <div class="glass-panel p-5 rounded-2xl border border-slate-800 flex items-center justify-between">
             <div>
               <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Firing Schedules</p>
-              <h3 id="stat-schedules-count" class="text-3xl font-bold mt-1 text-slate-100">--</h3>
+              <h3 x-text="schedules.length" class="text-3xl font-bold mt-1 text-slate-100">--</h3>
             </div>
             <div class="p-3 bg-orange-500/10 text-orange-400 rounded-xl border border-orange-500/20">
               <i data-lucide="calendar" class="w-6 h-6"></i>
@@ -148,7 +801,7 @@
           <div class="glass-panel p-5 rounded-2xl border border-slate-800 flex items-center justify-between">
             <div>
               <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Total Profile Phases</p>
-              <h3 id="stat-phases-count" class="text-3xl font-bold mt-1 text-slate-100">--</h3>
+              <h3 x-text="statPhasesCount || '--'" class="text-3xl font-bold mt-1 text-slate-100">--</h3>
             </div>
             <div class="p-3 bg-amber-500/10 text-amber-400 rounded-xl border border-amber-500/20">
               <i data-lucide="activity" class="w-6 h-6"></i>
@@ -162,13 +815,16 @@
             <div>
               <div class="flex items-center gap-2">
                 <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-orange-500/20 text-orange-400 border border-orange-500/30">Active Curve Monitor</span>
-                <span id="dash-selected-schedule-user" class="text-xs text-slate-400"></span>
+                <span x-text="currentSchedule ? 'Created by ' + currentScheduleOwnerName : ''" class="text-xs text-slate-400"></span>
               </div>
-              <h2 id="dash-schedule-title" class="text-2xl font-bold text-white mt-1">Select a Schedule Below</h2>
+              <h2 x-text="currentSchedule ? currentSchedule.name : 'Select a Schedule Below'" class="text-2xl font-bold text-white mt-1">Select a Schedule Below</h2>
             </div>
             <div class="flex items-center gap-3">
-              <select id="dash-schedule-select" onchange="loadDashboardScheduleChart(this.value)" class="bg-slate-900 border border-slate-700 text-sm rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-orange-500">
+              <select x-model="selectedScheduleId" @change="loadDashboardScheduleChart($event.target.value)" class="bg-slate-900 border border-slate-700 text-sm rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-orange-500">
                 <option value="">Select Schedule...</option>
+                <template x-for="s in schedules" :key="s.id">
+                  <option :value="s.id" x-text="s.name"></option>
+                </template>
               </select>
             </div>
           </div>
@@ -186,10 +842,24 @@
               <h3 class="font-bold text-slate-200 flex items-center gap-2">
                 <i data-lucide="cpu" class="w-4 h-4 text-emerald-400"></i> Kiln Status
               </h3>
-              <button onclick="switchTab('devices')" class="text-xs text-orange-400 hover:text-orange-300 font-medium">Manage All &rarr;</button>
+              <button @click="switchTab('devices')" class="text-xs text-orange-400 hover:text-orange-300 font-medium">Manage All &rarr;</button>
             </div>
-            <div id="dash-devices-list" class="space-y-3">
-              <!-- Dynamically populated -->
+            <div class="space-y-3">
+              <template x-if="devices.length === 0">
+                <p class="text-xs text-slate-500 italic p-2">No hardware devices registered on server.</p>
+              </template>
+              <template x-for="d in devices.slice(0, 3)" :key="d.id">
+                <div class="flex items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+                  <div>
+                    <p x-text="d.name" class="font-medium text-slate-200 text-sm"></p>
+                    <p x-text="`${d.host}:${d.port}`" class="text-xs text-slate-500 font-mono"></p>
+                  </div>
+                  <span class="text-xs px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> 
+                    <span x-text="users.find(u => u.id === d.user_id)?.name || 'User #' + d.user_id"></span>
+                  </span>
+                </div>
+              </template>
             </div>
           </div>
 
@@ -199,27 +869,41 @@
               <h3 class="font-bold text-slate-200 flex items-center gap-2">
                 <i data-lucide="users" class="w-4 h-4 text-blue-400"></i> Operators
               </h3>
-              <button onclick="switchTab('users')" class="text-xs text-orange-400 hover:text-orange-300 font-medium">Manage All &rarr;</button>
+              <button @click="switchTab('users')" class="text-xs text-orange-400 hover:text-orange-300 font-medium">Manage All &rarr;</button>
             </div>
-            <div id="dash-users-list" class="space-y-3">
-              <!-- Dynamically populated -->
+            <div class="space-y-3">
+              <template x-if="users.length === 0">
+                <p class="text-xs text-slate-500 italic p-2">No users found on the server.</p>
+              </template>
+              <template x-for="u in users.slice(0, 3)" :key="u.id">
+                <div class="flex items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+                  <div class="flex items-center gap-3">
+                    <div x-text="u.name.charAt(0).toUpperCase()" class="w-8 h-8 rounded-full bg-orange-600/20 text-orange-400 flex items-center justify-center font-bold text-xs border border-orange-500/30"></div>
+                    <div>
+                      <p x-text="u.name" class="font-medium text-slate-200 text-sm"></p>
+                      <p x-text="`@${u.username}`" class="text-xs text-slate-500"></p>
+                    </div>
+                  </div>
+                  <span x-text="u.phone_number || u.email || 'No contact'" class="text-xs text-slate-400 font-mono"></span>
+                </div>
+              </template>
             </div>
           </div>
         </div>
       </section>
 
       <!-- USERS VIEW -->
-      <section id="view-users" class="hidden space-y-6">
+      <section x-show="activeTab === 'users'" class="space-y-6">
         <div class="flex items-center justify-between">
           <div>
             <h2 class="text-2xl font-bold text-white">Users Directory</h2>
             <p class="text-sm text-slate-400">Manage studio operators, artists, and technicians</p>
           </div>
           <div class="flex items-center gap-2">
-            <button onclick="renderUsers()" class="p-2 text-slate-400 hover:text-white bg-slate-900 border border-slate-800 rounded-xl text-xs flex items-center gap-1">
+            <button @click="renderUsers()" class="p-2 text-slate-400 hover:text-white bg-slate-900 border border-slate-800 rounded-xl text-xs flex items-center gap-1">
               <i data-lucide="refresh-cw" class="w-4 h-4"></i>
             </button>
-            <button onclick="openUserModal()" class="bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 shadow-lg shadow-orange-600/20">
+            <button @click="openUserModal()" class="bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 shadow-lg shadow-orange-600/20">
               <i data-lucide="user-plus" class="w-4 h-4"></i> Add User
             </button>
           </div>
@@ -237,8 +921,22 @@
                   <th class="p-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody id="users-table-body" class="divide-y divide-slate-800 text-sm">
-                <!-- Dynamically filled -->
+              <tbody class="divide-y divide-slate-800 text-sm">
+                <template x-if="users.length === 0">
+                  <tr><td colspan="5" class="p-8 text-center text-slate-500">No users found on server. Click "Add User" above.</td></tr>
+                </template>
+                <template x-for="u in users" :key="u.id">
+                  <tr class="hover:bg-slate-900/50 transition-colors">
+                    <td x-text="u.name" class="p-4 font-medium text-slate-200"></td>
+                    <td x-text="`@${u.username}`" class="p-4 text-orange-400 font-mono"></td>
+                    <td x-text="u.email || '--'" class="p-4 text-slate-400"></td>
+                    <td x-text="u.phone_number || '--'" class="p-4 text-slate-400"></td>
+                    <td class="p-4 text-right space-x-2">
+                      <button @click="openUserModal(u)" class="text-slate-400 hover:text-white p-1"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
+                      <button @click="deleteUser(u.id)" class="text-red-400 hover:text-red-300 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </td>
+                  </tr>
+                </template>
               </tbody>
             </table>
           </div>
@@ -246,39 +944,75 @@
       </section>
 
       <!-- DEVICES VIEW -->
-      <section id="view-devices" class="hidden space-y-6">
+      <section x-show="activeTab === 'devices'" class="space-y-6">
         <div class="flex items-center justify-between">
           <div>
             <h2 class="text-2xl font-bold text-white">Kilns</h2>
             <p class="text-sm text-slate-400">Hardware controllers connected to the server ecosystem</p>
           </div>
           <div class="flex items-center gap-2">
-            <button onclick="renderDevices()" class="p-2 text-slate-400 hover:text-white bg-slate-900 border border-slate-800 rounded-xl text-xs flex items-center gap-1">
+            <button @click="renderDevices()" class="p-2 text-slate-400 hover:text-white bg-slate-900 border border-slate-800 rounded-xl text-xs flex items-center gap-1">
               <i data-lucide="refresh-cw" class="w-4 h-4"></i>
             </button>
-            <button onclick="openDeviceModal()" class="bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 shadow-lg shadow-orange-600/20">
+            <button @click="openDeviceModal()" class="bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 shadow-lg shadow-orange-600/20">
               <i data-lucide="plus" class="w-4 h-4"></i> Add Kiln
             </button>
           </div>
         </div>
 
-        <div id="devices-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <!-- Dynamically populated -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <template x-if="devices.length === 0">
+            <div class="col-span-full glass-panel p-8 rounded-2xl text-center text-slate-500">No devices connected. Click "Add Kiln" above.</div>
+          </template>
+          <template x-for="d in devices" :key="d.id">
+            <div class="glass-panel rounded-2xl border border-slate-800 p-5 flex flex-col justify-between space-y-4">
+              <div>
+                <div class="flex items-start justify-between">
+                  <div>
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Active
+                    </span>
+                    <h3 x-text="d.name" class="text-lg font-bold text-slate-100 mt-2"></h3>
+                  </div>
+                  <div class="flex items-center gap-1">
+                    <button @click="openDeviceModal(d)" class="text-slate-400 hover:text-white p-1"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
+                    <button @click="deleteDevice(d.id)" class="text-red-400 hover:text-red-300 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                  </div>
+                </div>
+                <p x-text="d.description || 'No device description provided.'" class="text-xs text-slate-400 mt-2 line-clamp-2"></p>
+              </div>
+
+              <div class="space-y-2 border-t border-slate-800/80 pt-3 text-xs">
+                <div class="flex justify-between">
+                  <span class="text-slate-500">Host / IP:</span>
+                  <span x-text="`${d.host}:${d.port}`" class="font-mono text-slate-300"></span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-slate-500">URL Endpoint:</span>
+                  <span x-text="d.url || '--'" class="font-mono text-slate-300 truncate max-w-[150px]"></span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-slate-500">Operator:</span>
+                  <span x-text="users.find(u => u.id === d.user_id)?.name || 'User ID #' + d.user_id" class="text-orange-400 font-medium"></span>
+                </div>
+              </div>
+            </div>
+          </template>
         </div>
       </section>
 
-      <!-- SCHEDULES VIEW (Includes Phases inline & detail visualizer) -->
-      <section id="view-schedules" class="hidden space-y-6">
+      <!-- SCHEDULES VIEW -->
+      <section x-show="activeTab === 'schedules'" class="space-y-6">
         <div class="flex items-center justify-between">
           <div>
             <h2 class="text-2xl font-bold text-white">Firing Schedules & Curves</h2>
             <p class="text-sm text-slate-400">Define firing ramp/hold profiles</p>
           </div>
           <div class="flex items-center gap-2">
-            <button onclick="renderSchedules()" class="p-2 text-slate-400 hover:text-white bg-slate-900 border border-slate-800 rounded-xl text-xs flex items-center gap-1">
+            <button @click="renderSchedules()" class="p-2 text-slate-400 hover:text-white bg-slate-900 border border-slate-800 rounded-xl text-xs flex items-center gap-1">
               <i data-lucide="refresh-cw" class="w-4 h-4"></i>
             </button>
-            <button onclick="openScheduleModal()" class="bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 shadow-lg shadow-orange-600/20">
+            <button @click="openScheduleModal()" class="bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 shadow-lg shadow-orange-600/20">
               <i data-lucide="calendar-plus" class="w-4 h-4"></i> Create Schedule
             </button>
           </div>
@@ -288,34 +1022,45 @@
           <!-- Schedules List Side Column -->
           <div class="lg:col-span-4 space-y-3">
             <h3 class="text-xs uppercase font-bold text-slate-400 tracking-wider mb-2">Available Profiles</h3>
-            <div id="schedules-list" class="space-y-3">
-              <!-- Dynamically populated cards -->
+            <div class="space-y-3">
+              <template x-if="schedules.length === 0">
+                <div class="p-4 text-center text-xs text-slate-500">No schedules. Click "Create Schedule" above.</div>
+              </template>
+              <template x-for="s in schedules" :key="s.id">
+                <div @click="selectSchedule(s.id)" :class="selectedScheduleId === s.id ? 'bg-orange-600/10 border-orange-500/50 shadow-lg shadow-orange-500/5' : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'" class="p-4 rounded-xl border transition-all cursor-pointer">
+                  <div class="flex items-center justify-between">
+                    <h4 x-text="s.name" class="font-bold text-slate-200 text-sm"></h4>
+                  </div>
+                  <p class="text-xs text-slate-400 mt-1">Operator: <span x-text="users.find(u => u.id === s.user_id)?.name || 'User ID #' + s.user_id" class="text-slate-300"></span></p>
+                </div>
+              </template>
             </div>
           </div>
 
           <!-- Schedule Detailed View & Phase Editor -->
           <div class="lg:col-span-8 space-y-6">
-            <div id="schedule-detail-panel" class="glass-panel rounded-2xl border border-slate-800 p-6">
-              <div id="schedule-detail-empty" class="text-center py-12 text-slate-500">
+            <div class="glass-panel rounded-2xl border border-slate-800 p-6">
+              
+              <div x-show="!selectedScheduleId || schedules.length === 0" class="text-center py-12 text-slate-500">
                 <i data-lucide="flame" class="w-12 h-12 mx-auto mb-3 opacity-30"></i>
                 <p>Select or create a firing schedule to view its curve and edit phases.</p>
               </div>
 
-              <div id="schedule-detail-content" class="hidden space-y-6">
+              <div x-show="selectedScheduleId && schedules.length > 0" class="space-y-6">
                 <!-- Header -->
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
                   <div>
-                    <h2 id="selected-schedule-name" class="text-2xl font-bold text-white mt-1">--</h2>
-                    <p class="text-xs text-slate-400 mt-0.5">Operator: <span id="selected-schedule-owner" class="text-slate-200 font-medium">--</span></p>
+                    <h2 x-text="currentSchedule?.name || '--'" class="text-2xl font-bold text-white mt-1">--</h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Operator: <span x-text="currentScheduleOwnerName" class="text-slate-200 font-medium">--</span></p>
                   </div>
                   <div class="flex items-center gap-2">
-                    <button onclick="openPhaseModal()" class="bg-slate-800 hover:bg-slate-700 text-orange-400 border border-orange-500/30 px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5">
+                    <button @click="openPhaseModal()" class="bg-slate-800 hover:bg-slate-700 text-orange-400 border border-orange-500/30 px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5">
                       <i data-lucide="plus-circle" class="w-4 h-4"></i> Add Phase
                     </button>
-                    <button id="edit-schedule-btn" class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2 rounded-lg text-xs">
+                    <button @click="openScheduleModal(currentSchedule)" class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2 rounded-lg text-xs">
                       <i data-lucide="edit-3" class="w-4 h-4"></i>
                     </button>
-                    <button id="delete-schedule-btn" class="bg-red-500/10 hover:bg-red-500/20 text-red-400 p-2 rounded-lg text-xs">
+                    <button @click="deleteSchedule(selectedScheduleId)" class="bg-red-500/10 hover:bg-red-500/20 text-red-400 p-2 rounded-lg text-xs">
                       <i data-lucide="trash-2" class="w-4 h-4"></i>
                     </button>
                   </div>
@@ -346,8 +1091,25 @@
                           <th class="p-3 text-right">Actions</th>
                         </tr>
                       </thead>
-                      <tbody id="phases-table-body" class="divide-y divide-slate-800">
-                        <!-- Filled dynamically -->
+                      <tbody class="divide-y divide-slate-800">
+                        <template x-if="phases.length === 0">
+                          <tr><td colspan="6" class="p-6 text-center text-slate-500">No phases defined for this schedule yet. Click "+ Add Phase".</td></tr>
+                        </template>
+                        <template x-for="p in phases" :key="p.id">
+                          <tr class="hover:bg-slate-900/80">
+                            <td x-text="p.name" class="p-3 font-semibold text-slate-200"></td>
+                            <td class="p-3">
+                              <span :class="p.phase_type === 'ramp' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'" class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider" x-text="p.phase_type"></span>
+                            </td>
+                            <td x-text="p.temperature !== null && p.temperature !== undefined ? `${p.temperature}°C` : '--'" class="p-3 font-mono text-slate-300"></td>
+                            <td x-text="getDisplayRate(p)" class="p-3 font-mono text-slate-300"></td>
+                            <td x-text="getDisplayDuration(p)" class="p-3 font-mono text-slate-300"></td>
+                            <td class="p-3 text-right space-x-1">
+                              <button @click="openPhaseModal(p)" class="text-slate-400 hover:text-white p-1"><i data-lucide="edit-2" class="w-3.5 h-3.5"></i></button>
+                              <button @click="deletePhase(selectedScheduleId, p.id)" class="text-red-400 hover:text-red-300 p-1"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                            </td>
+                          </tr>
+                        </template>
                       </tbody>
                     </table>
                   </div>
@@ -361,52 +1123,68 @@
     </main>
 
     <!-- Console / Telemetry Drawer -->
-    <div id="console-drawer" class="fixed bottom-0 right-0 left-0 bg-slate-950 border-t border-slate-800 shadow-2xl transition-all duration-300 transform translate-y-full z-40 flex flex-col h-72">
+    <div :class="consoleDrawerOpen ? 'translate-y-0' : 'translate-y-full'" class="fixed bottom-0 right-0 left-0 bg-slate-950 border-t border-slate-800 shadow-2xl transition-all duration-300 transform z-40 flex flex-col h-72"> <!--todo console drawer should not be an overlay on top but rather should move the main content up-->
       <div class="bg-slate-900 px-4 py-2 border-b border-slate-800 flex items-center justify-between shrink-0">
         <div class="flex items-center gap-2">
           <i data-lucide="terminal" class="w-4 h-4 text-orange-400"></i>
           <span class="text-xs font-bold text-slate-200 uppercase tracking-wider">API Request & Response Logs</span>
         </div>
         <div class="flex items-center gap-3">
-          <button onclick="clearConsoleLogs()" class="text-xs text-slate-400 hover:text-white">Clear</button>
-          <button onclick="toggleConsoleDrawer()" class="text-slate-400 hover:text-white">
+          <button @click="clearConsoleLogs()" class="text-xs text-slate-400 hover:text-white">Clear</button>
+          <button @click="toggleConsoleDrawer()" class="text-slate-400 hover:text-white">
             <i data-lucide="x" class="w-4 h-4"></i>
           </button>
         </div>
       </div>
-      <div id="console-logs" class="p-4 font-mono text-xs overflow-y-auto space-y-2 flex-1 bg-slate-950/90 text-slate-300">
-        <!-- Live API Logs Stream -->
+      <div class="p-4 font-mono text-xs overflow-y-auto space-y-2 flex-1 bg-slate-950/90 text-slate-300">
+        <template x-for="(log, idx) in consoleLogs" :key="idx">
+          <div>
+            <template x-if="log.type === 'req'">
+              <div class="flex items-start gap-2 border-b border-slate-900 pb-1">
+                <span x-text="log.time" class="text-slate-500"></span>
+                <span x-text="log.method" :class="log.method === 'GET' ? 'text-blue-400' : log.method === 'POST' ? 'text-emerald-400' : log.method === 'PUT' ? 'text-amber-400' : 'text-red-400'" class="font-bold"></span>
+                <span x-text="log.endpoint" class="text-slate-200"></span>
+                <span x-show="log.body" x-text="JSON.stringify(log.body)" class="text-slate-500 truncate max-w-xs"></span>
+              </div>
+            </template>
+            <template x-if="log.type === 'res'">
+              <div class="pl-4 text-xs font-mono mb-1">
+                <span x-text="`STATUS ${log.status}`" :class="log.status >= 200 && log.status < 300 ? 'text-emerald-400' : 'text-red-400'" class="font-bold"></span>
+                <span x-text="log.data ? JSON.stringify(log.data).substring(0, 150) : 'No content'" class="text-slate-400"></span>
+              </div>
+            </template>
+          </div>
+        </template>
       </div>
     </div>
   </div>
 
   <!-- USER MODAL -->
-  <div id="user-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+  <div x-show="modals.user" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div @click.outside="modals.user = false" class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
       <div class="flex items-center justify-between mb-4">
-        <h3 id="user-modal-title" class="text-lg font-bold text-white">Add User</h3>
-        <button onclick="closeUserModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+        <h3 x-text="forms.user.id ? 'Edit User' : 'Add User'" class="text-lg font-bold text-white"></h3>
+        <button @click="modals.user = false" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
       </div>
-      <form id="user-form" onsubmit="handleUserSubmit(event)" class="space-y-4">
-        <input type="hidden" id="user-id">
+      <form @submit.prevent="handleUserSubmit()" class="space-y-4">
         <div>
           <label class="block text-xs font-medium text-slate-400 mb-1">Full Name *</label>
-          <input type="text" id="user-name" required maxlength="30" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
+          <input type="text" x-model="forms.user.name" required maxlength="30" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
         </div>
         <div>
           <label class="block text-xs font-medium text-slate-400 mb-1">Username *</label>
-          <input type="text" id="user-username" required maxlength="16" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
+          <input type="text" x-model="forms.user.username" required maxlength="16" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
         </div>
         <div>
           <label class="block text-xs font-medium text-slate-400 mb-1">Email Address</label>
-          <input type="email" id="user-email" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
+          <input type="email" x-model="forms.user.email" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
         </div>
         <div>
           <label class="block text-xs font-medium text-slate-400 mb-1">Phone Number</label>
-          <input type="text" id="user-phone" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
+          <input type="text" x-model="forms.user.phone_number" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
         </div>
         <div class="flex justify-end gap-3 pt-2">
-          <button type="button" onclick="closeUserModal()" class="px-4 py-2 text-xs text-slate-400 hover:text-white">Cancel</button>
+          <button type="button" @click="modals.user = false" class="px-4 py-2 text-xs text-slate-400 hover:text-white">Cancel</button>
           <button type="submit" class="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-xs font-semibold">Save User</button>
         </div>
       </form>
@@ -414,44 +1192,45 @@
   </div>
 
   <!-- DEVICE MODAL -->
-  <div id="device-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+  <div x-show="modals.device" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div @click.outside="modals.device = false" class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
       <div class="flex items-center justify-between mb-4">
-        <h3 id="device-modal-title" class="text-lg font-bold text-white">Add Kiln</h3>
-        <button onclick="closeDeviceModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+        <h3 x-text="forms.device.id ? 'Edit Kiln' : 'Add Kiln'" class="text-lg font-bold text-white"></h3>
+        <button @click="modals.device = false" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
       </div>
-      <form id="device-form" onsubmit="handleDeviceSubmit(event)" class="space-y-4">
-        <input type="hidden" id="device-id">
+      <form @submit.prevent="handleDeviceSubmit()" class="space-y-4">
         <div>
           <label class="block text-xs font-medium text-slate-400 mb-1">Name *</label>
-          <input type="text" id="device-name" required maxlength="30" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
+          <input type="text" x-model="forms.device.name" required maxlength="30" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-xs font-medium text-slate-400 mb-1">Host IP / Name *</label>
-            <input type="text" id="device-host" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
+            <input type="text" x-model="forms.device.host" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
           </div>
           <div>
             <label class="block text-xs font-medium text-slate-400 mb-1">Port *</label>
-            <input type="number" id="device-port" required value="5000" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
+            <input type="number" x-model="forms.device.port" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
           </div>
         </div>
         <div>
           <label class="block text-xs font-medium text-slate-400 mb-1">Operator</label>
-          <select id="device-user-id" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
-            <!-- Dynamic Users -->
+          <select x-model="forms.device.user_id" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
+            <template x-for="u in users" :key="u.id">
+              <option :value="u.id" x-text="`${u.name} (@${u.username})`"></option>
+            </template>
           </select>
         </div>
         <div>
           <label class="block text-xs font-medium text-slate-400 mb-1">URL</label>
-          <input type="text" id="device-url" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500" placeholder="http://192.168.1.50">
+          <input type="text" x-model="forms.device.url" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500" placeholder="http://192.168.1.50">
         </div>
         <div>
           <label class="block text-xs font-medium text-slate-400 mb-1">Description</label>
-          <textarea id="device-desc" rows="2" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500"></textarea>
+          <textarea x-model="forms.device.description" rows="2" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500"></textarea>
         </div>
         <div class="flex justify-end gap-3 pt-2">
-          <button type="button" onclick="closeDeviceModal()" class="px-4 py-2 text-xs text-slate-400 hover:text-white">Cancel</button>
+          <button type="button" @click="modals.device = false" class="px-4 py-2 text-xs text-slate-400 hover:text-white">Cancel</button>
           <button type="submit" class="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-xs font-semibold">Save Kiln</button>
         </div>
       </form>
@@ -459,26 +1238,27 @@
   </div>
 
   <!-- SCHEDULE MODAL -->
-  <div id="schedule-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+  <div x-show="modals.schedule" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div @click.outside="modals.schedule = false" class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
       <div class="flex items-center justify-between mb-4">
-        <h3 id="schedule-modal-title" class="text-lg font-bold text-white">Create Schedule</h3>
-        <button onclick="closeScheduleModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+        <h3 x-text="forms.schedule.id ? 'Edit Schedule' : 'Create Schedule'" class="text-lg font-bold text-white"></h3>
+        <button @click="modals.schedule = false" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
       </div>
-      <form id="schedule-form" onsubmit="handleScheduleSubmit(event)" class="space-y-4">
-        <input type="hidden" id="schedule-id">
+      <form @submit.prevent="handleScheduleSubmit()" class="space-y-4">
         <div>
           <label class="block text-xs font-medium text-slate-400 mb-1">Schedule Name *</label>
-          <input type="text" id="schedule-name" required maxlength="30" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500" placeholder="e.g. Cone 6 Glaze Firing">
+          <input type="text" x-model="forms.schedule.name" required maxlength="30" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500" placeholder="e.g. Cone 6 Glaze Firing">
         </div>
         <div>
           <label class="block text-xs font-medium text-slate-400 mb-1">User *</label>
-          <select id="schedule-user-id" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
-            <!-- Dynamic Users -->
+          <select x-model="forms.schedule.user_id" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
+            <template x-for="u in users" :key="u.id">
+              <option :value="u.id" x-text="`${u.name} (@${u.username})`"></option>
+            </template>
           </select>
         </div>
         <div class="flex justify-end gap-3 pt-2">
-          <button type="button" onclick="closeScheduleModal()" class="px-4 py-2 text-xs text-slate-400 hover:text-white">Cancel</button>
+          <button type="button" @click="modals.schedule = false" class="px-4 py-2 text-xs text-slate-400 hover:text-white">Cancel</button>
           <button type="submit" class="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-xs font-semibold">Save Schedule</button>
         </div>
       </form>
@@ -486,24 +1266,21 @@
   </div>
 
   <!-- PHASE MODAL -->
-  <div id="phase-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+  <div x-show="modals.phase" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div @click.outside="modals.phase = false" class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
       <div class="flex items-center justify-between mb-4">
-        <h3 id="phase-modal-title" class="text-lg font-bold text-white">Add Phase</h3>
-        <button onclick="closePhaseModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+        <h3 x-text="forms.phase.id ? 'Edit Phase' : 'Add Phase'" class="text-lg font-bold text-white"></h3>
+        <button @click="modals.phase = false" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
       </div>
-      <form id="phase-form" onsubmit="handlePhaseSubmit(event)" class="space-y-4">
-        <input type="hidden" id="phase-id">
-        <input type="hidden" id="phase-ordinal"> <!-- Ordinal hidden from user -->
-
+      <form @submit.prevent="handlePhaseSubmit()" class="space-y-4">
         <div>
           <label class="block text-xs font-medium text-slate-400 mb-1">Phase Name *</label>
-          <input type="text" id="phase-name" required maxlength="30" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500" placeholder="e.g. Ramp to Cone">
+          <input type="text" x-model="forms.phase.name" required maxlength="30" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500" placeholder="e.g. Ramp to Cone">
         </div>
 
         <div>
           <label class="block text-xs font-medium text-slate-400 mb-1">Phase Type *</label>
-          <select id="phase-type" onchange="onPhaseTypeChange()" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
+          <select x-model="forms.phase.phase_type" @change="onPhaseTypeChange()" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
             <option value="ramp">Ramp</option>
             <option value="constant">Constant (Hold)</option>
           </select>
@@ -512,32 +1289,32 @@
         <!-- Temperature Input -->
         <div>
           <label class="block text-xs font-medium text-slate-400 mb-1">Target Temp (°C) *</label>
-          <input type="number" id="phase-temperature" oninput="recalculateRampValues()" required placeholder="e.g. 1220" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
-          <span id="temp-hint" class="hidden text-[10px] text-slate-400 mt-1 block">Holds preceding phase temperature (Read-Only)</span>
+          <input type="number" x-model="forms.phase.temperature" @input="recalculateRampValues()" :readonly="forms.phase.phase_type === 'constant'" :class="forms.phase.phase_type === 'constant' ? 'opacity-60 bg-slate-900' : ''" required placeholder="e.g. 1220" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
+          <span x-show="forms.phase.phase_type === 'constant'" class="text-[10px] text-slate-400 mt-1 block">Holds preceding phase temperature (Read-Only)</span>
         </div>
 
         <div class="grid grid-cols-2 gap-3">
           <!-- Rate Input container -->
-          <div id="rate-container">
+          <div x-show="forms.phase.phase_type === 'ramp'">
             <div class="flex items-center justify-between mb-1">
               <label class="block text-xs font-medium text-slate-400">Rate (°/h)</label>
-              <span id="rate-mode-badge" class="hidden text-[9px] px-1.5 py-0.2 rounded font-mono uppercase bg-slate-800 text-slate-400">Calculated</span>
+              <span x-show="activeRampMode === 'duration'" class="text-[9px] px-1.5 py-0.2 rounded font-mono uppercase bg-slate-800 text-slate-400">Calculated</span>
             </div>
-            <input type="number" id="phase-rate" onfocus="setActiveRampMode('rate')" oninput="recalculateRampValues()" placeholder="150" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
+            <input type="number" x-model="forms.phase.rate" @focus="setActiveRampMode('rate')" @input="recalculateRampValues()" :class="activeRampMode === 'duration' ? 'bg-slate-900 text-orange-400 border-orange-500/30' : ''" placeholder="150" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
           </div>
 
           <!-- Duration Input container -->
-          <div id="duration-container">
+          <div>
             <div class="flex items-center justify-between mb-1">
               <label class="block text-xs font-medium text-slate-400">Duration (HH:MM)</label>
-              <span id="duration-mode-badge" class="hidden text-[9px] px-1.5 py-0.2 rounded font-mono uppercase bg-slate-800 text-slate-400">Calculated</span>
+              <span x-show="forms.phase.phase_type === 'ramp' && activeRampMode === 'rate'" class="text-[9px] px-1.5 py-0.2 rounded font-mono uppercase bg-slate-800 text-slate-400">Calculated</span>
             </div>
-            <input type="text" id="phase-duration" onfocus="setActiveRampMode('duration')" oninput="recalculateRampValues()" placeholder="01:30" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
+            <input type="text" x-model="forms.phase.duration" @focus="setActiveRampMode('duration')" @input="recalculateRampValues()" :class="forms.phase.phase_type === 'ramp' && activeRampMode === 'rate' ? 'bg-slate-900 text-orange-400 border-orange-500/30' : ''" placeholder="01:30" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
           </div>
         </div>
 
         <div class="flex justify-end gap-3 pt-2">
-          <button type="button" onclick="closePhaseModal()" class="px-4 py-2 text-xs text-slate-400 hover:text-white">Cancel</button>
+          <button type="button" @click="modals.phase = false" class="px-4 py-2 text-xs text-slate-400 hover:text-white">Cancel</button>
           <button type="submit" class="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-xs font-semibold">Save Phase</button>
         </div>
       </form>
@@ -545,1144 +1322,36 @@
   </div>
 
   <!-- CONFIRM DELETE DIALOG -->
-  <div id="confirm-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-sm p-6 shadow-2xl space-y-4">
+  <div x-show="modals.confirm" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div @click.outside="modals.confirm = false" class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-sm p-6 shadow-2xl space-y-4">
       <div class="flex items-center gap-3 text-red-400">
         <div class="p-2 bg-red-500/10 rounded-lg border border-red-500/20">
           <i data-lucide="alert-triangle" class="w-6 h-6"></i>
         </div>
         <h3 class="text-lg font-bold text-white">Confirm Deletion</h3>
       </div>
-      <p id="confirm-modal-msg" class="text-xs text-slate-300">Are you sure you want to delete this resource?</p>
+      <p x-text="confirmDialog.message" class="text-xs text-slate-300"></p>
       <div class="flex justify-end gap-3 pt-2">
-        <button id="confirm-cancel-btn" class="px-4 py-2 text-xs text-slate-400 hover:text-white">Cancel</button>
-        <button id="confirm-ok-btn" class="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-semibold">Delete</button>
+        <button @click="modals.confirm = false" class="px-4 py-2 text-xs text-slate-400 hover:text-white">Cancel</button>
+        <button @click="confirmAction()" class="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-semibold">Delete</button>
       </div>
     </div>
   </div>
 
   <!-- TOAST CONTAINER -->
-  <div id="toast-container" class="fixed top-20 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+  <div class="fixed top-20 right-6 z-50 flex flex-col space-y-2 pointer-events-none">
+    <template x-for="t in toasts" :key="t.id">
+      <div :class="{
+        'bg-emerald-900/90 border-emerald-500 text-emerald-100': t.type === 'success',
+        'bg-red-900/90 border-red-500 text-red-100': t.type === 'error',
+        'bg-amber-900/90 border-amber-500 text-amber-100': t.type === 'warning',
+        'bg-slate-800/90 border-slate-600 text-slate-100': t.type === 'info'
+      }" class="px-4 py-3 rounded-xl border text-xs font-medium shadow-xl backdrop-blur flex items-center gap-2 transform transition-all duration-300 pointer-events-auto">
+        <i :data-lucide="t.type === 'success' ? 'check-circle' : t.type === 'error' ? 'alert-circle' : 'info'" class="w-4 h-4"></i>
+        <span x-text="t.message"></span>
+      </div>
+    </template>
+  </div>
 
-  <script>
-    // --- APP STATE ---
-    let appState = {
-      activeTab: 'dashboard',
-      selectedScheduleId: null,
-      selectedScheduleObj: null,
-      dashboardChartInstance: null,
-      detailChartInstance: null,
-    };
-
-    // Active mode tracking for ramp phases ('rate' or 'duration')
-    let activeRampMode = 'rate';
-    let currentSchedulePhases = [];
-    const DEFAULT_ROOM_TEMP = 20;
-
-    // Helper: Convert HH:MM or HH:MM:SS string to hours float
-    function durationToHours(durationStr) {
-      if (!durationStr) return 0;
-      const parts = durationStr.split(':').map(Number);
-      if (parts.some(isNaN)) return 0;
-      if (parts.length === 3) return parts[0] + parts[1] / 60 + parts[2] / 3600;
-      if (parts.length === 2) return parts[0] + parts[1] / 60;
-      return 0;
-    }
-
-    // Helper: Convert hours float to HH:MM format string
-    function hoursToDuration(hours) {
-      if (!hours || isNaN(hours) || hours <= 0) return '';
-      const totalMinutes = Math.round(hours * 60);
-      const h = Math.floor(totalMinutes / 60);
-      const m = totalMinutes % 60;
-      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-    }
-
-    // Calculate preceding temperature based on position/ordinal
-    function getPrecedingTemperature(editingOrdinal = null) {
-      const sorted = [...currentSchedulePhases].sort((a, b) => a.ordinal - b.ordinal);
-      let targetList = sorted;
-      
-      if (editingOrdinal !== null) {
-        targetList = sorted.filter(p => p.ordinal < editingOrdinal);
-      }
-      
-      if (targetList.length === 0) return DEFAULT_ROOM_TEMP;
-      
-      const lastPhase = targetList[targetList.length - 1];
-      return lastPhase.temperature !== null && lastPhase.temperature !== undefined 
-        ? lastPhase.temperature 
-        : DEFAULT_ROOM_TEMP;
-    }
-
-    // Switch active input calculation focus mode for Ramp phase
-    function setActiveRampMode(mode) {
-      if (document.getElementById('phase-type').value !== 'ramp') return;
-      activeRampMode = mode;
-      updateCalculatedUIState();
-    }
-
-    // Update badges and styling indicating calculated vs manual fields
-    function updateCalculatedUIState() {
-      const isRamp = document.getElementById('phase-type').value === 'ramp';
-      const rateBadge = document.getElementById('rate-mode-badge');
-      const durBadge = document.getElementById('duration-mode-badge');
-      const rateInput = document.getElementById('phase-rate');
-      const durInput = document.getElementById('phase-duration');
-
-      if (!isRamp) {
-        rateBadge.classList.add('hidden');
-        durBadge.classList.add('hidden');
-        rateInput.classList.remove('bg-slate-900', 'text-orange-400', 'border-orange-500/30');
-        durInput.classList.remove('bg-slate-900', 'text-orange-400', 'border-orange-500/30');
-        return;
-      }
-
-      if (activeRampMode === 'rate') {
-        rateBadge.classList.add('hidden');
-        durBadge.classList.remove('hidden');
-        durInput.classList.add('bg-slate-900', 'text-orange-400', 'border-orange-500/30');
-        rateInput.classList.remove('bg-slate-900', 'text-orange-400', 'border-orange-500/30');
-      } else {
-        durBadge.classList.add('hidden');
-        rateBadge.classList.remove('hidden');
-        rateInput.classList.add('bg-slate-900', 'text-orange-400', 'border-orange-500/30');
-        durInput.classList.remove('bg-slate-900', 'text-orange-400', 'border-orange-500/30');
-      }
-    }
-
-    // Perform calculations on inputs in real-time
-    function recalculateRampValues() {
-      const type = document.getElementById('phase-type').value;
-      if (type !== 'ramp') return;
-
-      const targetTemp = parseFloat(document.getElementById('phase-temperature').value);
-      const phaseId = document.getElementById('phase-id').value;
-      const currentOrdinal = phaseId ? parseInt(document.getElementById('phase-ordinal').value) : (currentSchedulePhases.length + 1);
-      const startTemp = getPrecedingTemperature(currentOrdinal);
-
-      if (isNaN(targetTemp)) return;
-
-      const tempDiff = Math.abs(targetTemp - startTemp);
-
-      if (activeRampMode === 'rate') {
-        const rate = parseFloat(document.getElementById('phase-rate').value);
-        if (!isNaN(rate) && rate > 0) {
-          const hours = tempDiff / rate;
-          document.getElementById('phase-duration').value = hoursToDuration(hours);
-        }
-      } else if (activeRampMode === 'duration') {
-        const durationStr = document.getElementById('phase-duration').value;
-        const hours = durationToHours(durationStr);
-        if (hours > 0) {
-          const rate = Math.round(tempDiff / hours);
-          document.getElementById('phase-rate').value = rate;
-        }
-      }
-    }
-
-    // Form State Management based on selected Phase Type
-    function onPhaseTypeChange() {
-      const type = document.getElementById('phase-type').value;
-      const tempInput = document.getElementById('phase-temperature');
-      const tempHint = document.getElementById('temp-hint');
-      const rateContainer = document.getElementById('rate-container');
-      const rateInput = document.getElementById('phase-rate');
-      const durationInput = document.getElementById('phase-duration');
-
-      const phaseId = document.getElementById('phase-id').value;
-      const currentOrdinal = phaseId ? parseInt(document.getElementById('phase-ordinal').value) : (currentSchedulePhases.length + 1);
-
-      if (type === 'constant') {
-        const sorted = [...currentSchedulePhases].sort((a, b) => a.ordinal - b.ordinal);
-        const prevPhase = sorted.length > 0 ? sorted[sorted.length - 1] : null;
-
-        if (!prevPhase || (phaseId && prevPhase.id === parseInt(phaseId))) {
-          const precedingPhases = sorted.filter(p => p.ordinal < currentOrdinal);
-          const relativePrev = precedingPhases.length > 0 ? precedingPhases[precedingPhases.length - 1] : null;
-
-          if (!relativePrev || relativePrev.phase_type !== 'ramp') {
-            showToast("Constant phases must immediately follow a Ramp phase.", "error");
-            document.getElementById('phase-type').value = 'ramp';
-            onPhaseTypeChange();
-            return;
-          }
-        } else if (prevPhase.phase_type !== 'ramp') {
-          showToast("Constant phases can only follow a Ramp phase.", "error");
-          document.getElementById('phase-type').value = 'ramp';
-          onPhaseTypeChange();
-          return;
-        }
-
-        const prevTemp = getPrecedingTemperature(currentOrdinal);
-        tempInput.value = prevTemp;
-        tempInput.readOnly = true;
-        tempInput.classList.add('opacity-60', 'bg-slate-900');
-        tempHint.classList.remove('hidden');
-
-        rateContainer.classList.add('hidden');
-        rateInput.value = '';
-        rateInput.required = false;
-
-        durationInput.required = true;
-      } else {
-        tempInput.readOnly = false;
-        tempInput.classList.remove('opacity-60', 'bg-slate-900');
-        tempHint.classList.add('hidden');
-
-        rateContainer.classList.remove('hidden');
-        rateInput.required = false;
-        durationInput.required = false;
-
-        recalculateRampValues();
-      }
-      updateCalculatedUIState();
-    }
-
-    // Generic API Fetch Wrapper
-    async function apiRequest(endpoint, method = 'GET', body = null) {
-      logConsoleRequest(method, endpoint, body);
-      
-      try {
-        const options = {
-          method: method,
-          headers: { 'Content-Type': 'application/json' }
-        };
-        if (body) {
-          options.body = JSON.stringify(body);
-        }
-
-        const res = await fetch(endpoint, options);
-        const status = res.status;
-        let data = null;
-
-        if (status !== 204) {
-          const text = await res.text();
-          data = text ? JSON.parse(text) : null;
-        }
-
-        logConsoleResponse(status, data);
-
-        if (!res.ok) {
-          let errorMsg = `Server error (${status})`;
-          if (data && data.detail) {
-            if (Array.isArray(data.detail)) {
-              errorMsg = data.detail.map(e => `${e.loc ? e.loc.join('.') + ': ' : ''}${e.msg}: ${e.input}`).join(', ');
-            } else if (typeof data.detail === 'string') {
-              errorMsg = data.detail;
-            }
-          }
-          showToast(errorMsg, 'error');
-          throw new Error(errorMsg);
-        }
-
-        return data;
-      } catch (err) {
-        if (!err.message.includes('Server error')) {
-          showToast(`Server Connection Error: ${err.message}`, 'error');
-        }
-        throw err;
-      }
-    }
-
-    // Navigation Tab Manager
-    function switchTab(tabId) {
-      appState.activeTab = tabId;
-      ['dashboard', 'users', 'devices', 'schedules'].forEach(t => {
-        const btn = document.getElementById(`nav-${t}`);
-        const view = document.getElementById(`view-${t}`);
-        if (t === tabId) {
-          btn.className = "px-4 py-1.5 text-sm font-medium rounded-lg transition-all flex items-center gap-2 bg-orange-600 text-white shadow";
-          view.classList.remove('hidden');
-        } else {
-          btn.className = "px-4 py-1.5 text-sm font-medium rounded-lg text-slate-400 hover:text-white transition-all flex items-center gap-2";
-          view.classList.add('hidden');
-        }
-      });
-      refreshCurrentView();
-    }
-
-    async function refreshCurrentView() {
-      try {
-        if (appState.activeTab === 'dashboard') {
-          await renderDashboard();
-        } else if (appState.activeTab === 'users') {
-          await renderUsers();
-        } else if (appState.activeTab === 'devices') {
-          await renderDevices();
-        } else if (appState.activeTab === 'schedules') {
-          await renderSchedules();
-        }
-      } catch (e) {
-        console.error("View refresh failed:", e);
-      }
-    }
-
-    // RENDER DASHBOARD
-    async function renderDashboard() {
-      try {
-        const [users, devices, schedules] = await Promise.all([
-          apiRequest('/user/').catch(() => []),
-          apiRequest('/device/').catch(() => []),
-          apiRequest('/schedule/').catch(() => [])
-        ]);
-
-        let phaseCount = 0;
-        for (let s of schedules) {
-          try {
-            const phases = await apiRequest(`/schedule/${s.id}/phase/`);
-            phaseCount += phases.length;
-          } catch (e) {}
-        }
-
-        document.getElementById('stat-users-count').innerText = users.length;
-        document.getElementById('stat-devices-count').innerText = devices.length;
-        document.getElementById('stat-schedules-count').innerText = schedules.length;
-        document.getElementById('stat-phases-count').innerText = phaseCount;
-
-        const select = document.getElementById('dash-schedule-select');
-        select.innerHTML = `<option value="">Select Schedule...</option>` + 
-          schedules.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-
-        if (schedules.length > 0 && !appState.selectedScheduleId) {
-          appState.selectedScheduleId = schedules[0].id;
-        }
-
-        if (appState.selectedScheduleId) {
-          select.value = appState.selectedScheduleId;
-          await loadDashboardScheduleChart(appState.selectedScheduleId);
-        }
-
-        const devList = document.getElementById('dash-devices-list');
-        devList.innerHTML = '';
-        if (devices.length === 0) {
-          devList.innerHTML = `<p class="text-xs text-slate-500 italic p-2">No hardware devices registered on server.</p>`;
-        } else {
-          devices.slice(0, 3).forEach(d => {
-            const user = users.find(u => u.id === d.user_id);
-            const card = document.createElement('div');
-            card.className = "flex items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-slate-800";
-            card.innerHTML = `
-              <div>
-                <p class="font-medium text-slate-200 text-sm">${d.name}</p>
-                <p class="text-xs text-slate-500 font-mono">${d.host}:${d.port}</p>
-              </div>
-              <span class="text-xs px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
-                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> ${user ? user.name : 'User #' + d.user_id}
-              </span>
-            `;
-            devList.appendChild(card);
-          });
-        }
-
-        const userList = document.getElementById('dash-users-list');
-        userList.innerHTML = '';
-        if (users.length === 0) {
-          userList.innerHTML = `<p class="text-xs text-slate-500 italic p-2">No users found on the server.</p>`;
-        } else {
-          users.slice(0, 3).forEach(u => {
-            const card = document.createElement('div');
-            card.className = "flex items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-slate-800";
-            card.innerHTML = `
-              <div class="flex items-center gap-3">
-                <div class="w-8 h-8 rounded-full bg-orange-600/20 text-orange-400 flex items-center justify-center font-bold text-xs border border-orange-500/30">
-                  ${u.name.charAt(0).toUpperCase()}
-                </div>
-                <div>
-                  <p class="font-medium text-slate-200 text-sm">${u.name}</p>
-                  <p class="text-xs text-slate-500">@${u.username}</p>
-                </div>
-              </div>
-              <span class="text-xs text-slate-400 font-mono">${u.phone_number || u.email || 'No contact'}</span>
-            `;
-            userList.appendChild(card);
-          });
-        }
-      } catch (e) {
-        console.error("Dashboard render failed:", e);
-      }
-    }
-
-    async function loadDashboardScheduleChart(scheduleId) {
-      if (!scheduleId) return;
-      appState.selectedScheduleId = parseInt(scheduleId);
-      
-      try {
-        const [schedules, users, phases] = await Promise.all([
-          apiRequest('/schedule/'),
-          apiRequest('/user/').catch(() => []),
-          apiRequest(`/schedule/${scheduleId}/phase/`).catch(() => [])
-        ]);
-
-        const sched = schedules.find(s => s.id === parseInt(scheduleId));
-        const user = users.find(u => u.id === (sched ? sched.user_id : null));
-
-        document.getElementById('dash-schedule-title').innerText = sched ? sched.name : 'Unknown Schedule';
-        document.getElementById('dash-selected-schedule-user').innerText = user ? `Created by ${user.name}` : (sched ? `User ID: #${sched.user_id}` : '');
-
-        const dataPoints = computeTemperatureProfilePoints(phases);
-
-        const ctx = document.getElementById('dashboardChart').getContext('2d');
-        if (appState.dashboardChartInstance) appState.dashboardChartInstance.destroy();
-
-        appState.dashboardChartInstance = new Chart(ctx, {
-          type: 'line',
-          data: {
-            datasets: [{
-              label: 'Temperature (°C)',
-              data: dataPoints.map(p => ({ x: p.x, y: p.temp })),
-              borderColor: '#f97316',
-              backgroundColor: 'rgba(249, 115, 22, 0.15)',
-              borderWidth: 2,
-              fill: true,
-              tension: 0.0,
-              pointBackgroundColor: '#ea580c',
-              pointRadius: 4,
-              pointHoverRadius: 7
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-              x: {
-                type: 'linear',
-                title: { display: true, text: 'Time (Hours)', color: '#94a3b8' },
-                grid: { color: '#1e293b' },
-                ticks: {
-                  color: '#64748b',
-                  callback: (value) => hoursToDuration(value)
-                }
-              },
-              y: {
-                title: { display: true, text: 'Target Temp (°C)', color: '#94a3b8' },
-                grid: { color: '#1e293b' },
-                ticks: { color: '#64748b' },
-                beginAtZero: true
-              }
-            },
-            plugins: {
-              legend: { display: false },
-              tooltip: {
-                callbacks: {
-                  label: (ctx) => ` Temp: ${ctx.parsed.y}°C (${hoursToDuration(ctx.parsed.x)})`
-                }
-              }
-            }
-          }
-        });
-      } catch (e) {
-        console.error("Dashboard chart error:", e);
-      }
-    }
-
-    function computeTemperatureProfilePoints(phases) {
-      if (!phases || phases.length === 0) {
-        return [
-          { x: 0, temp: 20 },
-          { x: 1, temp: 20 }
-        ];
-      }
-
-      const sorted = [...phases].sort((a,b) => a.ordinal - b.ordinal);
-      let points = [{ x: 0, temp: 20 }];
-      
-      let currentTemp = 20;
-      let totalHours = 0;
-
-      sorted.forEach((p) => {
-        const targetTemp = p.temperature !== null && p.temperature !== undefined ? p.temperature : currentTemp;
-        let durationHours = 0;
-
-        if (p.duration) {
-          durationHours = durationToHours(p.duration);
-        } else if (p.phase_type === 'ramp' && p.rate && p.rate > 0) {
-          const tempDiff = Math.abs(targetTemp - currentTemp);
-          durationHours = tempDiff / p.rate;
-        }
-
-        totalHours += durationHours;
-        points.push({ x: totalHours, temp: targetTemp });
-        currentTemp = targetTemp;
-      });
-
-      return points;
-    }
-
-    // --- REFACTORED: USERS VIEW ---
-    async function renderUsers() {
-      try {
-        const users = await apiRequest('/user/');
-        const tbody = document.getElementById('users-table-body');
-        tbody.innerHTML = '';
-        
-        if (!users || users.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-500">No users found on server. Click "Add User" above.</td></tr>`;
-          return;
-        }
-
-        users.forEach(u => {
-          const tr = document.createElement('tr');
-          tr.className = 'hover:bg-slate-900/50 transition-colors';
-          tr.innerHTML = `
-            <td class="p-4 font-medium text-slate-200">${u.name}</td>
-            <td class="p-4 text-orange-400 font-mono">@${u.username}</td>
-            <td class="p-4 text-slate-400">${u.email || '--'}</td>
-            <td class="p-4 text-slate-400">${u.phone_number || '--'}</td>
-            <td class="p-4 text-right space-x-2">
-              <button class="edit-btn text-slate-400 hover:text-white p-1"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
-              <button class="delete-btn text-red-400 hover:text-red-300 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-            </td>
-          `;
-
-          tr.querySelector('.edit-btn').addEventListener('click', () => editUser(u));
-          tr.querySelector('.delete-btn').addEventListener('click', () => deleteUser(u));
-
-          tbody.appendChild(tr);
-        });
-
-        lucide.createIcons();
-      } catch (e) {
-        console.error("Render users error:", e);
-      }
-    }
-
-    function editUser(user) {
-      openUserModal(user);
-    }
-
-    function deleteUser(user) {
-      showConfirmDialog(`Are you sure you want to delete ${user.name}?`, async () => {
-        try {
-          await apiRequest(`/user/${user.id}`, 'DELETE');
-          showToast(`User '${user.name}' deleted`, "warning");
-          refreshCurrentView();
-        } catch (e) {}
-      });
-    }
-
-    // --- REFACTORED: DEVICES VIEW ---
-    async function renderDevices() {
-      try {
-        const [devices, users] = await Promise.all([
-          apiRequest('/device/'),
-          apiRequest('/user/').catch(() => [])
-        ]);
-
-        const grid = document.getElementById('devices-grid');
-        grid.innerHTML = '';
-
-        if (!devices || devices.length === 0) {
-          grid.innerHTML = `<div class="col-span-full glass-panel p-8 rounded-2xl text-center text-slate-500">No devices connected. Click "Add Kiln" above.</div>`;
-          return;
-        }
-
-        devices.forEach(d => {
-          const user = users.find(u => u.id === d.user_id);
-          const card = document.createElement('div');
-          card.className = "glass-panel rounded-2xl border border-slate-800 p-5 flex flex-col justify-between space-y-4";
-          
-          card.innerHTML = `
-            <div>
-              <div class="flex items-start justify-between">
-                <div>
-                  <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Active
-                  </span>
-                  <h3 class="text-lg font-bold text-slate-100 mt-2">${d.name}</h3>
-                </div>
-                <div class="flex items-center gap-1">
-                  <button class="edit-btn text-slate-400 hover:text-white p-1"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
-                  <button class="delete-btn text-red-400 hover:text-red-300 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                </div>
-              </div>
-              <p class="text-xs text-slate-400 mt-2 line-clamp-2">${d.description || 'No device description provided.'}</p>
-            </div>
-
-            <div class="space-y-2 border-t border-slate-800/80 pt-3 text-xs">
-              <div class="flex justify-between">
-                <span class="text-slate-500">Host / IP:</span>
-                <span class="font-mono text-slate-300">${d.host}:${d.port}</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-slate-500">URL Endpoint:</span>
-                <span class="font-mono text-slate-300 truncate max-w-[150px]">${d.url || '--'}</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-slate-500">Operator:</span>
-                <span class="text-orange-400 font-medium">${user ? user.name : 'User ID #' + d.user_id}</span>
-              </div>
-            </div>
-          `;
-
-          card.querySelector('.edit-btn').addEventListener('click', () => editDevice(d));
-          card.querySelector('.delete-btn').addEventListener('click', () => deleteDevice(d));
-
-          grid.appendChild(card);
-        });
-
-        lucide.createIcons();
-      } catch (e) {
-        console.error("Render devices error:", e);
-      }
-    }
-
-    function editDevice(device) {
-      openDeviceModal(device);
-    }
-
-    function deleteDevice(device) {
-      showConfirmDialog(`Are you sure you want to delete kiln '${device.name}'?`, async () => {
-        try {
-          await apiRequest(`/device/${device.id}`, 'DELETE');
-          showToast(`Kiln '${device.name}' removed`, "warning");
-          refreshCurrentView();
-        } catch (e) {}
-      });
-    }
-
-    // --- REFACTORED: SCHEDULES VIEW ---
-    async function renderSchedules() {
-      try {
-        const [schedules, users] = await Promise.all([
-          apiRequest('/schedule/'),
-          apiRequest('/user/').catch(() => [])
-        ]);
-
-        const container = document.getElementById('schedules-list');
-        container.innerHTML = '';
-
-        if (!schedules || schedules.length === 0) {
-          container.innerHTML = `<div class="p-4 text-center text-xs text-slate-500">No schedules. Click "Create Schedule" above.</div>`;
-          document.getElementById('schedule-detail-empty').classList.remove('hidden');
-          document.getElementById('schedule-detail-content').classList.add('hidden');
-          return;
-        }
-
-        if (!appState.selectedScheduleObj || !schedules.some(s => s.id === appState.selectedScheduleObj.id)) {
-          appState.selectedScheduleObj = schedules[0];
-          appState.selectedScheduleId = schedules[0].id;
-        }
-
-        schedules.forEach(s => {
-          const user = users.find(u => u.id === s.user_id);
-          const isSelected = appState.selectedScheduleObj && appState.selectedScheduleObj.id === s.id;
-          
-          const card = document.createElement('div');
-          card.className = `p-4 rounded-xl border transition-all cursor-pointer ${
-            isSelected 
-              ? 'bg-orange-600/10 border-orange-500/50 shadow-lg shadow-orange-500/5' 
-              : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
-          }`;
-
-          card.innerHTML = `
-            <div class="flex items-center justify-between">
-              <h4 class="font-bold text-slate-200 text-sm">${s.name}</h4>
-            </div>
-            <p class="text-xs text-slate-400 mt-1">Operator: <span class="text-slate-300">${user ? user.name : 'User ID #' + s.user_id}</span></p>
-          `;
-
-          card.addEventListener('click', () => selectSchedule(s));
-          container.appendChild(card);
-        });
-
-        if (appState.selectedScheduleObj) {
-          await loadScheduleDetail(appState.selectedScheduleObj);
-        }
-      } catch (e) {
-        console.error("Render schedules error:", e);
-      }
-    }
-
-    async function selectSchedule(schedule) {
-      appState.selectedScheduleObj = schedule;
-      appState.selectedScheduleId = schedule.id;
-      await renderSchedules();
-    }
-
-    // --- REFACTORED: LOAD SCHEDULE DETAIL & PHASES ---
-    async function loadScheduleDetail(sched) {
-      document.getElementById('schedule-detail-empty').classList.add('hidden');
-      document.getElementById('schedule-detail-content').classList.remove('hidden');
-
-      try {
-        const [users, phases] = await Promise.all([
-          apiRequest('/user/').catch(() => []),
-          apiRequest(`/schedule/${sched.id}/phase/`).catch(() => [])
-        ]);
-
-        currentSchedulePhases = phases || [];
-
-        const user = users.find(u => u.id === sched.user_id);
-
-        document.getElementById('selected-schedule-name').innerText = sched.name;
-        document.getElementById('selected-schedule-owner').innerText = user ? user.name : `User #${sched.user_id}`;
-
-        // Re-bind schedule header action buttons directly
-        const editBtn = document.getElementById('edit-schedule-btn');
-        const deleteBtn = document.getElementById('delete-schedule-btn');
-        
-        editBtn.onclick = () => editSchedule(sched);
-        deleteBtn.onclick = () => deleteSchedule(sched);
-
-        // Render Phases Table dynamically
-        const tbody = document.getElementById('phases-table-body');
-        tbody.innerHTML = '';
-
-        if (!phases || phases.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-500">No phases defined for this schedule yet. Click "+ Add Phase".</td></tr>`;
-        } else {
-          const sortedPhases = [...phases].sort((a, b) => a.ordinal - b.ordinal);
-          sortedPhases.forEach(p => {
-            let displayDuration = p.duration || '--';
-            let displayRate = p.rate !== null && p.rate !== undefined ? `${p.rate}°/h` : '--';
-
-            if (p.phase_type === 'ramp') {
-              const startTemp = getPrecedingTemperature(p.ordinal);
-              const targetTemp = p.temperature !== null && p.temperature !== undefined ? p.temperature : startTemp;
-              const tempDiff = Math.abs(targetTemp - startTemp);
-
-              if (p.duration && (!p.rate || p.rate <= 0)) {
-                const hours = durationToHours(p.duration);
-                if (hours > 0) {
-                  const calculatedRate = Math.round(tempDiff / hours);
-                  displayRate = `~${calculatedRate}°/h`;
-                }
-              } else if (p.rate && p.rate > 0 && !p.duration) {
-                const hours = tempDiff / p.rate;
-                displayDuration = hoursToDuration(hours);
-              }
-            } else if (p.phase_type === 'constant') {
-              displayRate = 'N/A';
-            }
-
-            const tr = document.createElement('tr');
-            tr.className = "hover:bg-slate-900/80";
-            tr.innerHTML = `
-              <td class="p-3 font-semibold text-slate-200">${p.name}</td>
-              <td class="p-3">
-                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${p.phase_type === 'ramp' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'}">
-                  ${p.phase_type}
-                </span>
-              </td>
-              <td class="p-3 font-mono text-slate-300">${p.temperature !== null && p.temperature !== undefined ? `${p.temperature}°C` : '--'}</td>
-              <td class="p-3 font-mono text-slate-300">${displayRate}</td>
-              <td class="p-3 font-mono text-slate-300">${displayDuration}</td>
-              <td class="p-3 text-right space-x-1">
-                <button class="edit-btn text-slate-400 hover:text-white p-1"><i data-lucide="edit-2" class="w-3.5 h-3.5"></i></button>
-                <button class="delete-btn text-red-400 hover:text-red-300 p-1"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
-              </td>
-            `;
-
-            tr.querySelector('.edit-btn').addEventListener('click', () => editPhase(p));
-            tr.querySelector('.delete-btn').addEventListener('click', () => deletePhase(p));
-
-            tbody.appendChild(tr);
-          });
-        }
-        lucide.createIcons();
-
-        // Render Chart
-        const dataPoints = computeTemperatureProfilePoints(phases);
-        const ctx = document.getElementById('scheduleDetailChart').getContext('2d');
-        if (appState.detailChartInstance) appState.detailChartInstance.destroy();
-
-        appState.detailChartInstance = new Chart(ctx, {
-          type: 'line',
-          data: {
-            datasets: [{
-              label: 'Temperature (°C)',
-              data: dataPoints.map(p => ({ x: p.x, y: p.temp })),
-              borderColor: '#f97316',
-              backgroundColor: 'rgba(249, 115, 22, 0.15)',
-              borderWidth: 2,
-              fill: true,
-              tension: 0.0,
-              pointBackgroundColor: '#ea580c',
-              pointRadius: 4,
-              pointHoverRadius: 7
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-              x: {
-                type: 'linear',
-                title: { display: true, text: 'Time (Hours)', color: '#94a3b8' },
-                grid: { color: '#1e293b' },
-                ticks: {
-                  color: '#64748b',
-                  font: { size: 10 },
-                  callback: (value) => hoursToDuration(value)
-                }
-              },
-              y: {
-                title: { display: true, text: 'Temperature (°C)', color: '#94a3b8' },
-                grid: { color: '#1e293b' },
-                ticks: { color: '#64748b', font: { size: 10 } },
-                beginAtZero: true
-              }
-            },
-            plugins: {
-              legend: { display: false },
-              tooltip: {
-                callbacks: {
-                  label: (ctx) => ` Temp: ${ctx.parsed.y}°C (${hoursToDuration(ctx.parsed.x)})`
-                }
-              }
-            }
-          }
-        });
-      } catch (e) {
-        console.error("Load schedule detail error:", e);
-      }
-    }
-
-    function editSchedule(schedule) {
-      openScheduleModal(schedule);
-    }
-
-    function deleteSchedule(schedule) {
-      showConfirmDialog(`Are you sure you want to delete schedule '${schedule.name}' and all its phases?`, async () => {
-        try {
-          await apiRequest(`/schedule/${schedule.id}`, 'DELETE');
-          appState.selectedScheduleObj = null;
-          appState.selectedScheduleId = null;
-          showToast(`Schedule '${schedule.name}' deleted`, "warning");
-          refreshCurrentView();
-        } catch (e) {}
-      });
-    }
-
-    function editPhase(phase) {
-      openPhaseModal(phase);
-    }
-
-    function deletePhase(phase) {
-      showConfirmDialog(`Delete phase '${phase.name}' from the schedule?`, async () => {
-        try {
-          await apiRequest(`/schedule/${phase.schedule_id}/phase/${phase.id}`, 'DELETE');
-          showToast(`Phase '${phase.name}' removed`, "warning");
-          refreshCurrentView();
-        } catch (e) {}
-      });
-    }
-
-    // MODAL DIALOG CONTROLLERS
-    function openUserModal(user = null) {
-      document.getElementById('user-modal-title').innerText = user ? 'Edit User' : 'Add User';
-      document.getElementById('user-id').value = user ? user.id : '';
-      document.getElementById('user-name').value = user ? user.name : '';
-      document.getElementById('user-username').value = user ? user.username : '';
-      document.getElementById('user-email').value = user ? user.email || '' : '';
-      document.getElementById('user-phone').value = user ? user.phone_number || '' : '';
-      document.getElementById('user-modal').classList.remove('hidden');
-    }
-
-    function closeUserModal() {
-      document.getElementById('user-modal').classList.add('hidden');
-    }
-
-    async function handleUserSubmit(e) {
-      e.preventDefault();
-      const id = document.getElementById('user-id').value;
-      const payload = {
-        name: document.getElementById('user-name').value,
-        username: document.getElementById('user-username').value,
-        email: document.getElementById('user-email').value || null,
-        phone_number: document.getElementById('user-phone').value || null
-      };
-
-      try {
-        if (id) {
-          await apiRequest(`/user/${id}`, 'PUT', payload);
-          showToast("User updated successfully!", "success");
-        } else {
-          await apiRequest('/user/', 'POST', payload);
-          showToast("User created successfully!", "success");
-        }
-        closeUserModal();
-        refreshCurrentView();
-      } catch (e) {}
-    }
-
-    async function openDeviceModal(device = null) {
-      try {
-        const users = await apiRequest('/user/').catch(() => []);
-        const userSelect = document.getElementById('device-user-id');
-        
-        if (users.length === 0) {
-          userSelect.innerHTML = `<option value="">No users available (Create User first)</option>`;
-        } else {
-          userSelect.innerHTML = users.map(u => `<option value="${u.id}">${u.name} (@${u.username})</option>`).join('');
-        }
-
-        document.getElementById('device-modal-title').innerText = device ? 'Edit Kiln' : 'Add Kiln';
-        document.getElementById('device-id').value = device ? device.id : '';
-        document.getElementById('device-name').value = device ? device.name : '';
-        document.getElementById('device-host').value = device ? device.host : '';
-        document.getElementById('device-port').value = device ? device.port : 5000;
-        document.getElementById('device-url').value = device ? device.url || '' : '';
-        document.getElementById('device-desc').value = device ? device.description || '' : '';
-        if (device && device.user_id) userSelect.value = device.user_id;
-
-        document.getElementById('device-modal').classList.remove('hidden');
-      } catch (e) {}
-    }
-
-    function closeDeviceModal() {
-      document.getElementById('device-modal').classList.add('hidden');
-    }
-
-    async function handleDeviceSubmit(e) {
-      e.preventDefault();
-      const id = document.getElementById('device-id').value;
-      const userIdVal = document.getElementById('device-user-id').value;
-
-      if (!userIdVal) {
-        showToast("Please select a valid user for this device", "error");
-        return;
-      }
-
-      const payload = {
-        name: document.getElementById('device-name').value,
-        host: document.getElementById('device-host').value,
-        port: parseInt(document.getElementById('device-port').value),
-        user_id: parseInt(userIdVal),
-        url: document.getElementById('device-url').value || null,
-        description: document.getElementById('device-desc').value || null
-      };
-
-      try {
-        if (id) {
-          await apiRequest(`/device/${id}`, 'PUT', payload);
-          showToast("Kiln updated successfully!", "success");
-        } else {
-          await apiRequest('/device/', 'POST', payload);
-          showToast("Kiln added successfully!", "success");
-        }
-        closeDeviceModal();
-        refreshCurrentView();
-      } catch (e) {}
-    }
-
-    async function openScheduleModal(schedule = null) {
-      try {
-        const users = await apiRequest('/user/').catch(() => []);
-        const userSelect = document.getElementById('schedule-user-id');
-        
-        if (users.length === 0) {
-          userSelect.innerHTML = `<option value="">No users available (Create User first)</option>`;
-        } else {
-          userSelect.innerHTML = users.map(u => `<option value="${u.id}">${u.name} (@${u.username})</option>`).join('');
-        }
-
-        document.getElementById('schedule-modal-title').innerText = schedule ? 'Edit Schedule' : 'Create Schedule';
-        document.getElementById('schedule-id').value = schedule ? schedule.id : '';
-        document.getElementById('schedule-name').value = schedule ? schedule.name : '';
-        if (schedule && schedule.user_id) userSelect.value = schedule.user_id;
-
-        document.getElementById('schedule-modal').classList.remove('hidden');
-      } catch (e) {}
-    }
-
-    function closeScheduleModal() {
-      document.getElementById('schedule-modal').classList.add('hidden');
-    }
-
-    async function handleScheduleSubmit(e) {
-      e.preventDefault();
-      const id = document.getElementById('schedule-id').value;
-      const userIdVal = document.getElementById('schedule-user-id').value;
-
-      if (!userIdVal) {
-        showToast("Please select a user for this schedule", "error");
-        return;
-      }
-
-      const payload = {
-        name: document.getElementById('schedule-name').value,
-        user_id: parseInt(userIdVal)
-      };
-
-      try {
-        if (id) {
-          await apiRequest(`/schedule/${id}`, 'PUT', payload);
-          showToast("Schedule updated!", "success");
-        } else {
-          const created = await apiRequest('/schedule/', 'POST', payload);
-          if (created) {
-            appState.selectedScheduleObj = created;
-            appState.selectedScheduleId = created.id;
-          }
-          showToast("Schedule created!", "success");
-        }
-        closeScheduleModal();
-        refreshCurrentView();
-      } catch (e) {}
-    }
-
-    async function openPhaseModal(phase = null) {
-      if (!appState.selectedScheduleId) {
-        showToast("Select a schedule first", "warning");
-        return;
-      }
-
-      document.getElementById('phase-modal-title').innerText = phase ? 'Edit Phase' : 'Add Phase';
-      document.getElementById('phase-id').value = phase ? phase.id : '';
-      document.getElementById('phase-name').value = phase ? phase.name : '';
-      
-      const nextOrdinal = phase ? phase.ordinal : (currentSchedulePhases.length + 1);
-      document.getElementById('phase-ordinal').value = nextOrdinal;
-
-      document.getElementById('phase-type').value = phase ? phase.phase_type : 'ramp';
-      document.getElementById('phase-temperature').value = phase && phase.temperature !== null && phase.temperature !== undefined ? phase.temperature : '';
-      document.getElementById('phase-rate').value = phase && phase.rate !== null && phase.rate !== undefined ? phase.rate : '';
-      document.getElementById('phase-duration').value = phase ? phase.duration || '' : '';
-
-      activeRampMode = (phase && !phase.rate && phase.duration) ? 'duration' : 'rate';
-
-      onPhaseTypeChange();
-      document.getElementById('phase-modal').classList.remove('hidden');
-    }
-
-    function closePhaseModal() {
-      document.getElementById('phase-modal').classList.add('hidden');
-    }
-
-    async function handlePhaseSubmit(e) {
-      e.preventDefault();
-      const phaseId = document.getElementById('phase-id').value;
-      const scheduleId = appState.selectedScheduleId;
-      const phaseType = document.getElementById('phase-type').value;
-
-      const tempVal = document.getElementById('phase-temperature').value;
-      const rateVal = document.getElementById('phase-rate').value;
-      const durationVal = document.getElementById('phase-duration').value;
-
-      if (phaseType === 'ramp' && !rateVal && !durationVal) {
-        showToast("Please enter either a Rate or Duration for Ramp phases.", "error");
-        return;
-      }
-
-      const payload = {
-        name: document.getElementById('phase-name').value,
-        ordinal: parseInt(document.getElementById('phase-ordinal').value),
-        phase_type: phaseType,
-        schedule_id: parseInt(scheduleId),
-        temperature: tempVal !== "" ? parseInt(tempVal) : null,
-        rate: phaseType === 'constant' ? null : (rateVal !== "" ? parseInt(rateVal) : null),
-        duration: durationVal || null
-      };
-
-      try {
-        if (phaseId) {
-          await apiRequest(`/schedule/${scheduleId}/phase/${phaseId}`, 'PUT', payload);
-          showToast("Phase updated!", "success");
-        } else {
-          await apiRequest(`/schedule/${scheduleId}/phase/`, 'POST', payload);
-          showToast("Phase added!", "success");
-        }
-        closePhaseModal();
-        refreshCurrentView();
-      } catch (e) {}
-    }
-
-    function showConfirmDialog(message, onConfirm) {
-      const modal = document.getElementById('confirm-modal');
-      const msgEl = document.getElementById('confirm-modal-msg');
-      const okBtn = document.getElementById('confirm-ok-btn');
-      const cancelBtn = document.getElementById('confirm-cancel-btn');
-
-      msgEl.innerText = message;
-      modal.classList.remove('hidden');
-
-      const cleanup = () => {
-        modal.classList.add('hidden');
-        okBtn.onclick = null;
-        cancelBtn.onclick = null;
-      };
-
-      okBtn.onclick = () => {
-        cleanup();
-        onConfirm();
-      };
-      cancelBtn.onclick = cleanup;
-    }
-
-    function toggleConsoleDrawer() {
-      const drawer = document.getElementById('console-drawer');
-      const badge = document.getElementById('console-badge');
-      drawer.classList.toggle('translate-y-full');
-      badge.classList.add('hidden');
-    }
-
-    function logConsoleRequest(method, endpoint, body) {
-      const container = document.getElementById('console-logs');
-      const time = new Date().toLocaleTimeString();
-      const log = document.createElement('div');
-      log.className = "flex items-start gap-2 border-b border-slate-900 pb-1";
-      log.innerHTML = `
-        <span class="text-slate-500">${time}</span>
-        <span class="font-bold ${method === 'GET' ? 'text-blue-400' : method === 'POST' ? 'text-emerald-400' : method === 'PUT' ? 'text-amber-400' : 'text-red-400'}">${method}</span>
-        <span class="text-slate-200">${endpoint}</span>
-        ${body ? `<span class="text-slate-500 truncate max-w-xs">${JSON.stringify(body)}</span>` : ''}
-      `;
-      container.appendChild(log);
-      container.scrollTop = container.scrollHeight;
-      document.getElementById('console-badge').classList.remove('hidden');
-    }
-
-    function logConsoleResponse(status, data) {
-      const container = document.getElementById('console-logs');
-      const log = document.createElement('div');
-      log.className = "pl-4 text-xs font-mono mb-1";
-      const isOk = status >= 200 && status < 300;
-      log.innerHTML = `
-        <span class="${isOk ? 'text-emerald-400' : 'text-red-400'} font-bold">STATUS ${status}</span>
-        <span class="text-slate-400">${data ? JSON.stringify(data).substring(0, 150) : 'No content'}</span>
-      `;
-      container.appendChild(log);
-      container.scrollTop = container.scrollHeight;
-    }
-
-    function clearConsoleLogs() {
-      document.getElementById('console-logs').innerHTML = '';
-    }
-
-    function showToast(message, type = 'info') {
-      const container = document.getElementById('toast-container');
-      const toast = document.createElement('div');
-      
-      const colors = {
-        success: 'bg-emerald-900/90 border-emerald-500 text-emerald-100',
-        error: 'bg-red-900/90 border-red-500 text-red-100',
-        warning: 'bg-amber-900/90 border-amber-500 text-amber-100',
-        info: 'bg-slate-800/90 border-slate-600 text-slate-100'
-      };
-
-      toast.className = `px-4 py-3 rounded-xl border text-xs font-medium shadow-xl backdrop-blur flex items-center gap-2 transform transition-all duration-300 pointer-events-auto ${colors[type] || colors.info}`;
-      toast.innerHTML = `
-        <i data-lucide="${type === 'success' ? 'check-circle' : type === 'error' ? 'alert-circle' : 'info'}" class="w-4 h-4"></i>
-        <span>${message}</span>
-      `;
-
-      container.appendChild(toast);
-      lucide.createIcons();
-
-      setTimeout(() => {
-        toast.style.opacity = '0';
-        toast.style.transform = 'translateY(-10px)';
-        setTimeout(() => toast.remove(), 300);
-      }, 4000);
-    }
-
-    window.onload = function() {
-      document.getElementById('server-origin-badge').innerText = `Connected: ${window.location.origin}`;
-      lucide.createIcons();
-      refreshCurrentView();
-    };
-  </script>
 </body>
 </html>

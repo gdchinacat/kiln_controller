@@ -1,9 +1,10 @@
 # 1. Default PORT to 5000 if not explicitly set via environment or command line
 PORT ?= 5000
+NON_PERSISTENT ?= false
 
 PIDFILE := /tmp/kiln_controller.$(PORT).pid
 LOGFILE := /tmp/kiln_controller.$(PORT).log
-SERVICE_CMD := NON_PERSISTENT=true uv run fastapi dev --host 0.0.0.0 --port $(PORT) src/kiln_controller/service/__main__.py >> $(LOGFILE) 2>&1
+SERVICE_CMD := NON_PERSISTENT=$(NON_PERSISTENT) uv run fastapi dev --host 0.0.0.0 --port $(PORT) src/kiln_controller/service/__main__.py >> $(LOGFILE) 2>&1
 
 .PHONY: start_service
 start_service:
@@ -35,22 +36,22 @@ live_tests: live_clean_test live_dirty_test
 
 .PHONY: mock_dirty_test
 mock_dirty_test:
-	LIVE_SERVICE=false SKIP_CLEANUP=true uv run pytest -s
+	NON_PERSISTENT=true LIVE_SERVICE=false SKIP_CLEANUP=true uv run pytest -s
 
 .PHONY: mock_clean_test
 mock_clean_test:
-	LIVE_SERVICE=false SKIP_CLEANUP=false uv run pytest -s
+	NON_PERSISTENT=true LIVE_SERVICE=false SKIP_CLEANUP=false uv run pytest -s
 
 .PHONY: live_dirty_test
 live_dirty_test: PORT := 50001
 live_dirty_test:
-	@$(MAKE) start_service PORT=$(PORT)
-	SERVICE_PORT=$(PORT) LIVE_SERVICE=true SKIP_CLEANUP=true uv run pytest -s
+	@NON_PERSISTENT=true $(MAKE) start_service PORT=$(PORT)
+	NON_PERSISTENT=true SERVICE_PORT=$(PORT) LIVE_SERVICE=true SKIP_CLEANUP=true uv run pytest -s
 	@$(MAKE) stop_service PORT=$(PORT)
 
 .PHONY: live_clean_test
 live_clean_test: PORT := 50001
 live_clean_test:
-	@$(MAKE) start_service PORT=$(PORT)
-	SERVICE_PORT=$(PORT) LIVE_SERVICE=true SKIP_CLEANUP=false uv run pytest -s
+	@NON_PERSISTENT=true $(MAKE) start_service PORT=$(PORT)
+	NON_PERSISTENT=true SERVICE_PORT=$(PORT) LIVE_SERVICE=true SKIP_CLEANUP=false uv run pytest -s
 	@$(MAKE) stop_service PORT=$(PORT)

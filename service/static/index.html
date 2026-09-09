@@ -769,11 +769,10 @@
         logConsoleResponse(status, data);
 
         if (!res.ok) {
-		  alert(JSON.stringify(data));
           let errorMsg = `Server error (${status})`;
           if (data && data.detail) {
             if (Array.isArray(data.detail)) {
-              errorMsg = data.detail.map(e => `${e.loc ? e.loc.join('.') + ': ' : ''}${e.msg}`).join(', ');
+              errorMsg = data.detail.map(e => `${e.loc ? e.loc.join('.') + ': ' : ''}${e.msg}: ${e.input}`).join(', ');
             } else if (typeof data.detail === 'string') {
               errorMsg = data.detail;
             }

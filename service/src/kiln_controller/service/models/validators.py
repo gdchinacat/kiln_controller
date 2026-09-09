@@ -37,7 +37,6 @@ class UserValidator(ValidatorMixinBase):
 
     def validate_delete(self):
         """validate the user can be deleted"""
-        logger.error(f"validating delete of {self}")
         super().validate_delete()
         if self.schedules:
             raise ValidationError(

@@ -11,7 +11,7 @@ import os
 from typing import Dict, List, Any, Callable
 from unittest.mock import patch
 from urllib.parse import urlparse
-from kiln_controller.common.validators import ValidationError, ValidationErrors
+from kiln_controller.client import ClientException, ValidationErrors
 
 import requests
 
@@ -287,8 +287,10 @@ class MockService(Resource):
         paths = self.get_paths(url)
         id = int(paths[-1])
         if (rid := json.get("id")) and rid != id:
-            raise ValidationError(
-                ValidationErrors.MISMATCHED_ID, f'{id} != {json["id"]}'
+            raise ClientException(
+                ValidationErrors.MISMATCHED_ID.name,
+                ValidationErrors.MISMATCHED_ID.value,
+                f'{id} != {json["id"]}',
             )
         json["id"] = id
 

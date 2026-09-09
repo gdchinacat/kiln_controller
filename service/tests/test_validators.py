@@ -24,6 +24,7 @@ __all__ = []
 class _User(UserValidator):
     """User @fixture"""
 
+    name = "name"
     schedules: List["_Schedule"] = field(default_factory=list)
     devices: List["_Device"] = field(default_factory=list)
 
@@ -64,6 +65,7 @@ class _Schedule(ScheduleValidator):
 class _Phase:
     """Schedule @fixture"""
 
+    name = "phase"
     ordinal: int
     phase_type: PhaseType
     temperature: int
@@ -71,6 +73,8 @@ class _Phase:
 
     def __post_init__(self):
         self.schedule.phases.append(self)
+        self.id = str(self.schedule.phases)
+        self.name += f" {self.id}"
 
     @kwargs.factory
     @staticmethod

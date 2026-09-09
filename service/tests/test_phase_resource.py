@@ -12,10 +12,8 @@ import unittest
 import pytest
 
 from fixtures import kwargs
-from kiln_controller.client import Phase
+from kiln_controller.client import Phase, ClientException, ValidationErrors
 from kiln_controller.common.enums import PhaseType
-from kiln_controller.service.models.validators import ValidationError, ValidationErrors
-
 from ._fixtures import (
     mock_service_fixture,
     client_fixture,
@@ -97,10 +95,10 @@ class PhaseTest(unittest.TestCase):
         """
         phases = self.phase_generator(schedule)
         with mock_service.patch():
-            with self.assertRaises(ValidationError) as ve:
+            with self.assertRaises(ClientException) as ce:
                 schedule.phases += phases.send(_constant())
 
-        self.assertEqual(ValidationErrors.FIRST_PHASE_NOT_RAMP, ve.exception.error)
+        self.assertEqual(ValidationErrors.FIRST_PHASE_NOT_RAMP.name, ce.exception.type)
 
     @pytest.mark.skipif(not LIVE_SERVICE, reason="mocks do not perform validation")
     @ kwargs["mock_service"] << mock_service_fixture()
@@ -113,12 +111,12 @@ class PhaseTest(unittest.TestCase):
         """
         phases = self.phase_generator(schedule)
         with mock_service.patch():
-            with self.assertRaises(ValidationError) as ve:
+            with self.assertRaises(ClientException) as ce:
                 schedule.phases += phases.send(_ramp())
                 schedule.phases += phases.send(_ramp())
 
         self.assertEqual(
-            ValidationErrors.DUPLICATE_RAMP_TEMPERATURES, ve.exception.error
+            ValidationErrors.DUPLICATE_RAMP_TEMPERATURES.name, ce.exception.type
         )
 
     @pytest.mark.skipif(not LIVE_SERVICE, reason="mocks do not perform validation")
@@ -139,13 +137,13 @@ class PhaseTest(unittest.TestCase):
         """
         phases = self.phase_generator(schedule)
         with mock_service.patch():
-            with self.assertRaises(ValidationError) as ve:
+            with self.assertRaises(ClientException) as ce:
                 schedule.phases += phases.send(_ramp())  # satisfy constraints
                 schedule.phases += phases.send(_constant())
                 schedule.phases += phases.send(_constant())
 
         self.assertEqual(
-            ValidationErrors.SEQUENTIAL_CONSTANT_PHASES, ve.exception.error
+            ValidationErrors.SEQUENTIAL_CONSTANT_PHASES.name, ce.exception.type
         )
 
     @pytest.mark.skipif(not LIVE_SERVICE, reason="mocks do not perform validation")
@@ -157,12 +155,12 @@ class PhaseTest(unittest.TestCase):
         """test the requirement that phases temperature must be continuous"""
         phases = self.phase_generator(schedule)
         with mock_service.patch():
-            with self.assertRaises(ValidationError) as ve:
+            with self.assertRaises(ClientException) as ce:
                 schedule.phases += phases.send(_ramp(temperature=500))
                 schedule.phases += phases.send(_constant(temperature=1000))
 
         self.assertEqual(
-            ValidationErrors.TEMPERATURE_NOT_CONTINUOUS, ve.exception.error
+            ValidationErrors.TEMPERATURE_NOT_CONTINUOUS.name, ce.exception.type
         )
 
 

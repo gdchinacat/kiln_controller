@@ -41,12 +41,20 @@ class ServerException(HTTPStatusException):
     """
 
 
+@dataclass
 class ClientException(HTTPStatusException):
     """Used to indicate the client received an error http response"""
+
+    type: str
+    msg: str
+    input: str
 
 
 class NotFoundException(ClientException):
     """the resource is not found"""
+
+    def __init__(self, path: str) -> None:
+        super().__init__(ValidationErrors.GENERIC.name, "not found", path)
 
 
 def format_url(func):
@@ -391,17 +399,23 @@ class BaseRestClient(ABC):
                 case HTTPStatus.NO_CONTENT:
                     return None
                 case HTTPStatus.NOT_FOUND:
-                    raise NotFoundException()
+                    raise NotFoundException(args[0].url)  # todo should be self.url
                 case HTTPStatus.UNPROCESSABLE_ENTITY:
                     json = resp.json()
                     validation_error = ValidationError.from_json(json)
                     if validation_error:
                         raise validation_error
-                    raise ClientException(json["message"])
+
+                    error = json["detail"][0]  # todo multiple exceptions
+                    raise ClientException(error["type"], error["msg"], error["input"])
                 case server_error if 500 <= server_error <= 599:
                     raise ServerException(str(resp.json()))
                 case _:
-                    raise ClientException(f"{resp.status_code} {resp.json()}")
+                    raise ClientException(
+                        ValidationErrors.GENERIC.name,
+                        str(resp.status_code),
+                        str(resp.json()),
+                    )
 
         return response_handler
 

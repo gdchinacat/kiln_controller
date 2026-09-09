@@ -32,6 +32,7 @@ class ValidatorMixinBase:
 class UserValidator(ValidatorMixinBase):
     """user validation"""
 
+    # name: str  # provided by class this is mixed with
     # schedules: list[Schedule]  # provided by class this is mixed with
     # devices: list[Devvice]  # provided by class this is mixed with
 
@@ -39,14 +40,10 @@ class UserValidator(ValidatorMixinBase):
         """validate the user can be deleted"""
         super().validate_delete()
         if self.schedules:
-            raise ValidationError(
-                ValidationErrors.USER_HAS_SCHEDULES, "user has schedules"
-            )
+            raise ValidationError(ValidationErrors.USER_HAS_SCHEDULES, self.name)
 
         if self.devices:
-            raise ValidationError(
-                ValidationErrors.USER_MANAGES_DEVICES, "user manages devices"
-            )
+            raise ValidationError(ValidationErrors.USER_MANAGES_DEVICES, self.name)
 
 
 class DeviceValidator(ValidatorMixinBase):
@@ -79,7 +76,7 @@ class ScheduleValidator(ValidatorMixinBase):
             if phases[0].phase_type != PhaseType.RAMP:
                 raise ValidationError(
                     ValidationErrors.FIRST_PHASE_NOT_RAMP,
-                    "first phase in schedule must be a ramp",
+                    f"{phases[0].name}({phases[0].id})",
                 )
 
             for i, phase in enumerate(phases):
@@ -91,8 +88,7 @@ class ScheduleValidator(ValidatorMixinBase):
                 ):
                     raise ValidationError(
                         ValidationErrors.TEMPERATURE_NOT_CONTINUOUS,
-                        "CONSTANT phase temperature different than preceeding "
-                        "phase temperature",
+                        f"{phases[i].name}({phases[i].id})",
                     )
 
                 # No sequential CONSTANT phases
@@ -103,7 +99,7 @@ class ScheduleValidator(ValidatorMixinBase):
                 ):
                     raise ValidationError(
                         ValidationErrors.SEQUENTIAL_CONSTANT_PHASES,
-                        "sequential CONSTANT phases not permitted",
+                        f"{phases[i].name}({phases[i].id})",
                     )
 
                 # Sequential RAMP must have different temperatures.
@@ -115,7 +111,7 @@ class ScheduleValidator(ValidatorMixinBase):
                 ):
                     raise ValidationError(
                         ValidationErrors.DUPLICATE_RAMP_TEMPERATURES,
-                        "sequential RAMP must have different temperatures",
+                        f"{phases[i].name}({phases[i].id})",
                     )
 
             # Last phase must be a RAMP (disabled)

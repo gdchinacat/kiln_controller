@@ -769,6 +769,7 @@
         logConsoleResponse(status, data);
 
         if (!res.ok) {
+		  alert(JSON.stringify(data));
           let errorMsg = `Server error (${status})`;
           if (data && data.detail) {
             if (Array.isArray(data.detail)) {

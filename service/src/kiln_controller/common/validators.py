@@ -18,22 +18,26 @@ logger = logging.getLogger("kiln_controller.validators")
 class ValidationErrors(Enum):
     """specific validation errors"""
 
-    GENERIC = 0  # non-specific, unspecified, or unknown errors
-    FIRST_PHASE_NOT_RAMP = 1
-    TEMPERATURE_NOT_CONTINUOUS = 2
-    SEQUENTIAL_CONSTANT_PHASES = 3
-    DUPLICATE_RAMP_TEMPERATURES = 4
-    USER_HAS_SCHEDULES = 5
-    USER_MANAGES_DEVICES = 6
-    MISMATCHED_ID = 7
+    GENERIC = "unspecified"  # non-specific, unspecified, or unknown errors
+    FIRST_PHASE_NOT_RAMP = "first phase not ramp"
+    TEMPERATURE_NOT_CONTINUOUS = "temperature not continuous"
+    SEQUENTIAL_CONSTANT_PHASES = "sequential constant phases"
+    DUPLICATE_RAMP_TEMPERATURES = "duplicate ramp temperatures"
+    USER_HAS_SCHEDULES = "user has schedules"
+    USER_MANAGES_DEVICES = "user manages devices"
+    MISMATCHED_ID = "mismatched id"
 
 
 class ValidationError(Exception):
     """Exception indicating a validation error has occurred."""
 
-    def __init__(self, error: ValidationErrors, *args: object) -> None:
-        super().__init__(*args)
+    def __init__(self, error: ValidationErrors, input: object) -> None:
+        super().__init__(input)
         self.error = error
+
+    @property
+    def input(self) -> str:
+        return str(self.args[0])
 
     @classmethod
     def from_json(
@@ -56,11 +60,16 @@ class ValidationError(Exception):
     def json(self):
         """get the json representation of this error"""
         return {
-            "error_type": type(self).__name__,
-            "validation_error": self.error.name,
-            "args": (
-                tuple(str(arg) for arg in self.args)
-                if self.args
-                else (self.error.name,)
-            ),
+            "detail": [
+                {
+                    "type": self.error.name,
+                    "msg": self.error.value,
+                    "input": self.input,
+                    # "input": ", ".join(
+                    #    tuple(str(arg) for arg in self.args)
+                    #    if self.args
+                    #    else (self.error.name,)
+                    # ),
+                }
+            ]
         }

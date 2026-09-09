@@ -9,7 +9,7 @@ import unittest
 import pytest
 
 from fixtures import kwargs
-from kiln_controller.client import ValidationError, ValidationErrors
+from kiln_controller.client import ClientException, ValidationErrors
 
 from ._fixtures import (
     mock_service_fixture,
@@ -40,10 +40,10 @@ class UserTest(unittest.TestCase):
         schedules.
         """
         with mock_service.patch():
-            with self.assertRaises(ValidationError) as ve:
+            with self.assertRaises(ClientException) as ce:
                 user.delete()
 
-        self.assertEqual(ValidationErrors.USER_HAS_SCHEDULES, ve.exception.error)
+        self.assertEqual(ValidationErrors.USER_HAS_SCHEDULES.name, ce.exception.type)
 
     @pytest.mark.skipif(not LIVE_SERVICE, reason="mocks do not perform validation")
     @ kwargs["mock_service"] << mock_service_fixture()
@@ -56,7 +56,7 @@ class UserTest(unittest.TestCase):
         schedules.
         """
         with mock_service.patch():
-            with self.assertRaises(ValidationError) as ve:
+            with self.assertRaises(ClientException) as ce:
                 user.delete()
 
-        self.assertEqual(ValidationErrors.USER_MANAGES_DEVICES, ve.exception.error)
+        self.assertEqual(ValidationErrors.USER_MANAGES_DEVICES.name, ce.exception.type)

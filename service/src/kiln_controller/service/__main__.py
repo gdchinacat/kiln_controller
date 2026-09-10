@@ -6,6 +6,7 @@ Serves the SPA interface for the service.
 """
 
 from fastapi import FastAPI, Request, status
+from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 import logging
 import pydantic
@@ -25,6 +26,8 @@ logger = logging.getLogger("kiln_controller.app")
 
 app = FastAPI()
 app.frontend("/", directory="./static")
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 
 app.include_router(users_router)
 app.include_router(devices_router)

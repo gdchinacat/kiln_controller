@@ -19,6 +19,7 @@ from ._fixtures import (
     client_fixture,
     user_fixture,
     schedule_fixture,
+    phase_fixture,
 )
 from .mock_service import LIVE_SERVICE
 
@@ -141,6 +142,46 @@ class PhaseTest(unittest.TestCase):
                 schedule.phases += phases.send(_ramp())  # satisfy constraints
                 schedule.phases += phases.send(_constant())
                 schedule.phases += phases.send(_constant())
+
+        self.assertEqual(
+            ValidationErrors.SEQUENTIAL_CONSTANT_PHASES.name, ce.exception.type
+        )
+
+    @pytest.mark.skipif(not LIVE_SERVICE, reason="mocks do not perform validation")
+    @ kwargs["mock_service"] << mock_service_fixture()
+    @ kwargs["client"] << client_fixture()
+    @ kwargs["user"] << user_fixture()
+    @ kwargs["schedule"] << schedule_fixture()
+    @ kwargs["ramp1"] << phase_fixture(  # constant must follow ramp
+        name="ramp1", ordinal=1, phase_type=PhaseType.RAMP, temperature=1000, rate=100
+    )
+    @ kwargs["constant1"] << phase_fixture(
+        name="constant1",
+        ordinal=2,
+        phase_type=PhaseType.CONSTANT,
+        temperature=1000,
+        duration=time(1, 0),
+    )
+    @ kwargs["ramp_to_delete"] << phase_fixture(
+        name="ramp2", ordinal=3, phase_type=PhaseType.RAMP, temperature=2000, rate=100
+    )
+    @ kwargs["constant2"] << phase_fixture(
+        name="constant2",
+        ordinal=4,
+        phase_type=PhaseType.CONSTANT,
+        temperature=2000,
+        duration=time(1, 0),
+    )
+    def test_sequential_constant_phases_ramp_delete_error(
+        self, mock_service, ramp_to_delete, **_
+    ):
+        """
+        Test that deleting a ramp phase between two constant phases is not
+        permitted because it would create sequential constant phases.
+        """
+        with mock_service.patch():
+            with self.assertRaises(ClientException) as ce:
+                ramp_to_delete.delete()
 
         self.assertEqual(
             ValidationErrors.SEQUENTIAL_CONSTANT_PHASES.name, ce.exception.type

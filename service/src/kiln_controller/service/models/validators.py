@@ -55,7 +55,7 @@ class ScheduleValidator(ValidatorMixinBase):
 
     # phases: list[Phase]  # provided by class this is mixed with
 
-    def validate_create_or_update(self) -> None:
+    def _validate(self) -> None:
         """
         Validate the schedule is valid.
 
@@ -69,7 +69,6 @@ class ScheduleValidator(ValidatorMixinBase):
             - A CONSTANT phase temperature must be the temperature of the
               preceeding phase.
         """
-        super().validate_create_or_update()
         phases = self.phases
         if phases:
             # First phase must be a RAMP.
@@ -80,17 +79,6 @@ class ScheduleValidator(ValidatorMixinBase):
                 )
 
             for i, phase in enumerate(phases):
-                # CONSTANT phases have same temperature as preceding phase
-                if (
-                    i > 0
-                    and phase.phase_type == PhaseType.CONSTANT
-                    and phases[i - 1].temperature != phase.temperature
-                ):
-                    raise ValidationError(
-                        ValidationErrors.TEMPERATURE_NOT_CONTINUOUS,
-                        f"{phases[i].name}({phases[i].id})",
-                    )
-
                 # No sequential CONSTANT phases
                 if (
                     i > 0
@@ -99,6 +87,17 @@ class ScheduleValidator(ValidatorMixinBase):
                 ):
                     raise ValidationError(
                         ValidationErrors.SEQUENTIAL_CONSTANT_PHASES,
+                        f"{phases[i].name}({phases[i].id})",
+                    )
+
+                # CONSTANT phases have same temperature as preceding phase
+                if (
+                    i > 0
+                    and phase.phase_type == PhaseType.CONSTANT
+                    and phases[i - 1].temperature != phase.temperature
+                ):
+                    raise ValidationError(
+                        ValidationErrors.TEMPERATURE_NOT_CONTINUOUS,
                         f"{phases[i].name}({phases[i].id})",
                     )
 
@@ -123,6 +122,14 @@ class ScheduleValidator(ValidatorMixinBase):
             # if phases[-1].phase_type != PhaseType.RAMP:
             #     raise Exception("last phase in schedule must be a ramp")
 
+    def validate_create_or_update(self) -> None:
+        super().validate_create_or_update()
+        self._validate()
+
+    def validate_delete(self) -> None:
+        super().validate_delete()
+        self._validate()
+
 
 class PhaseValidator(ValidatorMixinBase):
     """phase validation"""
@@ -132,3 +139,8 @@ class PhaseValidator(ValidatorMixinBase):
     def validate_create_or_update(self):
         super().validate_create_or_update()
         self.schedule.validate_create_or_update()
+
+    def validate_delete(self):
+        super().validate_delete()
+        self.schedule.phases.remove(self)
+        self.schedule.validate_delete()

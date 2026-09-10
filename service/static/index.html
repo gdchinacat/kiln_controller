@@ -129,7 +129,7 @@
           user: { id: '', name: '', username: '', email: '', phone_number: '' },
           device: { id: '', name: '', host: '', port: 5000, user_id: '', url: '', description: '' },
           schedule: { id: '', name: '', user_id: '' },
-          phase: { id: '', name: '', ordinal: 1, phase_type: 'ramp', temperature: '', rate: '', duration: '' }
+          phase: { id: '', name: '', ordinal: 10, phase_type: 'ramp', temperature: '', rate: '', duration: '' }
         },
 
         // Ramp/Phase logic states
@@ -270,7 +270,7 @@
 
           this.selectedScheduleId = parseInt(scheduleId);
 
-		  let datasets = null;
+          let datasets = null;
           if (scheduleId) {
             const [schedules, users, phases] = await Promise.all([
               this.apiRequest('/schedule/'),
@@ -280,7 +280,7 @@
 
             const dataPoints = computeTemperatureProfilePoints(phases);
 
-			datasets = [{
+            datasets = [{
                 label: 'Temperature (°C)',
                 data: dataPoints.map(p => ({ x: p.x, y: p.temp })),
                 borderColor: '#f97316',
@@ -291,8 +291,8 @@
                 pointBackgroundColor: '#ea580c',
                 pointRadius: 4,
                 pointHoverRadius: 7
-              }]
-		  }
+              }];
+          }
 
           if (this.dashboardChartInstance) this.dashboardChartInstance.destroy();
 
@@ -409,7 +409,7 @@
         },
 
         getDisplayRateForDurationPhase(p) {
-          if (p.phase_type === 'constant') return 'N/A';
+          if (p.phase_type === 'constant') return '';
           if (p.rate !== null && p.rate !== undefined && p.rate > 0) return `${p.rate}°/h`;
           
           if (p.duration) {
@@ -417,10 +417,13 @@
             const targetTemp = p.temperature !== null && p.temperature !== undefined ? p.temperature : startTemp;
             const tempDiff = Math.abs(targetTemp - startTemp);
             const hours = durationToHours(p.duration);
-            if (hours > 0) {
-              return `~${Math.round(tempDiff / hours)}°/h`;
-            }
+			if (hours != 0) {
+            	return `~${Math.round(tempDiff / hours)}°/h`;
+			} else {
+            	return "ASAP";
+			}
           }
+		  alert("shouldn't ever happen");
           return '--';
         },
 
@@ -558,31 +561,54 @@
         },
 
         // --- Phase Actions & Calculations ---
-        openPhaseModal(phase = null) {
+        openPhaseModal(phaseToEdit = null, insertBeforePhase = null) {
           if (!this.selectedScheduleId) {
             this.showToast("Select a schedule first", "warning");
             return;
           }
-          const nextOrdinal = phase ? phase.ordinal : (this.schedulePhases[this.schedulePhases.length - 1].ordinal + 1);
-          this.forms.phase = phase ? { 
-            id: phase.id,
-            name: phase.name,
-            ordinal: phase.ordinal,
-            phase_type: phase.phase_type,
-            temperature: phase.temperature ?? '',
-            rate: phase.rate ?? '',
-            duration: phase.duration || ''
+
+          let calculatedOrdinal;
+
+          if (phaseToEdit) {
+            calculatedOrdinal = phaseToEdit.ordinal;
+          } else if (insertBeforePhase) {
+            const sorted = [...this.schedulePhases].sort((a, b) => a.ordinal - b.ordinal);
+            const targetIdx = sorted.findIndex(p => p.id === insertBeforePhase.id);
+            const prevPhase = targetIdx > 0 ? sorted[targetIdx - 1] : null;
+
+            if (prevPhase) {
+              calculatedOrdinal = Math.floor((prevPhase.ordinal + insertBeforePhase.ordinal) / 2);
+            } else {
+              calculatedOrdinal = Math.floor(insertBeforePhase.ordinal / 2);
+            }
+          } else {
+            if (this.schedulePhases.length === 0) {
+              calculatedOrdinal = 10;
+            } else {
+              const maxOrdinal = Math.max(...this.schedulePhases.map(p => p.ordinal));
+              calculatedOrdinal = maxOrdinal + 10;
+            }
+          }
+
+          this.forms.phase = phaseToEdit ? { 
+            id: phaseToEdit.id,
+            name: phaseToEdit.name,
+            ordinal: phaseToEdit.ordinal,
+            phase_type: phaseToEdit.phase_type,
+            temperature: phaseToEdit.temperature ?? '',
+            rate: phaseToEdit.rate ?? '',
+            duration: phaseToEdit.duration || ''
           } : {
             id: '',
             name: '',
-            ordinal: nextOrdinal,
+            ordinal: calculatedOrdinal,
             phase_type: 'ramp',
             temperature: '',
             rate: '',
             duration: ''
           };
 
-          this.activeRampMode = (phase && !phase.rate && phase.duration) ? 'duration' : 'rate';
+          this.activeRampMode = (phaseToEdit && !phaseToEdit.rate && phaseToEdit.duration) ? 'duration' : 'rate';
           this.onPhaseTypeChange();
           this.modals.phase = true;
           this.$nextTick(() => lucide.createIcons());
@@ -643,9 +669,33 @@
             return;
           }
 
+          let targetOrdinal = parseInt(p.ordinal);
+
+          if (!p.id) {
+            const existingOrdinals = new Set(this.schedulePhases.map(phase => phase.ordinal));
+            if (targetOrdinal <= 0 || existingOrdinals.has(targetOrdinal)) {
+              const sortedSubsequent = [...this.schedulePhases]
+                .filter(phase => phase.ordinal >= targetOrdinal)
+                .sort((a, b) => b.ordinal - a.ordinal);
+
+              let nextMinGapOrdinal = targetOrdinal + (sortedSubsequent.length * 10);
+              for (const phaseToUpdate of sortedSubsequent) {
+                await this.apiRequest(
+                  `/schedule/${this.selectedScheduleId}/phase/${phaseToUpdate.id}`,
+                  'PUT',
+                  {
+                    ...phaseToUpdate,
+                    ordinal: nextMinGapOrdinal
+                  }
+                );
+                nextMinGapOrdinal -= 10;
+              }
+            }
+          }
+
           const payload = {
             name: p.name,
-            ordinal: parseInt(p.ordinal),
+            ordinal: targetOrdinal,
             phase_type: p.phase_type,
             schedule_id: parseInt(this.selectedScheduleId),
             temperature: p.temperature !== "" ? parseInt(p.temperature) : null,
@@ -665,7 +715,7 @@
         },
 
         deletePhase(scheduleId, phase) {
-          const phStr = phase.name ? `"${phase.name}" (Ordinal: ${phase.ordinal})` : `Phase #${phase.id}`;
+          const phStr = phase.name ? `"${phase.name}"` : `Phase #${phase.id}`;
           this.showConfirmDialog(`Delete phase ${phStr} from the schedule?`, async () => {
             await this.apiRequest(`/schedule/${scheduleId}/phase/${phase.id}`, 'DELETE');
             this.showToast("Phase removed", "warning");
@@ -813,7 +863,6 @@
         </div>
 
         <!-- Active Firing Visualizer -->
-        <!-- TODO this should use currentFiring -->
         <div class="glass-panel rounded-2xl border border-slate-800 p-6">
           <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
             <div>
@@ -825,7 +874,7 @@
             </div>
             <div class="flex items-center gap-3">
               <select x-model="selectedScheduleId" @change="loadDashboardScheduleChart($event.target.value)" class="bg-slate-900 border border-slate-700 text-sm rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-orange-500">
-                <option value="">Select Firing...</option> <!-- todo - once firings have been added to api allow any active firing to be seen; add marker showing where in schedule it is -->
+                <option value="">Select Firing...</option>
                 <template x-for="s in schedules" :key="s.id">
                   <option :value="s.id" x-text="s.name"></option>
                 </template>
@@ -1109,8 +1158,15 @@
                             <td x-text="getDisplayRateForDurationPhase(p)" class="p-3 font-mono text-slate-300"></td>
                             <td x-text="getDisplayDurationForRatePhase(p)" class="p-3 font-mono text-slate-300"></td>
                             <td class="p-3 text-right space-x-1">
-                              <button @click="openPhaseModal(p)" class="text-slate-400 hover:text-white p-1"><i data-lucide="edit-2" class="w-3.5 h-3.5"></i></button>
-                              <button @click="deletePhase(selectedScheduleId, p)" class="text-red-400 hover:text-red-300 p-1"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                              <button @click="openPhaseModal(null, p)" title="Insert phase before this one" class="text-slate-400 hover:text-white p-1">
+                                <i data-lucide="list-plus" class="w-3.5 h-3.5"></i>
+                              </button>
+                              <button @click="openPhaseModal(p)" title="Edit phase" class="text-slate-400 hover:text-white p-1">
+                                <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
+                              </button>
+                              <button @click="deletePhase(selectedScheduleId, p)" title="Delete phase" class="text-red-400 hover:text-red-300 p-1">
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                              </button>
                             </td>
                           </tr>
                         </template>

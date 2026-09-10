@@ -37,7 +37,7 @@ from .mock_service import Call
 # todo - get rid of USER_ID, use actual resources
 USER_ID = 1
 
-PORT = int(os.getenv("SERVICE_PORT", "50001"))
+PORT = int(os.getenv("SERVICE_PORT", "5000"))
 
 
 class AsDict:

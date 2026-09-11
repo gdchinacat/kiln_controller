@@ -1,491 +1,22 @@
 """
-A requests based client for interacting with the REST server
+A requests-based client for interacting with the REST server.
 
-It *does not* use the models as those are sqlalchemy mapped and the
-client doesn't want any of that. Instead, the objects exposed by the
-client are extensions of dict to contain whatever the server emits.
-
-TODO - this should be rewritten using metaclasses rather than the trickery
-it currently involves. For example, client methods are defined in the factory
-method rather than on the classes themselves. I believe proper use of
-metaclasses will alleviate this problem.
+Exposes domain-specific resources (User, Device, Schedule, Phase) and high-level
+client wrapper interfaces.
 """
 
-import logging
-from abc import ABC
-from dataclasses import dataclass, field, asdict
 import datetime
-from functools import wraps
-from http import HTTPStatus
-from typing import SupportsIndex, Callable, Dict
-
-import requests
+from dataclasses import dataclass, field
+from typing import Dict, Callable
 
 from ..common.enums import PhaseType
-from ..common.validators import ValidationError, ValidationErrors
-from .helpers import detect_bad_url, trace
-
-logger = logging.getLogger("client")
-# DEFAULT_TIMEOUT = 5
-DEFAULT_TIMEOUT = None
-
-
-class HTTPStatusException(Exception):
-    """base class for exceptions for HTTP status errors"""
-
-
-class ServerException(HTTPStatusException):
-    """
-    Used to indicate the client received an error indicating a server
-    error.
-    """
-
-
-@dataclass
-class ClientException(HTTPStatusException):
-    """Used to indicate the client received an error http response"""
-
-    type: str
-    msg: str
-    input: str
-
-
-class NotFoundException(ClientException):
-    """the resource is not found"""
-
-    def __init__(self, path: str) -> None:
-        super().__init__(ValidationErrors.GENERIC.name, "not found", path)
-
-
-def format_url(func):
-    """
-    calculate the url based on the request url, client url, and
-    object arguments
-    TODO - move this to a method on client
-    """
-
-    @wraps(func)
-    def _format_url(self, url, *args, **kwargs):
-        return func(self, f"{self.url}{url}/", *args, **kwargs)
-
-    return _format_url
-
-
-# TODO - convert this to be pydantic models.
-#        Should they be created from the servers openapi.json?
-#            - dynamically generated classes don't work well with static
-#              type checking. openapi-python-client will create the python
-#              files.
-#            - jsonschema_to_pydantic can do this dynamically
-class Resource(ABC):
-    """A resource associates a dataclass with a REST resource"""
-
-    _URL: str  # format string for the url for this type of resource (class)
-
-    _client: "_Client" = None  # associated through _set_client() or get()
-    _parent: "Resource" = None  # the parent resource, None for top-level
-
-    id: int = None
-    """the id for the resource"""
-
-    @classmethod
-    def new(cls, base, url, _attrs=None):
-        """Create a new RESTEntity class"""
-        attrs = {
-            "__init__": Resource.__init__,
-            "_URL": url,
-        }
-        attrs.update(_attrs or {})
-        # remove last four characters from name to remove Base
-        name = base.__name__[:-4]
-
-        # create a new type that extends both base and cls
-        return type(name, (cls, base), attrs)
-
-    def __init__(self, *args, parent: "Resource" = None, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self._parent = parent
-
-    def _update(self, **kwargs):
-        """update the resource attributes"""
-        # probably a less sketchy way to do this, but it works for now
-        super().__init__(**kwargs)
-
-    @property
-    def _url(self):
-        """
-        The url for the resource.
-        """
-        parent_url = self._parent._url if self._parent else ""
-        if self.id is not None:
-            return f"{parent_url}{self._URL}/{self.id}"
-        else:
-            return f"{parent_url}{self._URL}"
-
-    def _set_client(self, client):
-        # this is separate from __init__ so that Resources can be created
-        # without specifying their client, and are associated with the client
-        # only once added to a list or refreshed.
-        self._client = client
-
-    @staticmethod
-    def _accepts_client(func):
-        """
-        decorator to allow decorated function to take a client kwarg to
-        associate the resource with the client.
-        The only reason to accept client is because it is required, this also
-        validates a client exists on self.
-        If specified, the clientl is *NOT* passed to the decorated method.
-        """
-
-        @wraps(func)
-        def client_injector(self, client=None):
-            self._client = client or self._client
-            if not self._client:
-                raise ValueError(
-                    "must associate resources with a client " "before get'ing them"
-                )
-            return func(self)
-
-        return client_injector
-
-    @_accepts_client
-    def get(self) -> "Resource":
-        self._update(**self._client._client.get(self._url))
-        return self
-
-    refresh = get
-
-    @_accepts_client
-    def delete(self) -> "Resource":
-        self._client._client.delete(self._url)
-        self.id = None
-        # TODO - if this resource came from a ResourceList refresh the list?
-        return self
-
-    @_accepts_client
-    def put(self) -> "Resource":
-        self._client._client.put(self._url, self)
-        return self
-
-    @_accepts_client
-    def post(self) -> "Resource":
-        if self.id is not None:
-            raise AttributeError("refusing to POST resource with id (use put()?)")
-        # post goes to the Class._URL
-        json = self._client._client.post(self._url, self)
-        try:
-            self._update(**json)
-        except TypeError:
-            logger.error(str(json))
-            raise
-        return self
-
-
-class ResourceList[A](list):
-    """
-    List implementation for model elements. Used for REST resource lists.
-    Item deletion is intercepted to make REST calls to delete the entity
-    on the server.
-    """
-
-    def __init__(self, type_, client, url, parent=None, iterable=tuple()):
-        self._type = type_
-        self._client = client
-        self._url = url
-        self._parent = parent
-        self._expired = True  # does the list need to be refreshed on access
-        super().__init__(iterable)
-
-    ###########################################################################
-    # Expiration defers calls to refresh() until methods to access the elements
-    # of the list are called.
-    # Lists are _expired=True upon initialization. Calls to any of the
-    # unexpire(...) functions below will invoke a refresh() when called with
-    # expired=True.
-    # refresh() populates the list from the server and sets expired=True.
-    ###########################################################################
-    def expire(self) -> None:
-        """
-        Expire the list, causing it to be refresh()ed upon next access.
-        """
-        self._expired = True
-        super().clear()
-        return self
-
-    def refresh(self) -> "ResourceList[A]":
-        """refresh the list of resources, expired becomes False"""
-        super().clear()
-        for data in self._client.get(self._url):
-            resource = self._type(parent=self._parent, **data)
-            resource._set_client(self._client)
-            super().append(resource)
-        self._expired = False
-        return self
-
-    def clear(self):
-        """
-        TODO - The semantics of this may not be all that great. The issue is
-        that when using a python list the way you remove all elements from it
-        is to call clear(). The 'resource mapping' equivalent is 'del self[:]',
-        but that *is not* what is done, instead clear() is essentially hijacked
-        to semantically mean 'refresh from server on next access', *very*
-        different from the 'delete all' or 'remove all references to' semantics
-        of the base class. Hmmm....
-        """
-        self.expire()
-
-    @staticmethod
-    def _expire(func):
-        """
-        Decorator to refresh the resource list after a method may have
-        caused it to Change.
-        """
-
-        @wraps(func)
-        def expire_after_call(self, *args, **kwargs):
-            try:
-                return func(self, *args, **kwargs)
-            finally:
-                self.expire()
-
-        return expire_after_call
-
-    @staticmethod
-    def _unexpire(func):
-        """decorator to refresh before calling func if the list is expired"""
-
-        @wraps(func)
-        def _unexpire(self, *args, **kwargs):
-            if self._expired:
-                self.refresh()
-            return func(self, *args, **kwargs)
-
-        return _unexpire
-
-    ###########################################################################
-    # The access methods that need to be unexpired when called.
-    ###########################################################################
-    sort = _unexpire(list.sort)
-    index = _unexpire(list.index)
-    reverse = _unexpire(list.reverse)
-    __contains__ = _unexpire(list.__contains__)
-    __eq__ = _unexpire(list.__eq__)
-    __getitem__ = _unexpire(list.__getitem__)
-    __iter__ = _unexpire(list.__iter__)
-    __len__ = _unexpire(list.__len__)  # covers __bool__ as well
-
-    # unexpiring these causes logging messages to refresh, likely at "bad"
-    # times, so they are disabled. This means you may see weird results in
-    # the REPL. For example, client.schedules will display phases=[], but
-    # actually accessing client.schedules will refresh and you will see them.
-    # todo - should fix this, but not obvious how
-    # __repr__ = _unexpire(list.__repr__)
-    # __str__ = _unexpire(list.__str__)
-
-    ###########################################################################
-    # Overridden list methods to raise NotImplementedError when called.
-    ###########################################################################
-
-    def _not_implemented(self, *args, **kwargs):
-        raise NotImplementedError()
-
-    # The list functionality that is not supported.
-    # these aren't implemented simply because they aren't used right now. The
-    # implementations are likely pretty trivial, just use the __iadd__
-    # functionality to add the element on the server. Be safe and disallowA
-    # these rather than let someone chase their tail figuring out they don't
-    # actually work.
-    copy = _not_implemented  # no use case, unclear semantics
-    count = _not_implemented  # not use case, more than one in list not useful
-    extend = _not_implemented  # not implemented - override extend to post()
-    insert = _not_implemented  # resource list order is defined by service
-    pop = _not_implemented  # not implemented - implement or use del
-    remove = _not_implemented  # not implemented - implement or use del
-
-    @_expire
-    def __iadd__(self, obj: A) -> A:
-        """
-        implement the "+=" operator to create a new resource on the server.
-        The list is refreshed regardless of success.
-        The dictionary representation of obj is used to format() the _url. this
-        allows the ids of a parent resource to be placed into the url. For
-        example:
-             ResourceList(url="/parent/{parent_id}/child", ...
-             ...
-             obj = Resource(parent_id=1, ...
-             ...
-             client.post(url="/parent/1/child", ...
-
-        This *does not* use unexpire() because there is no need since the list
-        is not accessed prior to creating the resource no refresh is necessary.
-        This method uses _expire() to ensure a refresh occurs before the next
-        access method.
-        """
-        assert isinstance(
-            obj, (self._type)
-        ), f"{type(obj)} is not an instance of {self._type}"
-
-        # create the resource
-        resp = self._client.post(self._url, obj)
-
-        # update the object (a bit scary, lets see how this ages)
-        obj.__init__(parent=self._parent, **resp)
-
-        # Update the object now that it's part of a resource list:
-        obj._set_client(self._client)
-
-        return self
-
-    def append(self, obj: A):
-        self += obj
-
-    @_expire
-    def __delitem__(self, key: SupportsIndex | slice) -> None:
-        """
-        Implement "del list[key|slice]".
-        The list is refreshed regardless of success.
-        """
-        if isinstance(key, slice):
-            for resource in self[key]:
-                resource.delete()
-        else:
-            resource = self[key]
-            resource.delete()
-
-    @classmethod
-    def factory(cls, _type, url):
-        """
-        Create a method that will create a ResourceList for the specified data
-        model _type that is backed by the resources at url (relative to client
-        url).
-        """
-
-        def _create_resource_list(client):
-            # this class effectively becomes a method on Client
-            return cls(_type, client, url)
-
-        return _create_resource_list
-
-
-class BaseRestClient(ABC):
-    """
-    Client to interace with the REST resources.
-    Coercion from json to model elements is only performed through the high
-    level ResourceList properties. The HTTP methods do not perform coercion.
-    TODO - refactor into ABCClient to decouple it from the model it supports.
-    """
-
-    def __init__(self, host="localhost", port=5000):
-        self.url = f"http://{host}:{port}"
-
-    @staticmethod
-    def _response_handler(func):
-        """
-        Inspect the response of HTTP requests.
-        If the response status is 200 OK return the json. Otherwise, raise an
-        Exception using the 'message' field in the response json.
-        TODO - make this more robust so it doesn't replace errors with its own
-        errors from mishandling unexpected response formats (ie the response
-        is not json).
-        """
-
-        @wraps(func)
-        def response_handler(*args, **kwargs):
-            resp = func(*args, **kwargs)
-            match resp.status_code:
-                case HTTPStatus.OK | HTTPStatus.CREATED:
-                    return resp.json()
-                case HTTPStatus.NO_CONTENT:
-                    return None
-                case HTTPStatus.NOT_FOUND:
-                    raise NotFoundException(args[0].url)  # todo should be self.url
-                case HTTPStatus.UNPROCESSABLE_ENTITY:
-                    json = resp.json()
-                    validation_error = ValidationError.from_json(json)
-                    if validation_error:
-                        raise validation_error
-
-                    error = json["detail"][0]  # todo multiple exceptions
-                    raise ClientException(error["type"], error["msg"], error["input"])
-                case server_error if 500 <= server_error <= 599:
-                    raise ServerException(str(resp.json()))
-                case _:
-                    raise ClientException(
-                        ValidationErrors.GENERIC.name,
-                        str(resp.status_code),
-                        str(resp.json()),
-                    )
-
-        return response_handler
-
-    @detect_bad_url
-    @_response_handler
-    @format_url
-    @trace
-    def post(self, url, obj, timeout=DEFAULT_TIMEOUT):
-        """Post the obj to the url."""
-        return requests.post(url, json=obj.asdict(), timeout=timeout)
-
-    @detect_bad_url
-    @format_url
-    @_response_handler
-    @trace
-    def get(self, url, timeout=DEFAULT_TIMEOUT):
-        """Get a resource or set of resources from url"""
-        return requests.get(url, timeout=timeout)
-
-    @detect_bad_url
-    @format_url
-    @_response_handler
-    @trace
-    def delete(self, url, timeout=DEFAULT_TIMEOUT):
-        """delete a resource at the url"""
-        return requests.delete(url, timeout=timeout)
-
-    @detect_bad_url
-    @format_url
-    @_response_handler
-    @trace
-    def put(self, url, obj, timeout=DEFAULT_TIMEOUT):
-        """PUT the resource at the url"""
-        return requests.put(url, json=obj.asdict(), timeout=timeout)
-
-
-###############################################################################
-# The dataclasses for the resource types.
-# TODO - move these into model as base classes of the mapped classes?
-#        as it stands this duplicates the definitions and isn't very
-#        maintainable
-###############################################################################
-
-
-@dataclass
-class DataclassBase(ABC):
-    """
-    Base class for remote resource dataclasses.
-    Contains the common attributes all model elements share:
-      id - the primary key for the model instance (unique by mapped table)
-      name - the primary key for the model instance (unique by mapped table)
-    TODO - the eventual 'something better than this mess' overhaul should
-           replace these classes with openapi.json derived classes.
-    """
-
-    id: int = field(default=None, kw_only=True)  # primary key
-    name: str
-
-    concrete_type = None
-    """
-    filled out when the concrete types are created, used by
-    ResourceListDescriptor
-    """
-
-    def asdict(self):
-        """
-        Get the json representation.
-        Defaults to using dataclasses.asdict, subclasses may override
-        """
-        return asdict(self)
+from ._base import (
+    BaseRestClient,
+    DataclassBase,
+    Resource,
+    ResourceList,
+    ResourceListDescriptor,
+)
 
 
 @dataclass
@@ -520,8 +51,7 @@ class PhaseBase(DataclassBase):
         return ret
 
     def __post_init__(self):
-        """convert the phase_type to enum element if it make sense to do so"""
-
+        """Convert fields to proper types upon initialization."""
         if self.schedule_id is not None:
             self.schedule_id = int(self.schedule_id)
         if isinstance(self.phase_type, str):
@@ -530,65 +60,8 @@ class PhaseBase(DataclassBase):
             self.duration = datetime.datetime.strptime(self.duration, "%H:%M:%S").time()
 
 
-class ResourceListDescriptor:
-    """
-    Descriptor class for dataclass fields that are resource lists.
-
-    This is necessary since field(default_factory=) takes a zero arg callable
-    and the creation of the ResourceList requires the containing resource to
-    scope the ResourceList properly (through the containing resource's url.
-    """
-
-    type_: DataclassBase = None
-    name: str = None
-    attr: str = None
-
-    def __init__(self, type_: DataclassBase):
-        self.type_ = type_
-
-    def __set_name__(self, owner, name):
-        self.name = name
-        self.attr = f"_{name}"
-
-    def __set__(self, obj, value):
-        setattr(obj, self.attr, value)
-
-    def __get__(self, parent, parent_type=None):
-        """
-        Creates the ResourceList for self.type_ resources for parent.
-        The resource list is set on parent so subsequent accesses do not use
-        this descriptor.
-        """
-        if parent is None:  # class attribute access
-            return None
-
-        if not parent._url:
-            raise ValueError(
-                "subresources require parent to have url" " (has it been created yet?)"
-            )
-
-        resource_list = getattr(parent, self.attr, None)
-        if resource_list is None:
-            if not parent._client:
-                logger.error(f"unable to __get__ {parent=} {self.type_=}")
-                return None
-            resource_list = ResourceList(
-                self.type_.concrete_type,
-                parent._client._client,
-                f"{parent._url}/{self.name[:-1]}" if parent._url else None,
-                parent,
-                (),
-            )
-            setattr(parent, self.attr, resource_list)
-        return resource_list
-
-    def __repr__(self) -> str:
-        return f"ResourceListDescriptor[{self.type_}]"
-
-
 @dataclass
 class ScheduleBase(DataclassBase):
-
     user_id: int
     phases: ResourceList["Phase"] = field(repr=False)
     phases: ResourceList["Phase"] = ResourceListDescriptor(PhaseBase)
@@ -597,53 +70,43 @@ class ScheduleBase(DataclassBase):
         return {"id": self.id, "name": self.name, "user_id": self.user_id}
 
 
-###############################################################################
-
-
 class _Client(BaseRestClient):
     """
-    _ClientFactory creates Clients, as its name implies.
+    Internal client responsible for binding resources dynamically to REST paths.
     """
 
     resource_class_map = {}
 
-    users: ResourceList["Device"]
-    devices: ResourceList["User"]
+    users: ResourceList["User"]
+    devices: ResourceList["Device"]
     schedules: ResourceList["Schedule"]
 
-    # Expose lists of the top level resources so objects can be accessed.
+    # Expose lists of top-level resources dynamically
     for name, base in (
         ("user", UserBase),
         ("device", DeviceBase),
         ("schedule", ScheduleBase),
         ("phase", PhaseBase),
     ):
-        # create the resource class
         url = f"/{name}"
         resource = Resource.new(base, url)
         base.concrete_type = resource
         resource_class_map[name.capitalize()] = resource
 
-        # create a ResourceList
-        # This creates an attribute on class that when accessed creates a new
-        # ResourceList for the resource at the url.
         locals()[f"{name}s"] = property(ResourceList.factory(resource, url))
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
-        # allow resources to be bound to both _Client and Client
         self._client = self
 
 
-# make linters happy (overridden below)
+# Type-hint placeholders exposed at module level
 User: Callable = lambda *_, **__: None
 Device: Callable = lambda *_, **__: None
 Schedule: Callable = lambda *_, **__: None
 Phase: Callable = lambda *_, **__: None
 
-
-# copy these classes to the module from the client
+# Bind dynamically created resource classes to module level exports
 _name, _cls = None, None
 for _name, _cls in _Client.resource_class_map.items():
     locals()[_name] = _cls
@@ -652,9 +115,9 @@ del _name, _cls
 
 class Client:
     """
-    The kiln_controller client interface.
+    The main client interface for the application.
 
-    Client provides a view of the top-level resources as resource lists.
+    Provides high-level access to top-level resource collections.
     """
 
     users: ResourceList
@@ -664,7 +127,6 @@ class Client:
     def __init__(self, *args, **kwargs):
         self._client = _Client(*args, **kwargs)
 
-        # copy the top level ResourceLists from the real client.
         self.users = self._client.users
         self.devices = self._client.devices
         self.schedules = self._client.schedules

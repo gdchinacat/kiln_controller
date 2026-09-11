@@ -19,7 +19,7 @@ from kiln_controller.client import (
     Phase,
     NotFoundException,
 )
-from kiln_controller.client.client import DEFAULT_TIMEOUT, ClientException
+from kiln_controller.client._base import DEFAULT_TIMEOUT, ClientException
 from kiln_controller.common.enums import PhaseType
 
 from ._fixtures import (

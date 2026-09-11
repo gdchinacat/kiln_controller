@@ -18,6 +18,10 @@ TODO - package this as a separate library that has no kiln_controller specific
 """
 
 from ..common.validators import ValidationErrors, ValidationError
+from ._base import (
+    ClientException,
+    NotFoundException,
+)
 from .client import (
     Client,
     User,
@@ -25,8 +29,6 @@ from .client import (
     Schedule,
     Phase,
     PhaseType,
-    ClientException,
-    NotFoundException,
 )
 
 __all__ = [

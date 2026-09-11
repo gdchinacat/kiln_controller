@@ -190,7 +190,7 @@ class MockService(Resource):
         @conditional_requests_mock to permit tests to execute against a live
         service.
         """
-        with patch("kiln_controller.client.client.requests", new=self):
+        with patch("kiln_controller.client._base.requests", new=self):
             self.calls = []  # only track calls in this with block
             yield self
 

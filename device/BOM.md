@@ -55,6 +55,7 @@ This is a very rough work in progress:
 # Thermocouple
 	- K type thermocouple (maybe other types but haven't looked into it)
 	- TL431: diode temperature constant current source
+	- 1n4148 temperature sense diode
 	- bjt: pass transistor for constant current?
 	- LM358: thermocouple amplifier circuit (something else?)
 	- BAS70-04: $0.16 clamp TC pin to gnd and 3.4v

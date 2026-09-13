@@ -1,346 +1,469 @@
-# Automated Kiln Controller System Design
+# Automated Kiln Controller — System Design
 
-This repository specifies the architecture, hardware layout, and binary application-layer protocol for a zero-allocation, hardware-agnostic kiln controller. The design pairs an edge-based microcontroller with a central management service.
+## 1. Purpose and Design Goals
 
-## Protocol & Architecture Notes
+This document defines the architecture, hardware interfaces, firmware behavior, safety model, crash-recovery strategy, and binary application-layer protocol for a zero-allocation, hardware-agnostic kiln controller. The system pairs an autonomous edge microcontroller with a central management service.
 
-* **Protocol Serialization:** All multi-byte integers and floating-point representations exchanged over the wire use **Network Byte Order (Big-Endian)**. Hardware platforms (such as little-endian ESP32 or ARM chips) must convert multi-byte values using standard conversion routines (`htonl`, `htons`, `ntohl`, `ntohs`) or explicit byte-shifting functions.
-* **Explicit Packing & Layout:** Network frames follow standard fixed offsets to eliminate compiler-specific structure padding/alignment variations. Dynamic alignment negotiation during device registration is unneeded.
+The design prioritizes:
 
-## 1. System Architecture Overview
+- **Operational safety:** Hardware interlocks and edge firmware can override network commands.
+- **Edge autonomy:** A firing profile continues locally when the network is unavailable.
+- **Network resilience:** Telemetry is buffered during outages and uploaded when connectivity returns.
+- **Deterministic resource use:** Networking buffers, schedules, and runtime data are statically allocated.
+- **Hardware abstraction:** Logical MCU interfaces are defined independently of a particular pinout or bus implementation.
 
-The system uses a **Hybrid Smart Client** design pattern to optimize for **operational safety, edge autonomy, and network resilience**.
+## 2. System Architecture
 
-```
-                                CENTRAL CLOUD / SERVER
-                               +-----------------------+
+The controller uses a **Hybrid Smart Client** architecture. The microcontroller owns real-time firing execution and safety decisions; the management service provides scheduling, telemetry storage, monitoring, and remote control.
 
-                               |  Management Service   |
-                               +-----------+-----------+
-                                           ^
-                                           | HTTP PUT /v1/devices/{device_id}/telemetry
-                                           | (Every X Seconds)
-                                           v
-                               +-----------+-----------+
-
-                               |   Microcontroller     |
-                               +-----+-----------+-----+
-
-                                     |           |
-                                     |           | 
-                                     v           v
-                        +------------+---+   +---+------------+
-
-                        | Power Circuits |   | Sensors & I/O  |
-                        | (SSR + Safety) |   | (Thermocouple) |
-                        +----------------+   +----------------+
-                                   LOCAL EDGE HARDWARE
-
-```
-
-### Core Design Rules
-
-* **Edge Autonomy:** The microcontroller maintains complete local ownership of the firing profile. Network dropouts do not interrupt execution. Telemetry data captured during outages is cached locally in a static ring buffer and uploaded once connectivity is restored.
-
-* **Device-Driven Transactions:** The microcontroller exclusively initiates all communication using standard HTTP POST and PUT operations. Server-side adjustments (e.g., Pausing, Canceling, or modifying schedules) are returned in the response payload of the device's periodic heartbeats.
-
-* **Zero Dynamic Memory Allocation:** To prevent heap fragmentation during long firings, all networking buffers, data structures, and schedules are statically allocated at compilation or initialization.
-
-## 2. Hardware Architecture & Interfaces
-
-The kiln edge device requires specific physical interfaces and components to ensure reliable control and multiple layers of hardware protection.
-
-| Component | Interface | Specifications & Operational Role |
-| :--- | :--- | :--- |
-| **Microcontroller** | Onboard Wi-Fi | Requires internal non-volatile EEPROM and an integrated hardware Watchdog Timer (WDT) (e.g., Arduino Nano 33 IoT, Nano ESP32). |
-| **Thermocouple** | Sensor Interface | High-temperature Type K or S thermocouple probe and microcontroller interface. |
-| **Solid State Relay (SSR)** | Digital Output | Modulates main line power to heating elements using time-proportional PID control. Must be mounted to a heavy-duty heatsink. |
-| **Safety Contactor** | Digital Output | A mechanical magnetic contactor wired in series *before* the SSR. Provides an independent physical power disconnect if an SSR fails closed. |
-| **Door Limit Switch** | Digital Input | High-temperature mechanical switch or industrial reed relay to detect when the kiln lid or door is open. |
-| **Reset button** | Digital Input | A physical push-button to manually force factory reset and provisioning mode. |
-| **SSR Feedback Monitor** | Digital Input | Wired through an optoisolated circuit to monitor actual line voltage state downstream of the SSR to confirm physical execution state. |
-| **Fault Indicator** | Digital Output | Drives a physical warning system (e.g., a 5V/12V piezo buzzer, klaxon, or strobe light) during system faults. |
-| **Completion Indicator** | Digital Output | Drives a physical alert system (e.g., a 5V/12V piezo buzzer, or jewel light) when firing completes. |
-
-### Hardware Input/Output Logical Interfaces
-
-This section documents the functional interfaces required between the microcontroller and the kiln hardware components. Specific physical implementations (such as SPI, I2C, or direct GPIO pins) are intentionally abstracted and left up to specific hardware platform implementations:
-
-* **Thermocouple Interface (Input):** Reads temperature values from the thermocouple amplifier circuit (e.g., via SPI, I2C, or analog conversion).
-
-* **Door Switch Interface (Input):** Edge-triggered interrupt input connected to the door/lid limit switch to immediately register physical safety door transitions. (While continuous polling can serve as a fallback, edge-triggered monitoring is strongly recommended). 
-
-* **Initialization Button Interface (Input):** Edge-triggered interrupt line for user-initiated resets. When pressed for less than 5 seconds, it triggers a soft system reboot. When held for longer than 5 seconds, it clears all network credentials and persistent settings from EEPROM, forcing the device to enter provisioning mode upon reboot.
-
-* **SSR Feedback Monitor Interface (Input):** Listens to optoisolated line status voltage downstream of the SSR to verify hardware response against firmware control signals. When optional pulse-modulated SSR driving is utilized, this interface can also be audited exclusively during active firing operations to measure on-time pulse durations. Use edge triggering rise/fall to have accurate counts. Duty cycle is calculated from this.
-
-* **SSR Drive Interface (Output):** Actuates the Solid State Relay using time-proportional PID control. Standard implementations utilize direct digital logic control (`HIGH`/`LOW`). Optionally, custom hardware implementations may choose to drive this interface using continuous high-frequency pulse trains as an additional layer of hardware safety, ensuring heating elements collapse to an off state if the processor locks up.
-
-* **Safety Contactor Interface (Output):** High-reliability line driving the magnetic safety contactor coil. Must remain active (`HIGH`) during operational firing and permanently drop to `LOW` when structural limits are violated.
-
-* **Completion Indicator Interface (Output):** Toggles a physical visual or audio indicator signaling that a firing operation has finalized. This indicator remains persistently active following completion until a new firing sequence is initiated.
-
-* **Fault Indicator Interface (Output):** Activates physical notification structures (light/horn) when an unrecoverable system boundary error presents itself.
-
-## 3. Communication Protocol & Network Byte Order Framework
-
-To maximize parsing efficiency and guarantee zero allocation, all data exchanges use binary streams formatted in **Network Byte Order (Big-Endian)** with standardized byte alignments.
-
-* **Byte Ordering:** All multi-byte values (`uint16_t`, `uint32_t`, `float` encoded as IEEE 754 binary32) are sent in Network Byte Order (Big-Endian).
-* **Content-Type:** All requests and responses use `application/octet-stream`.
-
-### 3.1 Fixed Frame Header (8 Bytes)
-
-Every network packet sent or received begins with this 8-byte header block:
-
-```
-+-------------------+-------------------+-------------------+-------------------+
-|  Magic Byte (1B)  |   Msg Type (1B)   |  Payload Len (2B) |  Server Time (4B) |
-+-------------------+-------------------+-------------------+-------------------+
+```text
+                         CENTRAL CLOUD / SERVER
+                        +-----------------------+
+                        |   Management Service  |
+                        +-----------+-----------+
+                                    ^
+                                    | HTTP POST / PUT
+                                    | Telemetry + control
+                                    v
+                        +-----------+-----------+
+                        |     Microcontroller   |
+                        +-----+-----------+-----+
+                              |           |
+                              v           v
+                    +---------+--+   +---+-------------+
+                    | Power /    |   | Sensors & I/O    |
+                    | Safety     |   | Thermocouple     |
+                    | Circuits   |   | Door / Feedback  |
+                    +------------+   +------------------+
+                         LOCAL EDGE HARDWARE
 ```
 
-* **Magic Byte (`0xAA`)**: Validates packet legitimacy.
-* **Message Type (1B)**: Identifies the binary payload structure.
-* **Payload Length (2B)**: Unsigned 16-bit Big-Endian integer defining the byte length of the trailing payload.
-* **Server Time (4B)**: Unsigned 32-bit Big-Endian Unix Epoch timestamp. Sent in both directions for timestamp synchronization and device recovery checking.
+### 2.1 Core Design Rules
 
-### 3.2 Network Payload Schemas
+**Edge autonomy.** The microcontroller maintains local ownership of the active firing profile. Network loss does not interrupt execution. Telemetry captured while disconnected is stored in a static RAM ring buffer and uploaded after connectivity is restored.
 
-#### Phase Structure (`Phase`) - 10 Bytes total per entry
+**Device-driven communication.** The device initiates all HTTP communication. Registration uses `POST`; telemetry/heartbeat updates use `PUT`. Server-side actions such as start, pause, cancel, or schedule updates are returned in the response to a device-initiated telemetry request.
 
+**Zero dynamic allocation.** The firmware does not rely on runtime heap allocation during operation. Network buffers, schedule storage, state, and telemetry buffers are statically allocated at initialization or compile time.
+
+**Fixed binary layouts.** Network frames use explicit offsets and sizes rather than compiler-dependent structure layout. All multi-byte numeric values use Network Byte Order (Big-Endian).
+
+## 3. Hardware Architecture
+
+The edge controller consists of a microcontroller, temperature sensing, heating control, independent safety isolation, physical controls, feedback monitoring, and fault/completion indicators.
+
+| Component | Logical Interface | Role / Requirements |
+|---|---|---|
+| Microcontroller | Wi-Fi + digital/analog I/O | Integrated Wi-Fi, non-volatile storage, and hardware WDT. Example platforms include Arduino Nano 33 IoT and Nano ESP32. |
+| Thermocouple | Sensor input | High-temperature Type K or S probe with local signal conditioning. |
+| SSR | Digital output | Time-proportional heating control driven by local PID. Requires appropriate heatsinking. |
+| Safety contactor | Digital/relay output | Mechanical disconnect in series with the SSR. Provides independent isolation if the SSR fails closed. |
+| Door limit switch | Digital input + hardwired interlock | Detects an open kiln door/lid and physically removes heating power independently of firmware. |
+| Initialization/reset button | Digital input | Short press reboots; long press clears credentials/persistent provisioning state. |
+| SSR feedback monitor | Digital input | Optoisolated measurement of line state downstream of the SSR. Used to detect mismatch between commanded and actual power state. |
+| Fault indicator | Digital output | Drives a physical alarm such as a buzzer, klaxon, or strobe. |
+| Completion indicator | Digital output | Drives a persistent visual or audio completion indication until a new firing begins. |
+
+### 3.1 Logical MCU Interfaces
+
+The following are functional interfaces; physical implementation may use GPIO, SPI, I2C, ADC, or other platform-specific mechanisms.
+
+- **Thermocouple input:** Reads the conditioned temperature signal.
+- **Door input:** Prefer edge-triggered detection for immediate state changes; polling may be retained as a fallback.
+- **Initialization button:** A press shorter than 5 seconds causes a soft reboot. A press of 5 seconds or longer clears network credentials and persistent settings and enters provisioning mode on reboot.
+- **SSR feedback input:** Uses an optoisolated line-state signal. When pulse-modulated drive is used, rising/falling edges may be counted during firing to determine actual on-time and duty cycle.
+- **SSR drive output:** Normally uses time-proportional PID control with digital on/off logic. A pulse-train heartbeat is an optional fail-safe enhancement.
+- **Safety contactor output:** Enables the contactor during permitted firing and drops it whenever a safety boundary is violated.
+- **Completion indicator:** Remains active after a firing completes until a new firing is initiated.
+- **Fault indicator:** Activates for unrecoverable system faults.
+
+### 3.2 Power Distribution
+
+The design defines three primary electrical domains:
+
+- **240 VAC heating circuit:** L1 and L2 pass through the 2-pole normally-open safety contactor and SSR before reaching the heating elements. Neutral is reserved for the low-voltage supply electronics as specified by the existing design.
+- **12 VDC auxiliary rail:** Supplied by an SMPS and used for relay coils, alarms, indicator lamps, and related circuitry.
+- **3.3 V logic rail:** Generated from the auxiliary rail for the microcontroller and low-voltage ICs.
+- **Voltage protection rails:** TL431/BJT-regulated low (~0.3 V) and high (~3.0 V) clamp references are used with low-forward-voltage Schottky diodes to bound MCU input signals within the intended input protection range.
+
+### 3.3 Hardwired Safety Interlock
+
+Heating power must not depend solely on MCU execution.
+
+The safety contactor coil is energized through a series safety chain containing:
+
+1. The physical door interlock relay.
+2. The MCU-controlled hardware enable relay.
+3. The safety contactor coil.
+
+Opening the kiln door immediately opens the door relay and de-energizes the contactor, physically isolating the heating elements regardless of firmware state. The door signal is also connected to an MCU input for monitoring and telemetry.
+
+## 4. Temperature Measurement
+
+### 4.1 Thermocouple Signal Conditioning
+
+The current design calls for a low-cost, control-board-integrated thermocouple amplifier rather than a dedicated thermocouple interface IC. The intended circuit uses an LM358-class op-amp, cold-junction compensation (CJC), filtering, and ADC protection.
+
+The signal path is:
+
+1. A TL431 and BJT create a stable reference/current source.
+2. A diode at the thermocouple terminal provides a temperature-dependent voltage for CJC.
+3. The thermocouple and CJC signals are combined and amplified by an LM358-based circuit.
+4. RC filtering reduces AC line noise.
+5. A clamp limits the final ADC signal to 3.3 V.
+
+The target implementation described in the hardware notes is approximately **250× amplification** with a **0–3.3 V output over a 0–1300 °C span**.
+
+### 4.2 ADC and Noise Handling
+
+The design expects the MCU to oversample and average the analog signal to reduce noise. A 10-bit ADC can provide a resolution of less than approximately 2 °C over the intended range, while a 12-bit ADC provides 0.32v resolution
+
+### 4.3 Open Design Questions
+
+These items remain implementation decisions rather than settled requirements:
+
+- 
+
+## 5. Heating Control and Feedback
+
+### 5.1 SSR Drive
+
+The MCU controls the SSR using time-proportional PID output. The preferred logical interface is digital on/off control over a suitable time window.
+
+An optional high-frequency pulse-train heartbeat may be used instead. With this arrangement, loss of firmware execution causes the drive signal to collapse to the inactive state before the hardware WDT necessarily completes a reboot.
+
+### 5.2 SSR Feedback Isolation
+
+A separate AC optocoupler monitors line voltage downstream of the SSR.
+
+The controller compares commanded SSR state with measured line state. If power remains present after an off command, an SSR fault is declared and the safety contactor is dropped. During optional pulse-train operation, feedback edges can also be used to calculate actual duty cycle.
+
+## 6. Firmware Architecture
+
+The firmware uses an asynchronous, cooperative finite-state machine (FSM) with a non-blocking main loop.
+
+### 6.1 Memory Model
+
+```text
++------------------------------------------------------------------+
+|                    MICROCONTROLLER MEMORY                        |
++------------------------------------------------------------------+
+| NON-VOLATILE STORAGE                                             |
+|  - Device/server identity                                        |
+|  - Encrypted Wi-Fi credentials                                   |
+|  - Core state flags                                              |
+|  - Active schedule                                               |
++------------------------------------------------------------------+
+| STATIC RAM                                                       |
+|  - Working state                                                 |
+|  - Network TX/RX buffers                                         |
+|  - Offline telemetry ring buffer                                 |
++------------------------------------------------------------------+
 ```
+
+The active schedule is stored in non-volatile memory so a firing can survive a power interruption.
+
+Offline telemetry is stored in a fixed-size circular RAM buffer. When full, the oldest entries are overwritten.
+
+### 6.2 State Machine
+
+#### `INITIAL_SYNC`
+
+Initializes hardware, validates sensor interfaces, loads persistent state, and initializes networking. If the persistent active-firing flag is set, transition to `RECOVERY_EVAL`; otherwise transition to `IDLE`.
+
+#### `IDLE`
+
+All heating outputs are off. Temperature is sampled periodically, and telemetry heartbeats check for server commands or new firing schedules.
+
+#### `RECOVERY_EVAL`
+
+Entered after a reboot during an active firing. Recovery is evaluated locally without waiting for the server.
+
+- **Pass:** Re-enable the safety contactor and resume `FIRING`.
+- **Fail:** Transition to `SAFE_SHUTDOWN`.
+
+#### `FIRING`
+
+Interpolates the target temperature along the current phase, runs the PID loop, records duty cycle, samples temperature, and transmits telemetry.
+
+Transition to FIRING occurs in response to CMD_START. The provided schedule is loaded into volatile memory, phase timestamps are calculated, the schedule and active state are written to persistent memory.
+
+#### `DOOR_PAUSE`
+
+Immediately disables the SSR drive and freezes firing-time accumulation. Telemetry continues with the door-open status. Firing can resume after the door returns to the safe state.
+
+#### `SAFE_SHUTDOWN`
+
+De-energizes the safety contactor, disables the SSR, activates the fault indicator, clears the active schedule, and rejects further execution commands. This is a locked state requiring a physical reset/power cycle according to the existing design. Telemetry must indicate the fault that triggered the shutdown (ie SSR output not following command) - TODO add telemetry bit field for various faults that encompases door open status.
+
+## 7. Crash and Power-Loss Recovery
+
+### 7.1 Persistent Milestones
+
+The persistent memory is updated only when a firing starts, ends, or is cancelled.
+
+### 7.2 Local Time is Required
+
+The execution of the firing schedule requires knowing the current time to know where in the schedule (which phase and where in the phase). This can either be provided through a durable RTC that tracks time through loss of power or reset, or by requring successful telemetry respose on initialization. 
+
+### 7.3 Recovery Validation
+
+The current time is acquired, either throgh successful telemetry response or by an on-board durable RTC.
+
+Once time is known the validity of the schedule is determined:
+
+1. **Duration envelope:** If the outage exceeds a configured maximum blackout duration (the source currently gives 1800 seconds as an example), recovery fails.
+2. **Thermal boundary:** The current temperature is compared with the expected profile at the recovered point in time. A deviation beyond the configured permissible delta (the source currently gives -50 °C as an example) causes shutdown.
+
+After connectivity returns, the server may perform deeper analysis using the telemetry gap. If the batch is subsequently judged compromised, the server can issue `CMD_CANCEL` in a telemetry response.
+
+TODO:
+1. what happens if a power loss occurs near the end of a ramp up that is followed by a ramp down such that the thermal boundary appears to not be violated but the peak temperate was never reached? Lots of edge cases in this vein.
+
+## 8. Safety Architecture
+
+Safety behavior is implemented at the edge and does not depend on server availability.
+
+### 8.1 Safety Priorities
+
+The controller must be able to remove heating power through multiple independent mechanisms:
+
+- Physical door interlock.
+- Mechanical safety contactor.
+- SSR command control.
+- SSR feedback monitoring.
+- Thermocouple validity checks.
+- Thermal behavior checks.
+- Firmware watchdog.
+
+### 8.2 SSR Failure Detection
+
+Two complementary checks are used:
+
+**Electrical feedback:** If downstream line voltage remains present when the SSR is commanded off, an SSR failure is inferred.
+
+**Thermal behavior:** If temperature continues rising rapidly while commanded element duty cycle is zero, a stuck-on heating path is inferred. TODO - the 'stuck on heating path' is inferred by the sensor that monitors the actual energization of the elements after the SSR. This check is intended to infer thermocouple circuit failure.
+
+Either condition causes the controller to de-energize the safety contactor and enter `SAFE_SHUTDOWN`.
+
+### 8.3 Thermocouple Failure
+
+If the thermocouple temperature is detected to be implausible (ie it was 20C and the next N samples are 1300C) the circuit is considered to have faulted and SAFE_SHUTDOWN occurs.
+
+### 8.4 Thermal Lag
+
+If the controller is applying approximately 100% element duty cycle while temperature drops or fails to follow the required profile slope, it raises a thermal-lag warning. This detects broken elements, insulation problems, overloaded kiln or inability to execute schedule (ie thermal mass is more than the wattage can change at desired rate). TODO - this should be implemented on both the central server and the device. Device only fails the schedule when it is disconnected for "too much time" and thermal lag leads to the acceptable firing envelope being exceeded, not directly by the lag warnings. LAG warnings should raise a failure indicator to draw attention to a impending failure (so operator has time to adjust the schedule if appropriate).
+
+### 8.5 Watchdog
+
+The hardware WDT is configured for an 2-second window. The main loop services it after each successful non-blocking iteration. A frozen network library or execution loop therefore causes an automatic reboot into `INITIAL_SYNC`.
+
+### 8.6 Physical Reset / Provisioning
+
+A short press of the reset button causes a soft reboot. Holding the button for at least 5 seconds clears network credentials and the persistent device identity/state and returns the device to provisioning mode.
+
+## 9. Network Protocol
+
+### 9.1 Transport
+
+`{path_base}` is the location on the server the API that is being used is. It is specified during device registration. It may contain a version number, customer identifier, etc...it has no meaning to the device and is simply a path prefix.
+
+- *Device initiates all requests*: This simplifies network configuration when the device and server are not on the same network by not requiring ingress into the device network.
+- *Registration URL*: `POST /{path_base}/devices`
+- *Telemetry URL*: `PUT /{path_base}/devices/{server_assigned_id}/telemetry`
+- *Content type*: `application/octet-stream`
+- *Byte Order*: Network Byte Order (Big-Endian).
+
+### Data Structures
+
+Version of the structures is specified in the Message Header. Fields can only be added, never removed or changed. If a version obsoletes a field a new one is added and that version simply ignores the previous field.
+
+#### `Status Bits`
+
+```c
+typedef struct {
+    // version 0
+    uint16_t door_open    : 1;
+    uint16_t ssr_failure  : 1;
+    uint16_t thermal_lag  : 1;
+    uint16_t reserved     : 13;
+} Status;
+```
+
+#### EEPROM
+
+Internal device datastructures to store the registration information. Never sent over wire. It has no version because it is specific to the firmware.
+
+```c
+// Wifi connection details (stored in EEPROM during registration)
+typedef struct {
+    char[64] ssid;      # todo what is max ssid length
+    char[64] password;  # todo what is mas password length
+} _Wifi;
+```
+
+```c
+// Server registration details (stored in EEPROM during device registration)
+typedef struct {
+    char[64] server_url; // protocol, host, port (ie 'https://server:5000'), null terminated
+    char[64] path_base;  // path prefix on server (ie 'v1/customer_id/'), null terminated
+    uint32_t device_id;  // the id the server assigned during registration, used to build urls
+} _Registration;
+```
+
+```c
+typedef struct {
+    _Wifi wifi;
+    _Registration registration;
+} _Eeprom;
+```
+
+#### Message Header
+
+Every binary packet begins with an 8-byte header:
+
+```c
+typedef struct {
+    // version 0
+    uint8_t  version;        // protocol version
+    uint8_t  msg_type;       //
+    uint16_t payload_length; // includes header length
+    uint32_t current_time;   // unix epoch time, what the sender thinks the time is
+} Header;
+```
+
+#### `Phase`
+
+```c
 struct Phase {
-    uint16_t unique_phase_id; // (2B) Server-assigned global identifier (Big-Endian)
-    float target_temp;        // (4B) Target temperature (°C) at phase end (IEEE 754 float, Big-Endian)
-    uint32_t duration_sec;    // (4B) Relative duration of phase in seconds (Big-Endian)
+    // version 0
+    uint16_t phase_id;     // 2B, server-assigned global identifier
+    uint16_t target_temp;  // 4B, °C at phase end, IEEE-754 binary32
+    uint32_t duration_sec; // 4B, relative phase duration
 };
 ```
 
-#### Time Series Metric Point (`TimeSeriesPoint`) - 13 Bytes total per entry
+#### `TimeSeriesPoint`
 
-```
+```c
 struct TimeSeriesPoint {
-    uint32_t epoch_timestamp;   // (4B) Unix epoch timestamp for this measurement (Big-Endian)
-    float current_temperature;  // (4B) Thermocouple sensor reading (IEEE 754 float, Big-Endian)
-    float current_target_temp;  // (4B) Interpolated target temperature (IEEE 754 float, Big-Endian)
-    uint8_t element_duty_cycle; // (1B) Relay active ratio (0-100%)
+    uint32_t epoch_timestamp;     // 4B, Unix epoch timestamp
+    uint16_t current_temperature; // 4B, measured temperature
+    uint16_t current_target_temp; // 4B, interpolated target
+    uint8_t  element_duty_cycle;  // 1B, 0–100 (%)
+    Status   system_status;       // 2B, bitfield for hardware status
 };
 ```
 
-#### Message Type `0x01`: Device Registration Request
+### 9.4 Message Types
 
-* **Direction:** Device → Server
-* **Endpoint:** `POST /v1/devices`
+#### `0x01` — Device Registration Request
 
-```
+**Direction:** Device → Server  
+**Endpoint:** `POST /devices`
+
+```c
 struct RegistrationPayload {
-    uint16_t max_phases;        // (2B) Maximum phase slots allocatable in device EEPROM (Big-Endian)
+    uint16_t max_phases; // Maximum phase slots available in persistent storage
 };
 ```
 
-#### Message Type `0x02`: Device Registration Acknowledgment
+#### `0x02` — Device Registration Acknowledgment
 
-* **Direction:** Server → Device
-* **Response to:** `POST /v1/devices`
+**Direction:** Server → Device  
+**Response to:** `POST /devices`
 
-```
+```c
 struct RegistrationAck {
-    uint32_t server_assigned_id;     // (4B) Server ID assigned to the device (Big-Endian)
-    uint16_t telemetry_interval_sec; // (2B) Pulse frequency for heartbeat updates in seconds (Big-Endian)
+    uint32_t server_assigned_id;     // Server-assigned device ID
+    uint16_t telemetry_interval_sec; // Heartbeat interval
 };
 ```
 
-#### Message Type `0x03`: Telemetry Pulse Update
+#### `0x03` — Telemetry Pulse Update
 
-* **Direction:** Device → Server
-* **Endpoint:** `PUT /v1/devices/{server_assigned_id}/telemetry`
+**Direction:** Device → Server  
+**Endpoint:** `PUT /devices/{server_assigned_id}/telemetry`
 
-```
+```c
 struct TelemetryPayload {
-    uint16_t current_phase_id;   // (2B) Active global phase ID (Big-Endian)
-    uint8_t status_flags;        // (1B) Bitfield: Bit 0=Door Open, Bit 1=SSR Fault, Bit 2=Hardware Err
-    uint8_t reserved;            // (1B) Padding alignment
-    uint16_t point_count;        // (2B) Number of TimeSeriesPoints following in stream (Big-Endian)
-    // TimeSeriesPoint data_points[point_count]; // Appended consecutively (13 bytes each)
+    uint16_t current_phase_id;
+    uint8_t  status_flags;
+    uint8_t  reserved;
+    uint16_t point_count;
+    // TimeSeriesPoint data_points[point_count];
 };
 ```
 
-#### Message Type `0x04`: Telemetry Server Control Response
+`status_flags` currently defines:
 
-* **Direction:** Server → Device
-* **Response to:** `PUT /v1/devices/{id}/telemetry`
+- Bit 0: Door open
+- Bit 1: SSR fault
+- Bit 2: Hardware error
 
-```
+#### `0x04` — Telemetry Server Control Response
+
+**Direction:** Server → Device  
+**Response to:** `PUT /devices/{id}/telemetry`
+
+```c
 enum ServerControlCommand : uint8_t {
-    CMD_NO_OP    = 0x00, // Maintain current execution state
-    CMD_START    = 0x01, // Begin executing the appended schedule payload stored directly to EEPROM
-    CMD_PAUSE    = 0x02, // Hold current temperature safely and freeze schedule timers
-    CMD_CANCEL   = 0x03  // Terminate active operations and cut element power safely
+    CMD_NO_OP = 0x00,
+    CMD_START = 0x01,
+    CMD_PAUSE = 0x02,
+    CMD_CANCEL = 0x03
 };
 
 struct TelemetryResponse {
-    uint8_t control_command;      // (1B) Maps to ServerControlCommand enum
-    uint8_t schedule_version;     // (1B) Incremented if user altered active schedules
-    uint8_t has_schedule_update;  // (1B) 1 = Schedule data appended to frame, 0 = No update
-    uint8_t phase_count;          // (1B) Number of Phase entries appended to frame
-    // Phase phases[phase_count]; // Appended consecutively (10 bytes each) if has_schedule_update == 1
+    uint8_t control_command;
+    uint8_t schedule_version;
+    uint8_t has_schedule_update;
+    uint8_t phase_count;
+    // Phase phases[phase_count];
 };
 ```
 
-## 4. Firmware Structure & Memory Allocation
+`CMD_START` begins execution of the schedule stored in persistent memory. `CMD_PAUSE` freezes schedule timing while maintaining a safe hold state. `CMD_CANCEL` terminates the active operation and removes heating power.
 
-The microcontroller segments memory into distinct volatile and non-volatile boundaries to protect components and enforce a deterministic memory layout.
+## 10. Hardware Implementation Notes
 
-```
-+--------------------------------------------------------------------------+
-|                        MICROCONTROLLER MEMORY SYSTEM                     |
-+--------------------------------------------------------------------------+
-| [EEPROM: Persistent Layout]                                              |
-|  - Saved Device ID & Encrypted Local Network Wi-Fi Credentials           |
-|  - System Core State Tracking Flags (Idle, Active Firing, Paused)        |
-|  - The Active Schedule Array & Progress Records (Phase ID + Start Epoch) |
-+--------------------------------------------------------------------------+
-| [RAM: Static Unallocated Boundaries]                                     |
-|  - Working copy of EEPROM state (to avoid unnecessary reads)             |
-|  - Network Stream Transmit/Receive Page Buffers                          |
-|  - Offline Ring Buffer Space (Consumes all leftover heap boundaries)     |
-+--------------------------------------------------------------------------+
-```
+### 10.1 MCU
 
-### Memory Strategies
+The MCU section remains platform-agnostic. Required capabilities are:
 
-* **Active Firing Array (EEPROM):** Firing schedules are saved directly to EEPROM. If a schedule update frame exceeds the size of the device's temporary network buffer, the firmware streams and writes individual `Phase` structures sequentially from the socket into EEPROM.
+- Wi-Fi networking.
+- Non-volatile storage suitable for persistent state/schedule data.
+- Hardware watchdog.
+- Required digital inputs/outputs.
+- ADC capability appropriate for the thermocouple signal.
 
-* **Offline Storage Ring Buffer (RAM):** Disconnected metrics are tracked in volatile RAM. This array uses all remaining heap space after initialization. It uses standard indices to act as a circular array. When the buffer is full, it overwrites the oldest entries.
+The source document currently lists Arduino Nano 33 IoT and Nano ESP32 as example platforms; the final MCU selection remains TBD.
 
-## 5. Local State Machine & Autonomous Crash Recovery
+### 10.2 Protection and Isolation
 
-The controller runs an asynchronous, cooperative Finite State Machine (FSM) inside a non-blocking execution loop. It tracks scheduling and timing using local clocks and `millis()` tickers.
+- MCU/SSR control should be optoisolated.
+- AC line feedback should be optoisolated.
+- ADC inputs require defined voltage clamping.
+- The safety contactor must provide physical isolation independently of SSR behavior.
+- Door interlock operation must remove heating power without relying on software.
 
-### FSM State Definitions
+## 11. Open Decisions / TBD
 
-#### INITIAL_SYNC
+The following items should be resolved before implementation is considered complete:
 
-Initializes hardware interfaces, checks sensor interfaces, reads saved parameters from EEPROM, and mounts the network stack. If the EEPROM active flag is set, the device transitions to `RECOVERY_EVAL`. If it is unset, the device enters `IDLE`.
+- Final MCU/platform selection and exact non-volatile storage technology.
+- Exact thermocouple amplifier schematic and component values.
+- Final CJC sensor type and physical location.
+- ADC calibration and temperature conversion procedure.
+- Final contactor/relay safety-chain implementation and ratings.
+- Exact blackout-duration and thermal-deviation recovery limits.
+- Whether the optional SSR heartbeat is required or remains an enhancement.
+- Final network authentication/security mechanism; the current protocol section defines serialization and endpoints but does not specify authentication or encryption.
+- Exact schedule-size limits and persistent-memory layout.
+- Telemetry retry/acknowledgment semantics and behavior when the RAM telemetry buffer overflows.
 
-#### IDLE
+## 12. Design Summary
 
-Locks all element drive lines off. Queries the temperature every 5 seconds and issues low-overhead `PUT` telemetry heartbeats to check for new firing profiles.
+The controller is intentionally divided into two trust domains. The **edge controller is authoritative for immediate physical safety and firing execution**, while the **central service is authoritative for management, scheduling, telemetry, and higher-level analysis**.
 
-#### RECOVERY_EVAL (Autonomous Local Recovery)
-
-Runs immediately if a power interruption occurs during an active firing. The device evaluates the current temperature and timeline status without relying on server connection:
-
-* **Pass:** If the system parameters clear the local envelope validation checks, the device sets the safety contactor high, returns to `FIRING`, and continues executing the local schedule.
-
-* **Fail:** If conditions fall outside acceptable parameters, the device transitions to `SAFE_SHUTDOWN` to prevent thermal shock to the ware.
-
-#### FIRING
-
-Interpolates real-time targets along the current phase slope, updates the local PID loops, tracks duty cycle calculations, and updates the server. To protect the EEPROM, **writes only occur when moving to a new phase index**, saving the `current_phase_id` and the local calculated phase start epoch to guide the recovery sequence if a crash happens.
-
-#### DOOR_PAUSE
-
-Instantly cuts power to the SSR drive pin to protect operators. Freezes the schedule timeline accumulation clocks. Continues to stream status frames to the server with the door open flag active. Returns to `FIRING` once the limit switch opens the circuit.
-
-#### SAFE_SHUTDOWN
-
-De-energizes the primary safety contactor and drops all SSR pins. Activates the physical alarm line. Clears active schedules and blocks incoming network execution commands. This is a locked state that requires a physical power cycle or button reset to clear.
-
-### Time Synchronization & Crash Recovery Architecture
-
-#### Chronological Serialization & EEPROM Wear Management
-
-To prevent catastrophic EEPROM layout decay while remaining entirely standalone during crashes, the firmware uses a **Milestone Generation Design Pattern**:
-
-1. When a new phase becomes active or gets modified, the firmware reads the synchronized epoch time.
-
-2. It adds the step's relative `duration_sec` to the current epoch time to compute a fixed future milestone: `phase_end_epoch = current_epoch + duration_sec`.
-
-3. The `current_phase_id` and `phase_start_epoch` are committed to EEPROM in a single transaction.
-
-4. **Zero continuous clock updates are written to EEPROM during active execution.** The firmware tracks intra-phase progress dynamically using its volatile internal hardware timers.
-
-#### Crash Recovery Requirements: Real-Time Clock (RTC) vs Server Dependency
-
-To balance absolute standalone execution resilience with minimal bills of materials, the firmware design mandates a **Hardware Real-Time Clock (RTC)** backed by a small lithium cell or supercapacitor.
-
-If the device reboots from a sudden power drop mid-firing, **it must not stall waiting for a server connection to synchronize time**. A network drop could easily match a localized power failure. By reading the local hardware RTC immediately upon entering `RECOVERY_EVAL`, the device extracts a trustworthy current epoch time. It evaluates the crash window length by calculating: `elapsed_seconds = current_rtc_epoch - saved_phase_start_epoch`.
-
-#### Validation of Thermal and Contextual Recovery State
-
-A prolonged system failure could thermal-shock delicate ceramics or ruin glazes if high-voltage heating is blindly resumed after a massive delay. To address this, the firmware enforces a localized dual-stage validation gate:
-
-1. **Duration Envelope Validation:** The firmware maps a maximum blackout duration threshold (e.g., 1800 seconds). If `elapsed_seconds` exceeds this parameter, execution fails directly to `SAFE_SHUTDOWN`.
-
-2. **Thermal Boundary Tracking:** The firmware samples the current thermocouple temperature and references it against the target slope curve calculated for this exact point in time. If the actual temperature has dropped below a maximum permissible delta (e.g., -50°C from target), the profile is compromised, forcing a transition to `SAFE_SHUTDOWN`.
-
-Once communication is re-established with the central backend, the server can run deeper historical analytics on the uploaded time-series gaps. If the server decides the deviation compromised the batch despite edge validation passing, it issues an explicit `CMD_CANCEL` veto payload inside the telemetry HTTP response to override the edge device and shut down operations.
-
-## 6. Safety Guardrails & Local Override Controls
-
-The controller features hardcoded, edge-level safety routines that override server instructions to ensure safe operation.
-
-### SSR Failure & Short-Circuit Identification
-
-Solid State Relays typically fail closed (stuck in a permanently conductive state). To mitigate catastrophic runaway heat conditions, the controller uses dual-layered structural validation:
-
-* **Thermal Differential Analysis:** If the thermocouple indicates that temperatures are rising quickly while the element duty cycle calculation is sitting at 0%, a hardware short is inferred. The controller drops the safety contactor immediately to kill primary loop isolation lines.
-
-* **Hardware Feedback Loop Validation:** The output line of the SSR is wired to the SSR feedback monitor through an isolated optocoupler circuit. Every time the control loop changes the state of the SSR drive interface, it checks the feedback monitor state. If the line remains energized when commanded off, an SSR fault is flagged. The device triggers `SAFE_SHUTDOWN` and cuts power via the primary safety contactor within milliseconds.
-
-### Safety cutout contactor circuit
-
-The power to the heating elements is provided though a two pole NO contactor to provide various systems a way to disable power to the heating elements. The contactor coil is powered through a series of relays (door open relay, microcontroller element enable relay)
-
-### Door Open Switch
-
-A switch is connected to the door to detect when it is open in order to disable the element heating circuit and notify the microcontroller the door was opened. This switch must cut off power to the elements without relying on the microcontroller. For safety it is a low-voltage (5v like rest of LV control circuitry) switch powered from the 5v power supply. The output is connected to a microcontroller digital input pin for monitoring as well as the coil of a NO relay wired in series with the safety cutout contactor input circuit.
-
-### Thermocouple Open-Circuit Isolation
-
-If a fault byte or an impossible value (`nan`) is received from the sensor interface, the control loop cuts power to both the SSR and safety contactor within a single execution loop.
-
-### Thermal Lag Verification
-
-If the PID loop tracks a 100% continuous element duty cycle but the temperature drops or fails to match the required slope, the controller flags a thermal lag warning to alert the server to a broken element or insulation leak.
-
-### Hardware Watchdog
-
-An integrated hardware Watchdog Timer (WDT) is set to an 8-second window. The device clears the watchdog at the end of each non-blocking loop iteration. If a network library freezes or a runtime loop lock occurs, the system reboots automatically, returning to the `INITIAL_SYNC` safety loop.
-
-### Physical Interface Override
-
-Holding down the physical initialization button for 5 seconds clears all network records, invalidates the `device_id` in EEPROM, and restarts the device into a localized fallback provisioning mode. Pressing it for under 5 seconds soft-reboots the MCU.
-
-### Optional High-Frequency Pulse-Width SSR Heartbeat
-
-As an optional hardware safety enhancement, the SSR drive logic can be designed to require a continuous high-frequency pulse-train heartbeat from the processor rather than simple DC logic toggling. If enabled, any thread lockup or software freeze causes the physical line to collapse to an inactive low state within milliseconds, de-energizing heating elements before the hardware Watchdog Timer triggers a full chip reset.
-
-# Hardware Design Details
-
-## Power supplies
-
-### AC Power
-
-The device will be powered with 240vac with neutral (4 wire).
-
-### DC Power
-
-A 120vac to 12vdc SMPS is used to provide the unregulated voltage.
-
-#### Rails
-	- 12vdc - unregulated for powering microcontroller, clamping rails, switches, and LV relays.
-	- 0.3v low input pin clamp - TL431/BJT regulated 
-	- 3.0v high input pin clamp - TL431/BJT regulated
-
-## Thermocouple Amplifier Circuit
-	- diode for cold junction compensation measurement
-	- LM358 CJC and thermocouple amplifier
-
-Custom built break-out boards or ICs for thermocouple amplifiers are expensive (ish...for what they are and what the micro-controller has built in). Rather than integrating a ~$12.00 part, a thermocouple amplifier circuit will be built on the control board. It will use a rail-to-rail opamp (ie LM358) and will amplify the thermocouple voltage to be 0-5V. All arduinos support at least a 10bit ADC for the analog pins, giving a resolution of less than 2C, which is adequte. Many boards support higher ADC resolutions and should be used (ie ESP32 I'm working with has a 12 bit ADC for 4096 values for 0-1300C is 0.32C).
-
-Noise and cold junction compensation are concerns that the purpose built ICs manage. Noise isn't too big of a concern and can be handled by oversampling and averaging (which is what the ICs I looked at do internally), the CPU should not be cpu constrained and sampling interval can be tailored to what cpu is available. Cold junction compensation measures the temperature of the cold junction to apply an adjustment to the thermocouple voltage before calculating the temperature from it. This is done with a RTD, thermistor, diode (Mr. Carlson has mentioned this being more accurate than a thermistor). It might actually be better to not have this in a dedicated chip on the board but be able to locate it on the actual cold junction (where *is* that for my thermocouple?). Can this be built into the opamp circuit so I don't have to use another pin to measure it and do calculations in CPU?
-
-### circuit description
-A TL431 and BJT are used to create a stable voltage driving a resistor and diode in series to ground. The voltage accross the diode is measured to perform cold junction compensation. A LM358 opamp is used to mix the cold junction temperature with the thermocouple temperature and then to amplify this to micro-controller voltage (3.3v). The opamp is powered by the rail (6v or more) so a clamp is required to ensure the opamp will not exceed the input pin maximum voltage.
+The resulting architecture allows a kiln to continue a valid firing through ordinary network outages while retaining physical and firmware-level mechanisms that can independently remove heating power. Persistent phase milestones and a local RTC provide a basis for autonomous power-loss recovery without continuously writing timing data to non-volatile storage. The binary protocol and fixed memory model provide deterministic behavior suitable for long-running embedded operation.

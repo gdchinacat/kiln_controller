@@ -26,11 +26,13 @@ logger = getLogger("resource/base.py")
 
 security = HTTPBasic()
 
-hack_user = User(name='hack', username='hack')
+hack_user = User(name="hack", username="hack")
+
+
 async def _authenticate_user(
     credentials: HTTPBasicCredentials = Depends(security),
 ) -> User:
-    if credentials.username=='hack' and credentials.password == 'hack':
+    if credentials.username == "hack" and credentials.password == "hack":
         # hack to help with plumbing auth through client and tests, once that
         # works this will be removed and I can then plumb admin user with static
         # password to create a proper user for auth in tests.

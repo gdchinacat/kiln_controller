@@ -74,10 +74,15 @@ def mock_service_fixture(**_) -> MockService:
 
 
 @kwargs.factory
-def client_fixture(mock_service, **_):
+def client_fixture(
+    mock_service: MockService,
+    username: str = "username",
+    password: str = "password",
+    **_,
+) -> _client.Client:
     """fixture that provides a Client"""
     with mock_service.patch():
-        return _client.Client(port=PORT)
+        return _client.Client(username, password, port=PORT)
 
 
 @kwargs.factory

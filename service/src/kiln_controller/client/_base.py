@@ -2,11 +2,11 @@
 Base framework and HTTP infrastructure for the REST client.
 """
 
-import logging
 from abc import ABC
 from dataclasses import dataclass, field, asdict
 from functools import wraps
 from http import HTTPStatus
+import logging
 from typing import SupportsIndex, Dict, Any, TypeVar, Generic
 
 import requests
@@ -313,9 +313,12 @@ class ResourceListDescriptor:
 
 
 class BaseRestClient(ABC):
-    """HTTP driver interface using requests."""
+    """REST resource client framework."""
 
-    def __init__(self, host="localhost", port=5000):
+    def __init__(
+        self, username: str, password: str, host: str = "localhost", port: int = 5000
+    ) -> None:
+        self.auth = (username, password)
         self.url = f"http://{host}:{port}"
 
     @staticmethod
@@ -356,25 +359,25 @@ class BaseRestClient(ABC):
     @format_url
     @trace
     def post(self, url, obj, timeout=DEFAULT_TIMEOUT):
-        return requests.post(url, json=obj.asdict(), timeout=timeout)
+        return requests.post(url, json=obj.asdict(), auth=self.auth, timeout=timeout)
 
     @detect_bad_url
     @format_url
     @_response_handler
     @trace
     def get(self, url, timeout=DEFAULT_TIMEOUT):
-        return requests.get(url, timeout=timeout)
+        return requests.get(url, auth=self.auth, timeout=timeout)
 
     @detect_bad_url
     @format_url
     @_response_handler
     @trace
     def delete(self, url, timeout=DEFAULT_TIMEOUT):
-        return requests.delete(url, timeout=timeout)
+        return requests.delete(url, auth=self.auth, timeout=timeout)
 
     @detect_bad_url
     @format_url
     @_response_handler
     @trace
     def put(self, url, obj, timeout=DEFAULT_TIMEOUT):
-        return requests.put(url, json=obj.asdict(), timeout=timeout)
+        return requests.put(url, json=obj.asdict(), auth=self.auth, timeout=timeout)

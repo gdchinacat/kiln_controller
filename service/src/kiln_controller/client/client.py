@@ -22,8 +22,8 @@ from ._base import (
 @dataclass
 class UserBase(DataclassBase):
     username: str
-    email: str = None
-    phone_number: str = None
+    email: str | None = None
+    phone_number: str | None = None
 
 
 @dataclass
@@ -32,16 +32,16 @@ class DeviceBase(DataclassBase):
     host: str
     port: int
     url: str = "/"
-    description: str = None
+    description: str | None = None
 
 
 @dataclass
 class PhaseBase(DataclassBase):
     ordinal: int
     phase_type: PhaseType
-    duration: datetime.time = None
-    rate: int = None
-    temperature: int = None
+    duration: datetime.time | None = None
+    rate: int | None = None
+    temperature: int | None = None
     schedule_id: int | None = None
 
     def asdict(self) -> Dict:

@@ -61,7 +61,7 @@ class ClientTest(unittest.TestCase):
     @ kwargs["mock_service"] << mock_service_fixture()
     def test_client_init(self, mock_service):
         with mock_service.patch():
-            client = Client()
+            client = Client("username", "password")
         self.assertIsNotNone(client)
 
     @ kwargs["mock_service"] << mock_service_fixture()
@@ -102,7 +102,7 @@ class ClientTest(unittest.TestCase):
 
         # get a new client, make sure it exists there as well
         with mock_service.patch():
-            client = Client(port=PORT)
+            client = Client("username", "password", port=PORT)
             _list = list_getter(client)
 
             self.assertTrue(obj in _list)
@@ -268,7 +268,7 @@ class ClientTest(unittest.TestCase):
         finally:
             pass
 
-    def _test_delete_resource(self, resource, mock_service):
+    def _test_delete_resource(self, resource, client, mock_service):
         """test that Resource.delete() functions"""
         self.assertIsNotNone(resource.id)
 
@@ -280,7 +280,10 @@ class ClientTest(unittest.TestCase):
                 Call(
                     mock_service.delete.__name__,
                     (resource_url,),
-                    {"timeout": DEFAULT_TIMEOUT},
+                    {
+                        "auth": client._client.auth,
+                        "timeout": DEFAULT_TIMEOUT,
+                    },
                     return_=None,
                 )
             ],
@@ -291,30 +294,35 @@ class ClientTest(unittest.TestCase):
     @ kwargs["mock_service"] << mock_service_fixture()
     @ kwargs["client"] << client_fixture()
     @ kwargs["user"] << user_fixture(skip_cleanup=True)
-    def test_delete_user_resource(self, client, user, mock_service, **kwargs):
-        del client
+    def test_delete_user_resource(self, mock_service, client, user, **kwargs):
         with mock_service.patch():
-            return self._test_delete_resource(user, mock_service=mock_service)
+            return self._test_delete_resource(
+                resource=user, client=client, mock_service=mock_service
+            )
 
     @ kwargs["mock_service"] << mock_service_fixture()
     @ kwargs["client"] << client_fixture()
     @ kwargs["user"] << user_fixture()
     @ kwargs["device"] << device_fixture(skip_cleanup=True)
     def test_delete_device_resource(self, client, device, mock_service, **kwargs):
-        del client
         with mock_service.patch():
-            return self._test_delete_resource(device, mock_service=mock_service)
+            return self._test_delete_resource(
+                resource=device, client=client, mock_service=mock_service
+            )
 
     @ kwargs["mock_service"] << mock_service_fixture()
     @ kwargs["client"] << client_fixture()
     @ kwargs["user"] << user_fixture()
     @ kwargs["schedule"] << schedule_fixture(skip_cleanup=True)
     def test_delete_schedule_resource(self, client, schedule, mock_service, **kwargs):
-        del client
         with mock_service.patch():
-            return self._test_delete_resource(schedule, mock_service=mock_service)
+            return self._test_delete_resource(
+                resource=schedule, client=client, mock_service=mock_service
+            )
 
-    def _test_delete_resource_by_list(self, resource_list, resource, mock_service):
+    def _test_delete_resource_by_list(
+        self, resource_list, resource, client, mock_service
+    ):
         """test that Resource.delete() functions"""
 
         with mock_service.patch():
@@ -332,7 +340,10 @@ class ClientTest(unittest.TestCase):
                 Call(
                     mock_service.delete.__name__,
                     (resource_url,),
-                    {"timeout": DEFAULT_TIMEOUT},
+                    {
+                        "auth": client._client.auth,
+                        "timeout": DEFAULT_TIMEOUT,
+                    },
                     return_=None,
                 )
             ],
@@ -347,7 +358,10 @@ class ClientTest(unittest.TestCase):
                 Call(
                     mock_service.get.__name__,
                     (f"{resource._client._client.url}{resource._URL}/",),
-                    {"timeout": DEFAULT_TIMEOUT},
+                    {
+                        "auth": client._client.auth,
+                        "timeout": DEFAULT_TIMEOUT,
+                    },
                     return_=Any,
                 )
             ],
@@ -359,7 +373,7 @@ class ClientTest(unittest.TestCase):
     @ kwargs["user"] << user_fixture()
     def test_delete_user_resource_by_list(self, client, user, mock_service, **kwargs):
         return self._test_delete_resource_by_list(
-            client.users, user, mock_service=mock_service
+            client.users, user, client=client, mock_service=mock_service
         )
 
     @ kwargs["mock_service"] << mock_service_fixture()
@@ -370,7 +384,7 @@ class ClientTest(unittest.TestCase):
         self, client, device, mock_service, **kwargs
     ):
         return self._test_delete_resource_by_list(
-            client.devices, device, mock_service=mock_service
+            client.devices, device, client=client, mock_service=mock_service
         )
 
     @ kwargs["mock_service"] << mock_service_fixture()
@@ -381,7 +395,7 @@ class ClientTest(unittest.TestCase):
         self, client, schedule, mock_service, **kwargs
     ):
         return self._test_delete_resource_by_list(
-            client.schedules, schedule, mock_service=mock_service
+            client.schedules, schedule, client=client, mock_service=mock_service
         )
 
     @ kwargs["mock_service"] << mock_service_fixture()
@@ -439,7 +453,7 @@ class ClientTest(unittest.TestCase):
                 Call(
                     mock_service.get.__name__,
                     (f"{client._client.url}{schedule._url}/phase/",),
-                    {"timeout": DEFAULT_TIMEOUT},
+                    {"auth": client._client.auth, "timeout": DEFAULT_TIMEOUT},
                     return_=[phase.asdict()],
                 )
             ],

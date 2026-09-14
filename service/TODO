@@ -1,0 +1,11 @@
+openapi.json:
+	- create proper *Create, *Read, *Update, *Delete, and *ORM models 
+	- error types are not listed (pydantic.ValidationError is for the requests that take a model, but ValidationError, InternalError, IntegrityError, etc aren't modeled well)
+	- should openapi.json be checked in and updated as part of "build process" so changes to api can show up in commit diffs?
+		- should it be used to generate the client rather than having a dynamically generated client that isn't statically checkable?
+
+Things to check:
+	- does POST fail if resource specifies id
+	- does PUT work properly (currently implemented with session.merge()), ie if resource is {name: ''} will it update only name rather than clobbering other fields?
+	- do responses only include the fields it should or all fields? (look at commented Annotated[..., Field(exclude=True)].
+

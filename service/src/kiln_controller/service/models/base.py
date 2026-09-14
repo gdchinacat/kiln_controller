@@ -9,7 +9,6 @@ from sqlmodel import SQLModel, Field
 
 from .validators import ValidatorMixinBase
 
-
 __all__ = ("Base", "MappedBase")
 
 

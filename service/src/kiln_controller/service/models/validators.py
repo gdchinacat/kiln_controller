@@ -11,6 +11,7 @@ from ...common.enums import PhaseType
 from kiln_controller.common.validators import ValidationErrors, ValidationError
 
 logger = logging.getLogger("kiln_controller.validators")
+__all__ = ("ValidationError",)
 
 
 class ValidatorMixinBase:

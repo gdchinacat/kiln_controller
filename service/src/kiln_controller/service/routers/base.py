@@ -8,15 +8,15 @@ from http import HTTPStatus
 from logging import getLogger
 from typing import Callable, Dict
 
-import fastapi
-from mypy_extensions import KwArg
+from fastapi import Depends, Request, Response, status, HTTPException, APIRouter
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound, IntegrityError
 
-from ..models import Session
+from ...common.validators import ValidationError, ValidationErrors
+from ..models import Session, User, UserORM
 from ..models.base import Base, MappedBase
 from ..models.validators import PhaseType
-from ...common.validators import ValidationError, ValidationErrors
 
 __all__ = []
 
@@ -24,7 +24,25 @@ __all__ = []
 logger = getLogger("resource/base.py")
 
 
-def _lookup(resource_type: type[Base], session: Session, id: int) -> resource_type:
+security = HTTPBasic()
+
+hack_user = User(name='hack', username='hack')
+async def _authenticate_user(
+    credentials: HTTPBasicCredentials = Depends(security),
+) -> User:
+    if credentials.username=='hack' and credentials.password == 'hack':
+        # hack to help with plumbing auth through client and tests, once that
+        # works this will be removed and I can then plumb admin user with static
+        # password to create a proper user for auth in tests.
+        return hack_user
+    with Session() as session:
+        return select(UserORM).where(UserORM.username == credentials.username).one()
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+    )
+
+
+def _lookup[RT: type[Base]](resource_type: RT, session: Session, id: int) -> RT:
     """lookup the resource by id"""
     try:
         query = select(resource_type).filter_by(id=id)
@@ -49,7 +67,7 @@ def _apply_resource_type[**P, R](
 
 def create_router(
     resource_type: type[Base], orm_type: type[MappedBase], url_prefix=""
-) -> fastapi.APIRouter:
+) -> APIRouter:
     """
     Base class for resources (abstract).
 
@@ -61,13 +79,15 @@ def create_router(
     operations for resource_type.
     """
 
-    router = fastapi.APIRouter(
+    router = APIRouter(
         prefix=f"{url_prefix}/{resource_type._URL_PATH}", tags=[resource_type.__name__]
     )
 
     @router.get("/")
     @_apply_resource_type(resource_type=resource_type.__name__)
-    async def _list(request: fastapi.Request) -> list[resource_type]:
+    async def _list(
+        request: Request, user: User = Depends(_authenticate_user)
+    ) -> list[resource_type]:
         """get the list of {resource_type}s"""
         query = select(orm_type)
         if request.path_params:  # schedule_id in '/schedule/{request_id}/phase
@@ -79,13 +99,13 @@ def create_router(
 
     @router.get("/{id}")
     @_apply_resource_type(resource_type=resource_type.__name__)
-    async def _get(id: int, schedule_id=None) -> resource_type:
+    async def _get(id: int, user: User = Depends(_authenticate_user)) -> resource_type:
         """get a {resource_type}"""
         with Session() as session:
             orm = _lookup(orm_type, session, id)
         if not orm:
             return (
-                fastapi.Response(
+                Response(
                     status_code=HTTPStatus.NOT_FOUND,
                     content={
                         "message": f"{resource_model.__name__} with id={id} not found"
@@ -97,7 +117,9 @@ def create_router(
     @router.post("/", status_code=HTTPStatus.CREATED)
     @_apply_resource_type(resource_type=resource_type.__name__)
     async def _create(
-        request: fastapi.Request, resource: resource_type
+        request: Request,
+        resource: resource_type,
+        user: User = Depends(_authenticate_user),
     ) -> resource_type:
         """create a {resource_type}"""
         # set the path parameter values on the resource (ie schedule_id on phase)
@@ -112,7 +134,9 @@ def create_router(
 
     @router.put("/{id}")
     @_apply_resource_type(resource_type=resource_type.__name__)
-    async def _update(id: int, resource: resource_type) -> resource_type:
+    async def _update(
+        id: int, resource: resource_type, user: User = Depends(_authenticate_user)
+    ) -> resource_type:
         """Update the {resource_type}."""
         """
         There is some debate in the REST community as to whether or not clients
@@ -166,11 +190,14 @@ def create_router(
 
     @router.delete(
         "/{id}",
-        status_code=fastapi.status.HTTP_204_NO_CONTENT,
-        response_class=fastapi.Response,
+        status_code=status.HTTP_204_NO_CONTENT,
+        response_class=Response,
     )
     @_apply_resource_type(resource_type=resource_type.__name__)
-    async def _delete(id: int) -> None:
+    async def _delete(
+        id: int,
+        user=Depends(_authenticate_user),
+    ) -> None:
         """delete a {resource_type}"""
         with (session := Session()), session.begin():
             orm = _lookup(orm_type, session, id)

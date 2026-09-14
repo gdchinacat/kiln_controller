@@ -35,6 +35,13 @@ class ClientException(HTTPStatusException):
     input: str
 
 
+class UnauthorizedException(ClientException):
+    """Indicates the client was not authorized to access the resource path (HTTP 401)."""
+
+    def __init__(self, path: str) -> None:
+        super().__init__(ValidationErrors.GENERIC.name, "unauthorized", path)
+
+
 class NotFoundException(ClientException):
     """Indicates the requested resource path was not found (HTTP 404)."""
 
@@ -321,6 +328,8 @@ class BaseRestClient(ABC):
                     return resp.json()
                 case HTTPStatus.NO_CONTENT:
                     return None
+                case HTTPStatus.UNAUTHORIZED:
+                    raise UnauthorizedException(args[0].url)
                 case HTTPStatus.NOT_FOUND:
                     raise NotFoundException(args[0].url)
                 case HTTPStatus.UNPROCESSABLE_ENTITY:

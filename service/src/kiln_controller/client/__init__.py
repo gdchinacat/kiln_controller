@@ -18,10 +18,7 @@ TODO - package this as a separate library that has no kiln_controller specific
 """
 
 from ..common.validators import ValidationErrors, ValidationError
-from ._base import (
-    ClientException,
-    NotFoundException,
-)
+from ._base import ClientException, NotFoundException, UnauthorizedException
 from .client import (
     Client,
     User,
@@ -35,6 +32,7 @@ __all__ = [
     "Client",
     "ClientException",
     "NotFoundException",
+    "UnauthorizedException",
     "ValidationError",
     "ValidationErrors",
     "User",

@@ -5,18 +5,17 @@ Implements the resource model used by the UI and the devices.
 Serves the SPA interface for the service.
 """
 
-from fastapi import FastAPI, Request, status
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse
 import logging
+
+from fastapi import FastAPI, Request, status
+from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 import pydantic
 import sqlalchemy
 
 from .models import db  # initialize the database
-from .routers import users_router, devices_router, schedules_router, phases_router
 from .models.validators import ValidationError
-
-logger = logging.getLogger("kiln_controller.app")
+from .routers import users_router, devices_router, schedules_router, phases_router
 
 # debug
 # logging.basicConfig()
@@ -24,7 +23,10 @@ logger = logging.getLogger("kiln_controller.app")
 # logging.getLogger("kiln_controller.client").setLevel(logging.INFO)
 # end debug
 
+logger = logging.getLogger("kiln_controller.app")
+
 app = FastAPI()
+
 app.frontend("/", directory="./static")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 

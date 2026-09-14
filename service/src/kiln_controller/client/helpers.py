@@ -14,7 +14,7 @@ def noop(*_, **__):
     """function that accepts all args, kwargs and does nothing"""
 
 
-def trace(func=None, /, *, log_func=trace_logger.debug):
+def trace(func=None, /, *, log_func=trace_logger.error):
     """
     decorator to trace method call, return, raise
     Can be applied directly to the function or accept these kw_only arguments:

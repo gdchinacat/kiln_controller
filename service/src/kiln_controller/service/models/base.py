@@ -3,14 +3,17 @@ Base class for mapped resources.
 """
 
 from typing import ClassVar, Any
+
+from pydantic import BaseModel
 from sqlmodel import SQLModel, Field
 
 from .validators import ValidatorMixinBase
 
+
 __all__ = ("Base", "MappedBase")
 
 
-class Base(ValidatorMixinBase, SQLModel):
+class Base(ValidatorMixinBase, BaseModel):
     """
     Base class for all ORM models.
     """
@@ -40,5 +43,5 @@ class Base(ValidatorMixinBase, SQLModel):
         """
 
 
-class MappedBase(Base):
+class MappedBase(Base, SQLModel):
     """exists primarily for typing"""

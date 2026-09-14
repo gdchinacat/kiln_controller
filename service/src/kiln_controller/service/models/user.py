@@ -6,7 +6,7 @@ from typing import Annotated, ClassVar, TYPE_CHECKING
 
 from sqlmodel import Field, Relationship
 
-from .base import Base
+from .base import Base, MappedBase
 from .validators import UserValidator
 
 __all__ = ("User", "UserORM")
@@ -28,7 +28,7 @@ class User(Base):
     phone_number: str | None = Field(default=None)
 
 
-class UserORM(UserValidator, User, table=True):
+class UserORM(UserValidator, User, MappedBase, table=True):
     __tablename__ = "users"
     # schedules: Annotated[list["Schedule"], Field(exclude=True)] = Relationship(
     schedules: list["ScheduleORM"] = Relationship(

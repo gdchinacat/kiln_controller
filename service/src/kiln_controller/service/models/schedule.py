@@ -9,7 +9,7 @@ from sqlalchemy import UniqueConstraint, Enum as SAEnum
 from sqlmodel import Field, Relationship, Column
 
 from ...common.enums import PhaseType
-from .base import Base
+from .base import Base, MappedBase
 from .user import UserORM
 from .validators import ScheduleValidator, PhaseValidator
 
@@ -26,7 +26,7 @@ class Schedule(Base):
     user_id: int
 
 
-class ScheduleORM(ScheduleValidator, Schedule, table=True):
+class ScheduleORM(ScheduleValidator, Schedule, MappedBase, table=True):
 
     __tablename__ = "schedules"
     # user: Annotated[User, Field(exlude=True)] = Relationship(
@@ -107,7 +107,7 @@ class Phase(Base):
     schedule_id: int | None
 
 
-class PhaseORM(PhaseValidator, Phase, table=True):
+class PhaseORM(PhaseValidator, Phase, MappedBase, table=True):
     __tablename__ = "phases"
     __table_args__ = (
         UniqueConstraint("schedule_id", "name"),

@@ -26,22 +26,23 @@ logger = getLogger("resource/base.py")
 
 security = HTTPBasic()
 
-hack_user = User(name="hack", username="hack")
-
 
 async def _authenticate_user(
     credentials: HTTPBasicCredentials = Depends(security),
 ) -> User:
-    if credentials.username == "hack" and credentials.password == "hack":
-        # hack to help with plumbing auth through client and tests, once that
-        # works this will be removed and I can then plumb admin user with static
-        # password to create a proper user for auth in tests.
-        return hack_user
-    with Session() as session:
-        return select(UserORM).where(UserORM.username == credentials.username).one()
-    raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-    )
+    try:
+        with Session() as session:
+            query = select(UserORM).filter_by(username=credentials.username)
+            user = session.execute(query).scalar_one()
+
+            # todo - actually make sure the password matches.
+            if False and user.password != credentials.password:
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+
+            return user
+
+    except NoResultFound:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
 
 
 def _lookup[RT: type[Base]](resource_type: RT, session: Session, id: int) -> RT:
@@ -68,7 +69,10 @@ def _apply_resource_type[**P, R](
 
 
 def create_router(
-    resource_type: type[Base], orm_type: type[MappedBase], url_prefix=""
+    resource_type: type[Base],
+    orm_type: type[MappedBase],
+    url_prefix="",
+    resource_create_type: type[Base] = None,
 ) -> APIRouter:
     """
     Base class for resources (abstract).
@@ -80,7 +84,7 @@ def create_router(
     get(), post(), put(), and delete() endpoint methods to implement the CRUD
     operations for resource_type.
     """
-
+    resource_create_type = resource_create_type or resource_type
     router = APIRouter(
         prefix=f"{url_prefix}/{resource_type._URL_PATH}", tags=[resource_type.__name__]
     )
@@ -116,11 +120,15 @@ def create_router(
             )
         return orm.model_dump(mode="json")
 
-    @router.post("/", status_code=HTTPStatus.CREATED)
+    @router.post(
+        "/",
+        status_code=HTTPStatus.CREATED,
+        response_model=resource_type,
+    )
     @_apply_resource_type(resource_type=resource_type.__name__)
     async def _create(
         request: Request,
-        resource: resource_type,
+        resource: resource_create_type,
         user: User = Depends(_authenticate_user),
     ) -> resource_type:
         """create a {resource_type}"""

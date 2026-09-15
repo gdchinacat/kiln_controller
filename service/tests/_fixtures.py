@@ -76,8 +76,8 @@ def mock_service_fixture(**_) -> MockService:
 @kwargs.factory
 def client_fixture(
     mock_service: MockService,
-    username: str = "username",
-    password: str = "password",
+    username: str = "admin",
+    password: str = "admin",
     **_,
 ) -> _client.Client:
     """fixture that provides a Client"""
@@ -85,16 +85,24 @@ def client_fixture(
         return _client.Client(username, password, port=PORT)
 
 
+def unique_username(_user_count=count(randint(0, 9999) * 1000)) -> str:
+    # todo - fix this janky way to create unique usernames. It is used to "make
+    #        sure" tests don't use a username another test has leaked (should
+    #        SKIP_CLEANUP be removed?).
+    return f"username{next(_user_count)}"
+
+
 @kwargs.factory
 @cleanup
 def user_fixture(
-    name="name",
-    username=None,
+    name: str = "name",
+    username: str | None = None,
+    password: str | None = "password",
     skip_create: bool = False,
-    mock_service=None,
-    client=None,
-    _user_count=count(randint(0, 9999) * 1000),
-    **kwargs,
+    mock_service: MockService | None = None,
+    client: Client | None = None,
+    _user_count: int = count(randint(0, 9999) * 1000),
+    **kwargs: dict[str, Any],
 ):
     """
     Create a user.
@@ -106,8 +114,8 @@ def user_fixture(
     skip_create causes the user to not be inserted (useful for when you need
     a user with a uniqueish username that hasn't been created on the server).
     """
-    username = username or f"username{next(_user_count)}"
-    user = _client.User(name, username)
+    username = username or unique_username()
+    user = _client.User(name, username, password)
     if not skip_create:
         with mock_service.patch():
             user.post(client)

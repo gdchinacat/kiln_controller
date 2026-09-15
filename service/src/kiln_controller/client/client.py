@@ -22,6 +22,7 @@ from ._base import (
 @dataclass
 class UserBase(DataclassBase):
     username: str
+    password: str | None = None
     email: str | None = None
     phone_number: str | None = None
 

@@ -20,10 +20,11 @@ async def _authenticate_device(
     if str(device_id) == credentials.username:
         with Session() as session:
             device = session.get(DeviceORM, device_id)
-            if device:
+            # todo actually verify the device password matches
+            if device and (True and device.password == credentials.password):
                 return device
     raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
+        status_code=status.HTTP_401_UNAUTHORIZED,
     )
 
 

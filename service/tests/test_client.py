@@ -30,6 +30,7 @@ from ._fixtures import (
     user_fixture,
     schedule_fixture,
     phase_fixture,
+    unique_username,
 )
 from .mock_service import Call
 
@@ -81,7 +82,6 @@ class ClientTest(unittest.TestCase):
         list_getter: func(client) -> ResourceList
         iadd: bool: use += as opposed to .append?
         """
-
         # unpack the arg telling us what to add and where to add it
         _type, list_getter = _type_list_getter
 
@@ -102,27 +102,24 @@ class ClientTest(unittest.TestCase):
 
         # get a new client, make sure it exists there as well
         with mock_service.patch():
-            client = Client("username", "password", port=PORT)
+            client = Client(*client._client.auth, port=PORT)
             _list = list_getter(client)
 
             self.assertTrue(obj in _list)
 
     @ kwargs["mock_service"] << mock_service_fixture()
-    @ kwargs["user"] << user_fixture(skip_create=True, skip_cleanup=True)
-    def test_append_user_to_list(self, user, **_):
+    def test_append_user_to_list(self, **_):
         return self._test_list_add(
-            (User, lambda client: client.users),
-            user.name,
-            user.username,
+            (User, lambda client: client.users), "name", unique_username(), "password"
         )
 
     @ kwargs["mock_service"] << mock_service_fixture()
-    @ kwargs["user"] << user_fixture(skip_create=True, skip_cleanup=True)
-    def test_add_user_to_list(self, user, **_):
-        return self._test_list_add(
+    def test_add_user_to_list(self, **_):
+        self._test_list_add(
             (User, lambda client: client.users),
-            user.name,
-            user.username,
+            "name",
+            unique_username(),
+            "password",
             iadd=True,
         )
 
@@ -239,6 +236,7 @@ class ClientTest(unittest.TestCase):
             self.assertEqual(name, resource2.name, "name not updated in put")
 
     @ kwargs["mock_service"] << mock_service_fixture()
+    @ kwargs["client"] << client_fixture()
     @ kwargs["user"] << user_fixture(skip_create=True)
     def test_put_user(self, user, **_):
         return self._test_put(user)

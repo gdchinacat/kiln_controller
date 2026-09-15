@@ -324,17 +324,17 @@ class BaseRestClient(ABC):
     @staticmethod
     def _response_handler(func):
         @wraps(func)
-        def response_handler(*args, **kwargs):
-            resp = func(*args, **kwargs)
+        def response_handler(self, url, *args, **kwargs):
+            resp = func(self, url, *args, **kwargs)
             match resp.status_code:
                 case HTTPStatus.OK | HTTPStatus.CREATED:
                     return resp.json()
                 case HTTPStatus.NO_CONTENT:
                     return None
                 case HTTPStatus.UNAUTHORIZED:
-                    raise UnauthorizedException(args[0].url)
+                    raise UnauthorizedException(f"{url} {self._client.auth=}")
                 case HTTPStatus.NOT_FOUND:
-                    raise NotFoundException(args[0].url)
+                    raise NotFoundException(url)
                 case HTTPStatus.UNPROCESSABLE_ENTITY:
                     json = resp.json()
                     validation_error = ValidationError.from_json(json)

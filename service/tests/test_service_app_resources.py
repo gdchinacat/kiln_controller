@@ -5,7 +5,6 @@ from sqlalchemy import select
 from fixtures import kwargs
 from kiln_controller.client import Phase, PhaseType
 from kiln_controller.service.models.user import User
-from kiln_controller.service.routers.base import _lookup as routers_base_lookup
 from ._fixtures import user_fixture, schedule_fixture
 from ._fixtures import mock_service_fixture, client_fixture
 

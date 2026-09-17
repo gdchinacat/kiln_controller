@@ -30,28 +30,14 @@ security = HTTPBasic()
 async def _authenticate_user(
     credentials: HTTPBasicCredentials = Depends(security),
 ) -> User:
-    try:
-        with Session() as session:
-            query = select(UserORM).filter_by(username=credentials.username)
-            user = session.execute(query).scalar_one()
+    with Session() as session:
+        query = select(UserORM).filter_by(username=credentials.username)
+        user = session.execute(query).scalar_one_or_none()
 
-            # todo - actually make sure the password matches.
-            if False and user.password != credentials.password:
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+        if not user or user.password != credentials.password:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
 
-            return user
-
-    except NoResultFound:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
-
-
-def _lookup[RT: type[Base]](resource_type: RT, session: Session, id: int) -> RT:
-    """lookup the resource by id"""
-    try:
-        query = select(resource_type).filter_by(id=id)
-        return session.execute(query).scalar_one()
-    except NoResultFound:
-        return None
+        return user
 
 
 def _apply_resource_type[**P, R](
@@ -80,7 +66,7 @@ def create_router(
     Subclasses must override:
         - resource_type: the ORM type this resource handles.
 
-    Provides a way to _lookup() resources of its resource_type.
+    Provides a way to lookup resources of its resource_type.
     get(), post(), put(), and delete() endpoint methods to implement the CRUD
     operations for resource_type.
     """
@@ -108,13 +94,13 @@ def create_router(
     async def _get(id: int, user: User = Depends(_authenticate_user)) -> resource_type:
         """get a {resource_type}"""
         with Session() as session:
-            orm = _lookup(orm_type, session, id)
+            orm = session.get(orm_type, id)
         if not orm:
             return (
                 Response(
                     status_code=HTTPStatus.NOT_FOUND,
                     content={
-                        "message": f"{resource_model.__name__} with id={id} not found"
+                        "message": f"{resource_type.__name__} with id={id} not found"
                     },
                 ),
             )
@@ -185,17 +171,18 @@ def create_router(
                clients will clobber existing entities.
         Create or update a resource by id.
         """
-        if resource.id:
-            if resource.id != id:
-                raise ValidationError(
-                    ValidationErrors.MISMATCHED_ID,
-                    f"path id ({id}) does not match resource id ({resource.id})",
-                )
-        else:
-            resource.id = id
-        orm = orm_type.model_validate(resource)
+        if resource.id and resource.id != id:
+            raise ValidationError(
+                ValidationErrors.MISMATCHED_ID,
+                f"path id ({id}) does not match resource id ({resource.id})",
+            )
         with (session := Session()), session.begin():
-            session.merge(orm)
+            orm = session.get(orm_type, id)
+            if not orm:
+                resource.id = resource.id or id
+                orm = orm_type.model_validate(resource)
+                session.merge(orm)
+            orm.sqlmodel_update(resource.model_dump(exclude_unset=True))
         return orm.model_dump(mode="json")
 
     @router.delete(
@@ -210,7 +197,7 @@ def create_router(
     ) -> None:
         """delete a {resource_type}"""
         with (session := Session()), session.begin():
-            orm = _lookup(orm_type, session, id)
+            orm = session.get(orm_type, id)
             if orm is not None:
                 orm.validate_delete()
                 session.delete(orm)

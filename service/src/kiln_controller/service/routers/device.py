@@ -5,13 +5,13 @@ Device related Flask resources
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
-from ..models import Device, DeviceORM, Session
+from ..models import Device, DeviceUpdate, DeviceORM, Session
 from .base import create_router
 
 security = HTTPBasic()
 
 
-devices_router = create_router(Device, DeviceORM)
+devices_router = create_router(Device, DeviceORM, resource_update_type=DeviceUpdate)
 
 
 async def _authenticate_device(

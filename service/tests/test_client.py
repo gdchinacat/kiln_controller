@@ -48,12 +48,6 @@ class AsDict:
     def asdict(self):
         return self._dict
 
-    def __str__(self) -> str:
-        return str(self._dict)
-
-    def __repr__(self) -> str:
-        return repr(self._dict)
-
 
 class ClientTest(unittest.TestCase):
     """

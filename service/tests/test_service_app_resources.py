@@ -28,8 +28,8 @@ class TestPhases(TestCase):
         changes the order and causes this test to fail.
         """
 
-        phase2 = Phase("phase2", 2, PhaseType.RAMP, temperature=950)
-        phase1 = Phase("phase1", 1, PhaseType.RAMP, temperature=1000)
+        phase2 = Phase("phase2", 2, PhaseType.RAMP, temperature=950, parent=schedule)
+        phase1 = Phase("phase1", 1, PhaseType.RAMP, temperature=1000, parent=schedule)
 
         with mock_service.patch():
             schedule.phases += phase2

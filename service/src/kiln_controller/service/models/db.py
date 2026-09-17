@@ -12,6 +12,9 @@ from .device import *
 from .schedule import *
 from .user import *
 
+__all__ = tuple()
+
+
 ADMIN_NAME = "Admin User"
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "admin"

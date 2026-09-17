@@ -258,7 +258,7 @@ class ResourceList(list, Generic[A]):
 class DataclassBase(ABC):
     """Base class for remote resource dataclasses."""
 
-    id: int = field(default=None, kw_only=True)
+    id: int | None = field(default=None, kw_only=True)
     name: str
 
     concrete_type = None
@@ -359,7 +359,17 @@ class BaseRestClient(ABC):
     @format_url
     @trace
     def post(self, url, obj, timeout=DEFAULT_TIMEOUT):
-        return requests.post(url, json=obj.asdict(), auth=self.auth, timeout=timeout)
+        obj_dict = obj.asdict()
+        del obj_dict["id"]  # todoo is this a hack? It simplifies the client to
+        # not have to worry about different types of objects
+        # depending on whether it has an ID, an ID less
+        # object would have to be add to (ie) /users, and
+        # a different would return. The simplifcations the
+        # client takes makes this hard. So, just remove the
+        # id before sending it to the server. But is there
+        # a better way? Practicality beats purity, so there
+        # is a todo about it.
+        return requests.post(url, json=obj_dict, auth=self.auth, timeout=timeout)
 
     @detect_bad_url
     @format_url

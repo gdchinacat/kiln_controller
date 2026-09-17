@@ -9,14 +9,25 @@ from sqlalchemy import UniqueConstraint, Enum as SAEnum
 from sqlmodel import Field, Relationship, Column
 
 from ...common.enums import PhaseType
-from .base import Base, MappedBase
+from .base import Base, BaseUpdate, MappedBase
 from .user import UserORM
 from .validators import ScheduleValidator, PhaseValidator
 
-__all__ = ["Phase", "PhaseORM", "Schedule", "ScheduleORM"]
+__all__ = (
+    "Phase",
+    "PhaseUpdate",
+    "PhaseORM",
+    "Schedule",
+    "ScheduleUpdate",
+    "ScheduleORM",
+)
 
 
-class Schedule(Base):
+class ScheduleUpdate(BaseUpdate):
+    user_id: int | None = None
+
+
+class Schedule(ScheduleUpdate):
     """
     A schedule is a definition of how a firing should be executed.
     """
@@ -26,7 +37,7 @@ class Schedule(Base):
     user_id: int
 
 
-class ScheduleORM(ScheduleValidator, Schedule, MappedBase, table=True):
+class ScheduleORM(ScheduleValidator, MappedBase, Schedule, table=True):
 
     __tablename__ = "schedules"
     # user: Annotated[User, Field(exlude=True)] = Relationship(
@@ -47,14 +58,8 @@ class ScheduleORM(ScheduleValidator, Schedule, MappedBase, table=True):
     )
 
 
-class Phase(Base):
-    """
-    A phase in a firing schedule.
-    """
-
-    _URL_PATH: ClassVar[str] = "phase"
-
-    ordinal: int
+class PhaseUpdate(BaseUpdate):
+    ordinal: int | None
     """
     The ordinal indicates the order of phases within a schedule.
 
@@ -78,17 +83,17 @@ class Phase(Base):
            aren't as hard to handle as API, so it is deferred (for now).
     """
 
-    phase_type: PhaseType = Field(sa_column=Column(SAEnum(PhaseType), nullable=False))
+    phase_type: PhaseType | None = None
     """the type of the phase"""
 
-    duration: time | None = Field(default=None)
+    duration: time | None = None
     """
     How long the phase lasts in minutes.
 
     duration is unset for type==RAMP
     """
 
-    rate: int | None = Field(default=None)
+    rate: int | None = None
     """
     The rate the temperature should be changed at in C/min.
 
@@ -97,17 +102,29 @@ class Phase(Base):
     rapidly as possible.
     """
 
-    temperature: int | None = Field(default=None)
+    temperature: int | None = None
     """
     The temperature the phase maintains (CONSTANT) or ends with (RAMP).
 
     Unset to indicate ambient temperature.
     """
 
-    schedule_id: int | None
+    schedule_id: int | None = None
 
 
-class PhaseORM(PhaseValidator, Phase, MappedBase, table=True):
+class Phase(PhaseUpdate):
+    """
+    A phase in a firing schedule.
+    """
+
+    _URL_PATH: ClassVar[str] = "phase"
+
+    ordinal: int
+    phase_type: PhaseType
+    schedule_id: int
+
+
+class PhaseORM(PhaseValidator, MappedBase, Phase, table=True):
     __tablename__ = "phases"
     __table_args__ = (
         UniqueConstraint("schedule_id", "name"),

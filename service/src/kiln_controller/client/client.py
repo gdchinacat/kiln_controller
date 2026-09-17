@@ -49,6 +49,8 @@ class PhaseBase(DataclassBase):
         ret = super().asdict()
         ret["phase_type"] = self.phase_type.value
         ret["duration"] = str(self.duration) if self.duration else None
+        if self._parent:
+            ret["schedule_id"] = self._parent.id
         return ret
 
     def __post_init__(self):

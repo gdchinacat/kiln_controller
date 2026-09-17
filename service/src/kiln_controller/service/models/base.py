@@ -4,27 +4,49 @@ Base class for mapped resources.
 
 from typing import ClassVar, Any
 
-from pydantic import BaseModel
+import pydantic
 from sqlmodel import SQLModel, Field
 
 from .validators import ValidatorMixinBase
 
-__all__ = ("Base", "MappedBase")
+__all__ = ("Base", "BaseUpdate", "MappedBase")
 
 
-class Base(ValidatorMixinBase, BaseModel):
+MAX_NAME_LENGTH = 30
+
+
+class BaseUpdate(pydantic.BaseModel):
     """
-    Base class for all ORM models.
+    Base class for all models.
+
+    The "Update" version is the base class because it is the least restrictive
+    version.
     """
 
-    id: int | None = Field(default=None, primary_key=True)
+    """
+    TODO I don't want id on the create resources, but they all currently extend from
+    this.
+    """
+    id: int | None = None
+    name: str | None = pydantic.Field(default=None, max_length=MAX_NAME_LENGTH)
+
+
+class Base(ValidatorMixinBase, BaseUpdate):
+    """
+    Base class for all models.
+    """
+
+    id: int
     """
     All model dataclasses contain a primary key named id.
-    id is optional only to support database assignment.
     """
 
-    name: str = Field(max_length=30)
-    """all model dataclasses contain a name"""
+    name: str = pydantic.Field(max_length=MAX_NAME_LENGTH)
+    """
+    The name of the resource.
+
+    The name is what users call the resource.
+    """
 
     def validate_create_or_update(self) -> None:
         """
@@ -43,4 +65,15 @@ class Base(ValidatorMixinBase, BaseModel):
 
 
 class MappedBase(Base, SQLModel):
-    """exists primarily for typing"""
+    """
+    Base class for resource ORMs.
+    """
+
+    # While it would be better to not have this optional, it needs to exist in
+    # a state while not set to be validated during create and added to the
+    # session to get the server assigned id. It is possible to have two mapped
+    # versions,  one with and one without so that adding the MappedBaseWithoutId
+    # will create the # MappedBaseWithID. This is a lot simpler and works just
+    # as well. Practicality beats purity for now. todo?
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(max_length=MAX_NAME_LENGTH)

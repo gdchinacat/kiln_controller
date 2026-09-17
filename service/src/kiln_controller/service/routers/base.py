@@ -58,7 +58,8 @@ def create_router(
     resource_type: type[Base],
     orm_type: type[MappedBase],
     url_prefix="",
-    resource_create_type: type[Base] = None,
+    resource_create_type: type[Base] | None = None,
+    resource_update_type: type[Base] | None = None,
 ) -> APIRouter:
     """
     Base class for resources (abstract).
@@ -71,6 +72,7 @@ def create_router(
     operations for resource_type.
     """
     resource_create_type = resource_create_type or resource_type
+    resource_update_type = resource_update_type or resource_type
     router = APIRouter(
         prefix=f"{url_prefix}/{resource_type._URL_PATH}", tags=[resource_type.__name__]
     )
@@ -131,7 +133,9 @@ def create_router(
     @router.put("/{id}")
     @_apply_resource_type(resource_type=resource_type.__name__)
     async def _update(
-        id: int, resource: resource_type, user: User = Depends(_authenticate_user)
+        id: int,
+        resource: resource_update_type,
+        user: User = Depends(_authenticate_user),
     ) -> resource_type:
         """Update the {resource_type}."""
         """
@@ -176,13 +180,14 @@ def create_router(
                 ValidationErrors.MISMATCHED_ID,
                 f"path id ({id}) does not match resource id ({resource.id})",
             )
-        with (session := Session()), session.begin():
+        with (session := Session(expire_on_commit=False)), session.begin():
             orm = session.get(orm_type, id)
             if not orm:
                 resource.id = resource.id or id
                 orm = orm_type.model_validate(resource)
-                session.merge(orm)
-            orm.sqlmodel_update(resource.model_dump(exclude_unset=True))
+                session.add(orm)
+            else:
+                orm.sqlmodel_update(resource.model_dump(exclude_unset=True))
         return orm.model_dump(mode="json")
 
     @router.delete(

@@ -385,7 +385,7 @@ document.addEventListener('alpine:init', () => {
 
     // --- User Actions ---
     openUserModal(user = null) {
-      this.forms.user = user ? { ...user } : { id: '', name: '', username: '', email: '', phone_number: '' };
+      this.forms.user = user ? { ...user } : { id: '', name: '', username: '', password: '', email: '', phone_number: '' };
       this.modals.user = true;
       this.$nextTick(() => lucide.createIcons());
     },

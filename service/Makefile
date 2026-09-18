@@ -10,7 +10,7 @@ SERVICE_CMD := NON_PERSISTENT=$(NON_PERSISTENT) uv run fastapi dev --host 0.0.0.
 start_service:
 	@echo "Starting service on port $(PORT) in the background..."
 	@$(SERVICE_CMD) 2>&1 > /dev/null & echo $$! > $(PIDFILE)
-	@sleep 1
+	@sleep 2
 	@echo "Service started on port $(PORT) PID=$$(cat $(PIDFILE))"
 
 .PHONY: stop_service

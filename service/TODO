@@ -4,6 +4,9 @@ openapi.json:
 	- should openapi.json be checked in and updated as part of "build process" so changes to api can show up in commit diffs?
 		- should it be used to generate the client rather than having a dynamically generated client that isn't statically checkable?
 
+Authentication:
+	- uses http basic auth for now, but this means if a user changes their password they need to refresh the page to get reprompted, and until they do they will see errors. This should be fixed with a better auth mechanism (although http basic is hard to beat for simplicity). Deferred for now.
+
 Things to check:
 	- does POST fail if resource specifies id
 	- does PUT work properly (currently implemented with session.merge()), ie if resource is {name: ''} will it update only name rather than clobbering other fields?

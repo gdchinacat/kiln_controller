@@ -8,6 +8,7 @@ import pydantic
 import sqlmodel
 
 from ...common.enums import PhaseType
+from ._base import ResourceCreate
 from .user import UserORM
 from .validators import ScheduleValidator, PhaseValidator
 
@@ -25,7 +26,7 @@ __all__ = (
 NAME_LENGTH = 30
 
 
-class ScheduleCreate(pydantic.BaseModel):
+class ScheduleCreate(ResourceCreate):
     name: str = pydantic.Field(max_length=NAME_LENGTH)
     user_id: int | None = None  # defaults to current user
 
@@ -63,7 +64,7 @@ class ScheduleORM(ScheduleValidator, sqlmodel.SQLModel, table=True):
     )
 
 
-class PhaseCreate(pydantic.BaseModel):
+class PhaseCreate(ResourceCreate):
     name: str = pydantic.Field(max_length=NAME_LENGTH)
     ordinal: int
     phase_type: PhaseType

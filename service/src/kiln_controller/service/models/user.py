@@ -7,6 +7,7 @@ from typing import Annotated, ClassVar, TYPE_CHECKING
 import pydantic
 import sqlmodel
 
+from ._base import ResourceCreate
 from .validators import UserValidator
 
 __all__ = ("User", "UserCreate", "UserUpdate", "UserORM")
@@ -22,7 +23,7 @@ PHONE_LENGTH = 20
 EMAIL_LENGTH = 254
 
 
-class UserCreate(pydantic.BaseModel):
+class UserCreate(ResourceCreate):
     name: str = pydantic.Field(max_length=NAME_LENGTH)
     username: str = pydantic.Field(max_length=USERNAME_LENGTH)
     password: str = pydantic.Field(max_length=PASSWORD_LENGTH)

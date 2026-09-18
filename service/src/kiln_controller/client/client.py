@@ -31,8 +31,6 @@ class UserBase(DataclassBase):
 class DeviceBase(DataclassBase):
     user_id: int
     description: str | None = None
-    # todo - need some way for the client to register devices using the binary
-    #        device registration protocol.
 
 
 @dataclass

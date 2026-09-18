@@ -78,9 +78,13 @@ def client_fixture(
     mock_service: MockService,
     username: str = "admin",
     password: str = "admin",
+    user: User = None,
     **_,
 ) -> _client.Client:
     """fixture that provides a Client"""
+    if user is not None:
+        username = user.username
+        password = user.password
     with mock_service.patch():
         return _client.Client(username, password, port=PORT)
 
@@ -119,6 +123,7 @@ def user_fixture(
     if not skip_create:
         with mock_service.patch():
             user.post(client)
+    user.password = password  # client_fixture needs this
     return user
 
 

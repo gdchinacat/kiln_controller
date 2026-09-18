@@ -128,9 +128,6 @@ class ClientTest(unittest.TestCase):
             (Device, lambda client: client.devices),
             "name",
             USER_ID,
-            "host",
-            PORT,
-            "description",
             iadd=True,
         )
 
@@ -139,9 +136,6 @@ class ClientTest(unittest.TestCase):
             (Device, lambda client: client.devices),
             "name",
             USER_ID,
-            "host",
-            PORT,
-            "description",
         )
 
     def test_add_schedule_to_list(self) -> None:
@@ -198,17 +192,18 @@ class ClientTest(unittest.TestCase):
 
     @ kwargs["mock_service"] << mock_service_fixture()
     @ kwargs["client"] << client_fixture()
-    def _test_put(self, resource, mock_service, client):
+    def _test_put(self, resource, mock_service, client, skip_put_create: bool = False):
         """
         test that resources of type _type can be created and updated using
         Resource.put(client)
         """
         with mock_service.patch():
-            # test put create success
-            # good chance this won't collide...right?
-            resource.id = int(random.random() * 1000000)
-            resource.put(client)
-            self.assertIsNotNone(resource.id, "put failed to assign id to resource")
+            if not skip_put_create:
+                # test put create success
+                # good chance this won't collide...right?
+                resource.id = int(random.random() * 1000000)
+                resource.put(client)
+                self.assertIsNotNone(resource.id, "put failed to assign id to resource")
 
             # Test put without resource.id succeeds and doesn't create a new
             # resource.
@@ -240,11 +235,9 @@ class ClientTest(unittest.TestCase):
     @ kwargs["mock_service"] << mock_service_fixture()
     @ kwargs["client"] << client_fixture()
     @ kwargs["user"] << user_fixture()
-    @ kwargs["device"] << device_fixture(skip_create=True)
+    @ kwargs["device"] << device_fixture()
     def test_put_device(self, device, **_):
-        return self._test_put(
-            device,
-        )
+        return self._test_put(device, skip_put_create=True)
 
     @ kwargs["mock_service"] << mock_service_fixture()
     @ kwargs["client"] << client_fixture()
@@ -297,6 +290,7 @@ class ClientTest(unittest.TestCase):
     @ kwargs["mock_service"] << mock_service_fixture()
     @ kwargs["client"] << client_fixture()
     @ kwargs["user"] << user_fixture()
+    @ kwargs["client"] << client_fixture()
     @ kwargs["device"] << device_fixture(skip_cleanup=True)
     def test_delete_device_resource(self, client, device, mock_service, **kwargs):
         with mock_service.patch():
@@ -366,6 +360,8 @@ class ClientTest(unittest.TestCase):
     @ kwargs["client"] << client_fixture()
     @ kwargs["user"] << user_fixture()
     def test_delete_user_resource_by_list(self, client, user, mock_service, **kwargs):
+        with mock_service.patch():
+            user.refresh()  # fixtures leave user.password set, refresh to clear it
         return self._test_delete_resource_by_list(
             client.users, user, client=client, mock_service=mock_service
         )

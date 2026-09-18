@@ -16,7 +16,7 @@ from sqlalchemy.exc import NoResultFound, IntegrityError
 import sqlmodel
 
 from ...common.validators import ValidationError, ValidationErrors
-from ..models import Session, User, UserORM
+from ..models import Session, User, UserORM, ResourceCreate
 
 __all__ = []
 
@@ -29,7 +29,7 @@ security = HTTPBasic()
 
 async def authenticate_user(
     credentials: HTTPBasicCredentials = Depends(security),
-) -> User:
+) -> UserORM:
     with Session() as session:
         query = select(UserORM).filter_by(username=credentials.username)
         user = session.execute(query).scalar_one_or_none()
@@ -54,15 +54,12 @@ def _apply_resource_type[**P, R](
     return dec
 
 
-SKIP = object()
-
-
 def create_router(
     url_path: str,
     resource_type: type[pydantic.BaseModel],
     orm_type: type[sqlmodel.SQLModel],
     url_prefix="",
-    resource_create_type: type[pydantic.BaseModel] | None = None,
+    resource_create_type: type[ResourceCreate] | None = None,
     resource_update_type: type[pydantic.BaseModel] | None = None,
 ) -> APIRouter:
     """
@@ -110,30 +107,27 @@ def create_router(
             )
         return orm.model_dump(mode="json")
 
-    if resource_create_type is not SKIP:
-
-        @router.post(
-            "/",
-            status_code=HTTPStatus.CREATED,
-            response_model=resource_type,
-        )
-        @_apply_resource_type(resource_type=resource_type.__name__)
-        async def _create(
-            request: Request,
-            resource: resource_create_type,
-            user: User = Depends(authenticate_user),
-        ) -> resource_type:
-            """create a {resource_type}"""
-            resource_dict = resource.model_dump()
-            # set the path parameter values on the resource (ie schedule_id on phase)
-            for k, v in request.path_params.items():
-                resource_dict[k] = v
-            orm = orm_type.model_validate(resource_dict)
-            with (session := Session(expire_on_commit=False)), session.begin():
-                session.add(orm)
-                session.flush()
-                orm.validate_create_or_update()
-            return orm.model_dump(mode="json")
+    @router.post(
+        "/",
+        status_code=HTTPStatus.CREATED,
+        response_model=resource_type,
+    )
+    @_apply_resource_type(resource_type=resource_type.__name__)
+    async def _create(
+        request: Request,
+        resource: resource_create_type,
+        user: User = Depends(authenticate_user),
+    ) -> resource_type:
+        """create a {resource_type}"""
+        resource_dict = resource.model_dump()
+        resource_dict.update(request.path_params)
+        resource_dict.update(resource.extra_attrs(user))
+        orm = orm_type.model_validate(resource_dict)
+        with (session := Session(expire_on_commit=False)), session.begin():
+            session.add(orm)
+            session.flush()
+            orm.validate_create_or_update()
+        return orm.model_dump(mode="json")
 
     @router.put("/{id}")
     @_apply_resource_type(resource_type=resource_type.__name__)

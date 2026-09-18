@@ -49,8 +49,9 @@ class UserTest(unittest.TestCase):
     @ kwargs["mock_service"] << mock_service_fixture()
     @ kwargs["client"] << client_fixture()
     @ kwargs["user"] << user_fixture()
+    @ kwargs["client"] << client_fixture()
     @ kwargs["device"] << device_fixture()
-    def test_user_delete_fails_with_devices(self, user, mock_service, **_):
+    def test_user_delete_fails_with_devices(self, user, mock_service, device, **_):
         """
         Verify an error occurs if a user delete is attempted while the user has
         schedules.

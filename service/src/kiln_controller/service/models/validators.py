@@ -23,10 +23,10 @@ class ValidatorMixinBase:
         - unit test dataclasses to unit test the validator functionality.
     """
 
-    def validate_create_or_update(self):
+    def validate_create_or_update(self) -> None:
         """validate the state of the new or updated resource"""
 
-    def validate_delete(self):
+    def validate_delete(self) -> None:
         """validate the resource can be deleted"""
 
 

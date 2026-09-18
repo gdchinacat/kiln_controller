@@ -2,18 +2,38 @@
 Device model.
 """
 
-from typing import Annotated, ClassVar
+import secrets
 
 import pydantic
 import sqlmodel
 
+from ._base import ResourceCreate
 from .user import UserORM
 from .validators import DeviceValidator
 
-__all__ = ("Device", "DeviceUpdate", "DeviceORM")
+__all__ = ("Device", "DeviceCreate", "DeviceUpdate", "DeviceORM")
 
 
 NAME_LENGTH = 30
+AUTH_TOKEN_BYTES = 32
+AUTH_TOKEN_LENGTH = 43
+
+
+class DeviceCreate(ResourceCreate):
+    """
+    REST create model for Device.
+
+    This is sent by the device and is intentionally minimmalistic.
+    """
+
+    name: str = pydantic.Field(max_length=NAME_LENGTH)
+
+    def extra_attrs(self, user: UserORM) -> dict[str, str]:
+        """provide the auth_token"""
+        ret = super().extra_attrs(user)
+        ret["auth_token"] = secrets.token_urlsafe(AUTH_TOKEN_BYTES)
+        ret["user_id"] = user.id
+        return ret
 
 
 class DeviceUpdate(pydantic.BaseModel):
@@ -35,10 +55,10 @@ class Device(pydantic.BaseModel):
 
 class DeviceORM(DeviceValidator, sqlmodel.SQLModel, table=True):
     __tablename__ = "devices"
-
     id: int | None = sqlmodel.Field(default=None, primary_key=True)
     name: str = sqlmodel.Field(max_length=NAME_LENGTH)
-    auth_token: str
+    auth_token: str = sqlmodel.Field(max_length=AUTH_TOKEN_LENGTH)
+
     """The Bearer token the device must use to authenticate."""
     description: str | None = sqlmodel.Field(default=None)
 

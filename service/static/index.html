@@ -202,7 +202,7 @@
                     <div x-text="u.name.charAt(0).toUpperCase()" class="w-8 h-8 rounded-full bg-orange-600/20 text-orange-400 flex items-center justify-center font-bold text-xs border border-orange-500/30"></div>
                     <div>
                       <p x-text="u.name" class="font-medium text-slate-200 text-sm"></p>
-                      <p x-text="`@${u.username}`" class="text-xs text-slate-500"></p>
+                      <p x-text="`${u.username}`" class="text-xs text-slate-500"></p>
                     </div>
                   </div>
                   <span x-text="u.phone_number || u.email || 'No contact'" class="text-xs text-slate-400 font-mono"></span>
@@ -287,7 +287,7 @@
                 <div class="flex items-start justify-between">
                   <div>
                     <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                      <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Active
+                      <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Active <!-- kiln state -->
                     </span>
                     <h3 x-text="d.name" class="text-lg font-bold text-slate-100 mt-2"></h3>
                   </div>
@@ -300,14 +300,6 @@
               </div>
 
               <div class="space-y-2 border-t border-slate-800/80 pt-3 text-xs">
-                <div class="flex justify-between">
-                  <span class="text-slate-500">Host / IP:</span>
-                  <span x-text="`${d.host}:${d.port}`" class="font-mono text-slate-300"></span>
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-slate-500">URL Endpoint:</span>
-                  <span x-text="d.url || '--'" class="font-mono text-slate-300 truncate max-w-[150px]"></span>
-                </div>
                 <div class="flex justify-between">
                   <span class="text-slate-500">Operator:</span>
                   <span x-text="users.find(u => u.id === d.user_id)?.name || 'User ID #' + d.user_id" class="text-orange-400 font-medium"></span>
@@ -525,7 +517,7 @@
   <div x-show="modals.device" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
     <div @click.outside="modals.device = false" class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
       <div class="flex items-center justify-between mb-4">
-        <h3 x-text="forms.device.id ? 'Edit Kiln' : 'Add Kiln'" class="text-lg font-bold text-white"></h3>
+        <h3 x-text="'Edit Kiln'" class="text-lg font-bold text-white"></h3>
         <button @click="modals.device = false" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
       </div>
       <form @submit.prevent="handleDeviceSubmit()" class="space-y-4">
@@ -533,27 +525,13 @@
           <label class="block text-xs font-medium text-slate-400 mb-1">Name *</label>
           <input type="text" x-model="forms.device.name" required maxlength="30" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
         </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs font-medium text-slate-400 mb-1">Host IP / Name *</label>
-            <input type="text" x-model="forms.device.host" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-400 mb-1">Port *</label>
-            <input type="number" x-model="forms.device.port" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
-          </div>
-        </div>
         <div>
           <label class="block text-xs font-medium text-slate-400 mb-1">Operator</label>
           <select x-model="forms.device.user_id" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
             <template x-for="u in users" :key="u.id">
-              <option :value="u.id" x-text="`${u.name} (@${u.username})`"></option>
+              <option :value="u.id" x-text="`${u.name} (${u.username})`"></option>
             </template>
           </select>
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-slate-400 mb-1">URL</label>
-          <input type="text" x-model="forms.device.url" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500" placeholder="/">
         </div>
         <div>
           <label class="block text-xs font-medium text-slate-400 mb-1">Description</label>
@@ -583,7 +561,7 @@
           <label class="block text-xs font-medium text-slate-400 mb-1">User *</label>
           <select x-model="forms.schedule.user_id" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
             <template x-for="u in users" :key="u.id">
-              <option :value="u.id" x-text="`${u.name} (@${u.username})`"></option>
+              <option :value="u.id" x-text="`${u.name} (${u.username})`"></option>
             </template>
           </select>
         </div>

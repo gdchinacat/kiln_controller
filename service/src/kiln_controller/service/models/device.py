@@ -38,6 +38,8 @@ class DeviceORM(DeviceValidator, sqlmodel.SQLModel, table=True):
 
     id: int | None = sqlmodel.Field(default=None, primary_key=True)
     name: str = sqlmodel.Field(max_length=NAME_LENGTH)
+    auth_token: str
+    """The Bearer token the device must use to authenticate."""
     description: str | None = sqlmodel.Field(default=None)
 
     user_id: int = sqlmodel.Field(foreign_key="users.id")

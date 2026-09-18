@@ -20,14 +20,17 @@ MAX_USERNAME_LENGTH = 16
 MAX_PASSWORD_LENGTH = 16
 
 
-class UserUpdate(BaseUpdate):
+class UserCommon(BaseUpdate):
     username: str | None = pydantic.Field(max_length=MAX_USERNAME_LENGTH)
-    password: str | None = pydantic.Field(max_length=MAX_PASSWORD_LENGTH)
     email: str | None
     phone_number: str | None
 
 
-class User(UserUpdate):
+class UserUpdate(UserCommon):
+    password: str | None = pydantic.Field(max_length=MAX_PASSWORD_LENGTH)
+
+
+class User(UserCommon):
     """
     A user of the kiln controller.
     """

@@ -60,3 +60,12 @@ class UserTest(unittest.TestCase):
                 user.delete()
 
         self.assertEqual(ValidationErrors.USER_MANAGES_DEVICES.name, ce.exception.type)
+
+    @pytest.mark.skipif(not LIVE_SERVICE, reason="mocks do not perform validation")
+    @ kwargs["mock_service"] << mock_service_fixture()
+    @ kwargs["client"] << client_fixture()
+    @ kwargs["user"] << user_fixture()
+    def test_user_get_has_no_password(self, user, mock_service, **_):
+        with mock_service.patch():
+            user.get()
+            assert not user.password

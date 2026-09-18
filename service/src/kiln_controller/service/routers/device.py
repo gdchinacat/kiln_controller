@@ -6,12 +6,18 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 from ..models import Device, DeviceUpdate, DeviceORM, Session
-from .base import create_router
+from .base import create_router, SKIP, authenticate_user
 
 security = HTTPBasic()
 
 
-devices_router = create_router(Device, DeviceORM, resource_update_type=DeviceUpdate)
+devices_router = create_router(
+    "device",
+    Device,
+    DeviceORM,
+    resource_update_type=DeviceUpdate,
+    resource_create_type=SKIP,
+)
 
 
 async def _authenticate_device(
@@ -28,8 +34,13 @@ async def _authenticate_device(
     )
 
 
+@devices_router.post("/")
+async def create_device(device: Device = Depends(authenticate_user)):
+    return bytes()
+
+
 @devices_router.put("/{device_id}/telemetry")
-async def telemetry(device_id: str, device: Device = Depends(_authenticate_device)):
+async def telemetry(device_id: int, device: Device = Depends(_authenticate_device)):
     # TODO - implement binary telemetry protocol
     # TODO - logic should be on Device
     return bytes()

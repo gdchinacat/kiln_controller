@@ -25,7 +25,6 @@ class ValidationErrors(Enum):
     DUPLICATE_RAMP_TEMPERATURES = "duplicate ramp temperatures"
     USER_HAS_SCHEDULES = "user has schedules"
     USER_MANAGES_DEVICES = "user manages devices"
-    MISMATCHED_ID = "mismatched id"
 
 
 class ValidationError(Exception):

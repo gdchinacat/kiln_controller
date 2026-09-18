@@ -407,7 +407,7 @@ document.addEventListener('alpine:init', () => {
     },
 
     deleteUser(user) {
-      const nameStr = user.name ? `${user.name} (@${user.username})` : `User #${user.id}`;
+      const nameStr = user.name ? `${user.name} (${user.username})` : `User #${user.id}`;
       this.showConfirmDialog(`Are you sure you want to delete user "${nameStr}"?`, async () => {
         await this.apiRequest(`/user/${user.id}`, 'DELETE');
         this.showToast("User deleted", "warning");

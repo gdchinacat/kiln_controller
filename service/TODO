@@ -12,3 +12,5 @@ Things to check:
 	- does PUT work properly (currently implemented with session.merge()), ie if resource is {name: ''} will it update only name rather than clobbering other fields?
 	- do responses only include the fields it should or all fields? (look at commented Annotated[..., Field(exclude=True)].
 
+Exception handling:
+	- when the server detects a response validation error it results in client showing it as a client error (422) rather than a server error (500). This can lead to confusion that can only really be sorted out by looking at the server logs.

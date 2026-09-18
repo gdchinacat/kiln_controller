@@ -26,7 +26,13 @@ def trace(func=None, /, *, log_func=trace_logger.error):
         log_func("%s(%s, %s)", func.__name__, args, kwargs)
         try:
             ret = func(*args, **kwargs)
-            log_func("%s(%s, %s) = %s", func.__name__, args, kwargs, ret)
+            log_func(
+                "%s(%s, %s) = %s",
+                func.__name__,
+                args,
+                kwargs,
+                f"{ret.status_code} {ret.text}" if hasattr(ret, "text") else ret,
+            )
             return ret
         except Exception as e:
             log_func("%s(%s, %s) raised %s", func.__name__, args, kwargs, e)

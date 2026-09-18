@@ -130,12 +130,9 @@ def device_fixture(
     user,
     skip_create: bool = False,
     name="name",
-    host="host",
-    port=5000,
-    url="/",
     **kwargs,
 ):
-    device = _client.Device(name, user.id, host, port, url)
+    device = _client.Device(name, user.id)
     if not skip_create:
         with mock_service.patch():
             device.post(client)

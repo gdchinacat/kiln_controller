@@ -30,9 +30,6 @@ class UserBase(DataclassBase):
 @dataclass
 class DeviceBase(DataclassBase):
     user_id: int
-    host: str
-    port: int
-    url: str = "/"
     description: str | None = None
 
 

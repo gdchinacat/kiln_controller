@@ -9,6 +9,7 @@ class PhaseTest(unittest.TestCase):
 
     def test_phase_type_roundtrip(self):
         phase = Phase(
+            id=1,
             name="name",
             phase_type=PhaseType.RAMP,
             duration=time(),

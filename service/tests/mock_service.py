@@ -17,6 +17,8 @@ import requests
 
 LIVE_SERVICE = os.getenv("LIVE_SERVICE", "false").upper() == "TRUE"
 
+ids = count()
+
 
 class _HTTPError(Exception):
     status_code = None  # subclasses must override this
@@ -286,19 +288,13 @@ class MockService(Resource):
         # get the id from the url and store it on the obj
         paths = self.get_paths(url)
         id = int(paths[-1])
-        if (rid := json.get("id")) and rid != id:
-            raise ClientException(
-                ValidationErrors.MISMATCHED_ID.name,
-                ValidationErrors.MISMATCHED_ID.value,
-                f'{id} != {json["id"]}',
-            )
-        json["id"] = id
 
         # find the parent, makes handling not existing easier
         url = "/".join(paths[:-1])
 
         def _put(paths, parent_resource):
             # todo - whatever post does to create typed resources
+            json["id"] = id
             parent_resource.sub_resources[str(json["id"])] = Resource(**json)
             return json
 

@@ -4,39 +4,45 @@ Device model.
 
 from typing import Annotated, ClassVar
 
-from sqlmodel import Field, Relationship
+import pydantic
+import sqlmodel
 
-from .base import Base, BaseUpdate, MappedBase
 from .user import UserORM
 from .validators import DeviceValidator
 
 __all__ = ("Device", "DeviceUpdate", "DeviceORM")
 
 
-class DeviceUpdate(BaseUpdate):
-    """the specification for what is required for a Device update (PUT)."""
+NAME_LENGTH = 30
 
-    host: str | None
-    port: int | None
-    url: str | None
+
+class DeviceUpdate(pydantic.BaseModel):
+    """REST update model for Device."""
+
+    name: str | None = pydantic.Field(default=None, max_length=NAME_LENGTH)
     user_id: int | None
     description: str | None
 
 
-class Device(DeviceUpdate):
-    _URL_PATH: ClassVar[str] = "device"
+class Device(pydantic.BaseModel):
+    """Rest model for Device."""
 
-    host: str
-    port: int
+    id: int
+    name: str
     user_id: int
+    description: str | None = pydantic.Field(default=None)
 
 
-class DeviceORM(DeviceValidator, MappedBase, Device, table=True):
+class DeviceORM(DeviceValidator, sqlmodel.SQLModel, table=True):
     __tablename__ = "devices"
-    # user: Annotated[User | None, Field(exclude=True)] = Relationship(
-    user_id: int = Field(foreign_key="users.id")
 
-    user: UserORM | None = Relationship(
+    id: int | None = sqlmodel.Field(default=None, primary_key=True)
+    name: str = sqlmodel.Field(max_length=NAME_LENGTH)
+    description: str | None = sqlmodel.Field(default=None)
+
+    user_id: int = sqlmodel.Field(foreign_key="users.id")
+
+    user: UserORM | None = sqlmodel.Relationship(
         back_populates="devices",
         sa_relationship_kwargs={"viewonly": True, "lazy": True},
     )

@@ -10,13 +10,13 @@ from typing import Callable, Dict
 
 from fastapi import Depends, Request, Response, status, HTTPException, APIRouter
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
+import pydantic
 from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound, IntegrityError
+import sqlmodel
 
 from ...common.validators import ValidationError, ValidationErrors
 from ..models import Session, User, UserORM
-from ..models.base import Base, MappedBase
-from ..models.validators import PhaseType
 
 __all__ = []
 
@@ -27,7 +27,7 @@ logger = getLogger("resource/base.py")
 security = HTTPBasic()
 
 
-async def _authenticate_user(
+async def authenticate_user(
     credentials: HTTPBasicCredentials = Depends(security),
 ) -> User:
     with Session() as session:
@@ -54,12 +54,16 @@ def _apply_resource_type[**P, R](
     return dec
 
 
+SKIP = object()
+
+
 def create_router(
-    resource_type: type[Base],
-    orm_type: type[MappedBase],
+    url_path: str,
+    resource_type: type[pydantic.BaseModel],
+    orm_type: type[sqlmodel.SQLModel],
     url_prefix="",
-    resource_create_type: type[Base] | None = None,
-    resource_update_type: type[Base] | None = None,
+    resource_create_type: type[pydantic.BaseModel] | None = None,
+    resource_update_type: type[pydantic.BaseModel] | None = None,
 ) -> APIRouter:
     """
     Base class for resources (abstract).
@@ -73,14 +77,12 @@ def create_router(
     """
     resource_create_type = resource_create_type or resource_type
     resource_update_type = resource_update_type or resource_type
-    router = APIRouter(
-        prefix=f"{url_prefix}/{resource_type._URL_PATH}", tags=[resource_type.__name__]
-    )
+    router = APIRouter(prefix=f"{url_prefix}/{url_path}", tags=[resource_type.__name__])
 
     @router.get("/")
     @_apply_resource_type(resource_type=resource_type.__name__)
     async def _list(
-        request: Request, user: User = Depends(_authenticate_user)
+        request: Request, user: User = Depends(authenticate_user)
     ) -> list[resource_type]:
         """get the list of {resource_type}s"""
         query = select(orm_type)
@@ -93,7 +95,7 @@ def create_router(
 
     @router.get("/{id}")
     @_apply_resource_type(resource_type=resource_type.__name__)
-    async def _get(id: int, user: User = Depends(_authenticate_user)) -> resource_type:
+    async def _get(id: int, user: User = Depends(authenticate_user)) -> resource_type:
         """get a {resource_type}"""
         with Session() as session:
             orm = session.get(orm_type, id)
@@ -108,34 +110,37 @@ def create_router(
             )
         return orm.model_dump(mode="json")
 
-    @router.post(
-        "/",
-        status_code=HTTPStatus.CREATED,
-        response_model=resource_type,
-    )
-    @_apply_resource_type(resource_type=resource_type.__name__)
-    async def _create(
-        request: Request,
-        resource: resource_create_type,
-        user: User = Depends(_authenticate_user),
-    ) -> resource_type:
-        """create a {resource_type}"""
-        # set the path parameter values on the resource (ie schedule_id on phase)
-        for k, v in request.path_params.items():
-            setattr(resource, k, v)
-        orm = orm_type.model_validate(resource)
-        with (session := Session(expire_on_commit=False)), session.begin():
-            session.add(orm)
-            session.flush()
-            orm.validate_create_or_update()
-        return orm.model_dump(mode="json")
+    if resource_create_type is not SKIP:
+
+        @router.post(
+            "/",
+            status_code=HTTPStatus.CREATED,
+            response_model=resource_type,
+        )
+        @_apply_resource_type(resource_type=resource_type.__name__)
+        async def _create(
+            request: Request,
+            resource: resource_create_type,
+            user: User = Depends(authenticate_user),
+        ) -> resource_type:
+            """create a {resource_type}"""
+            resource_dict = resource.model_dump()
+            # set the path parameter values on the resource (ie schedule_id on phase)
+            for k, v in request.path_params.items():
+                resource_dict[k] = v
+            orm = orm_type.model_validate(resource_dict)
+            with (session := Session(expire_on_commit=False)), session.begin():
+                session.add(orm)
+                session.flush()
+                orm.validate_create_or_update()
+            return orm.model_dump(mode="json")
 
     @router.put("/{id}")
     @_apply_resource_type(resource_type=resource_type.__name__)
     async def _update(
         id: int,
         resource: resource_update_type,
-        user: User = Depends(_authenticate_user),
+        user: User = Depends(authenticate_user),
     ) -> resource_type:
         """Update the {resource_type}."""
         """
@@ -175,16 +180,12 @@ def create_router(
                clients will clobber existing entities.
         Create or update a resource by id.
         """
-        if resource.id and resource.id != id:
-            raise ValidationError(
-                ValidationErrors.MISMATCHED_ID,
-                f"path id ({id}) does not match resource id ({resource.id})",
-            )
         with (session := Session(expire_on_commit=False)), session.begin():
             orm = session.get(orm_type, id)
             if not orm:
-                resource.id = resource.id or id
-                orm = orm_type.model_validate(resource)
+                resource_dict = resource.model_dump()
+                resource_dict["id"] = id
+                orm = orm_type.model_validate(resource_dict)
                 session.add(orm)
             else:
                 orm.sqlmodel_update(resource.model_dump(exclude_unset=True))
@@ -198,7 +199,7 @@ def create_router(
     @_apply_resource_type(resource_type=resource_type.__name__)
     async def _delete(
         id: int,
-        user=Depends(_authenticate_user),
+        user=Depends(authenticate_user),
     ) -> None:
         """delete a {resource_type}"""
         with (session := Session()), session.begin():

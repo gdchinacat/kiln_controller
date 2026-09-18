@@ -3,52 +3,57 @@ Schedule related ORMs
 """
 
 from datetime import time
-from typing import Annotated, ClassVar
 
-from sqlalchemy import UniqueConstraint, Enum as SAEnum
-from sqlmodel import Field, Relationship, Column
+import pydantic
+import sqlmodel
 
 from ...common.enums import PhaseType
-from .base import Base, BaseUpdate, MappedBase
 from .user import UserORM
 from .validators import ScheduleValidator, PhaseValidator
 
 __all__ = (
     "Phase",
+    "PhaseCreate",
     "PhaseUpdate",
     "PhaseORM",
     "Schedule",
+    "ScheduleCreate",
     "ScheduleUpdate",
     "ScheduleORM",
 )
 
+NAME_LENGTH = 30
 
-class ScheduleUpdate(BaseUpdate):
+
+class ScheduleCreate(pydantic.BaseModel):
+    name: str = pydantic.Field(max_length=NAME_LENGTH)
+    user_id: int | None = None  # defaults to current user
+
+
+class ScheduleUpdate(pydantic.BaseModel):
+    name: str = pydantic.Field(max_length=NAME_LENGTH)
     user_id: int | None = None
 
 
 class Schedule(ScheduleUpdate):
-    """
-    A schedule is a definition of how a firing should be executed.
-    """
-
-    _URL_PATH: ClassVar[str] = "schedule"
-
+    id: int
+    name: str = pydantic.Field(max_length=NAME_LENGTH)
     user_id: int
 
 
-class ScheduleORM(ScheduleValidator, MappedBase, Schedule, table=True):
+class ScheduleORM(ScheduleValidator, sqlmodel.SQLModel, table=True):
 
     __tablename__ = "schedules"
-    # user: Annotated[User, Field(exlude=True)] = Relationship(
-    user: UserORM = Relationship(
+
+    id: int | None = sqlmodel.Field(default=None, primary_key=True)
+    name: str = sqlmodel.Field(max_length=NAME_LENGTH)
+    user: UserORM = sqlmodel.Relationship(
         back_populates="schedules",
         sa_relationship_kwargs={"viewonly": True, "lazy": True},
     )
-    user_id: int = Field(foreign_key="users.id")
+    user_id: int = sqlmodel.Field(foreign_key="users.id")
 
-    phases: list["PhaseORM"] = Relationship(
-        # phases: Annotated[list["Phase"], Field(exlude=True)] = Relationship(
+    phases: list["PhaseORM"] = sqlmodel.Relationship(
         back_populates="schedule",
         sa_relationship_kwargs={
             "order_by": "PhaseORM.ordinal",
@@ -58,7 +63,17 @@ class ScheduleORM(ScheduleValidator, MappedBase, Schedule, table=True):
     )
 
 
-class PhaseUpdate(BaseUpdate):
+class PhaseCreate(pydantic.BaseModel):
+    name: str = pydantic.Field(max_length=NAME_LENGTH)
+    ordinal: int
+    phase_type: PhaseType
+    duration: time | None = None
+    rate: int | None = None
+    temperature: int | None = None
+
+
+class PhaseUpdate(pydantic.BaseModel):
+    name: str | None = pydantic.Field(max_length=NAME_LENGTH)
     ordinal: int | None
     """
     The ordinal indicates the order of phases within a schedule.
@@ -112,28 +127,34 @@ class PhaseUpdate(BaseUpdate):
     schedule_id: int | None = None
 
 
-class Phase(PhaseUpdate):
-    """
-    A phase in a firing schedule.
-    """
-
-    _URL_PATH: ClassVar[str] = "phase"
-
+class Phase(pydantic.BaseModel):
+    id: int
+    name: str
     ordinal: int
     phase_type: PhaseType
+    duration: time | None = None
+    rate: int | None = None
+    temperature: int | None = None
     schedule_id: int
 
 
-class PhaseORM(PhaseValidator, MappedBase, Phase, table=True):
+class PhaseORM(PhaseValidator, sqlmodel.SQLModel, table=True):
     __tablename__ = "phases"
     __table_args__ = (
-        UniqueConstraint("schedule_id", "name"),
-        UniqueConstraint("schedule_id", "ordinal"),
+        sqlmodel.UniqueConstraint("schedule_id", "name"),
+        sqlmodel.UniqueConstraint("schedule_id", "ordinal"),
     )
 
-    schedule_id: int = Field(foreign_key="schedules.id")
-    # schedule: Annotated[Schedule, Field(exclude=True)] = Relationship(
-    schedule: ScheduleORM = Relationship(
+    id: int | None = sqlmodel.Field(default=None, primary_key=True)
+    name: str = sqlmodel.Field(default=None, max_length=NAME_LENGTH)
+    ordinal: int
+    phase_type: PhaseType
+    duration: time | None
+    rate: int | None
+    temperature: int | None
+
+    schedule_id: int = sqlmodel.Field(foreign_key="schedules.id")
+    schedule: ScheduleORM = sqlmodel.Relationship(
         back_populates="phases",
         sa_relationship_kwargs={"viewonly": True, "lazy": True},
     )

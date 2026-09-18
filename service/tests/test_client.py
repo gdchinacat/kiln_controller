@@ -218,10 +218,6 @@ class ClientTest(unittest.TestCase):
             resp = client._client.put(url, AsDict(resource_dict))
             assert resp["id"] == resource.id
 
-            with self.assertRaises(ClientException):
-                resource_dict["id"] = -1
-                resp = client._client.put(url, AsDict(resource_dict))
-
             # test put with resource.id succeeds, attribute changes
             name = resource.name * 2
             resource.name = name

@@ -11,7 +11,13 @@ from ._base import ResourceCreate
 from .user import UserORM
 from .validators import DeviceValidator
 
-__all__ = ("Device", "DeviceCreate", "DeviceUpdate", "DeviceORM")
+__all__ = (
+    "Device",
+    "DeviceCreate",
+    "DeviceCreateResponse",
+    "DeviceUpdate",
+    "DeviceORM",
+)
 
 
 NAME_LENGTH = 30
@@ -28,12 +34,20 @@ class DeviceCreate(ResourceCreate):
 
     name: str = pydantic.Field(max_length=NAME_LENGTH)
 
-    def extra_attrs(self, user: UserORM) -> dict[str, str]:
+    def extra_attrs(self, user: UserORM) -> dict[str, str | int]:
         """provide the auth_token"""
+        assert user.id is not None
         ret = super().extra_attrs(user)
         ret["auth_token"] = secrets.token_urlsafe(AUTH_TOKEN_BYTES)
         ret["user_id"] = user.id
         return ret
+
+
+class DeviceCreateResponse(pydantic.BaseModel):
+    id: int
+    name: str
+    auth_token: str = pydantic.Field(max_length=AUTH_TOKEN_LENGTH)
+    user_id: int
 
 
 class DeviceUpdate(pydantic.BaseModel):

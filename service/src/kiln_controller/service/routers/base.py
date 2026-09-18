@@ -60,6 +60,7 @@ def create_router(
     orm_type: type[sqlmodel.SQLModel],
     url_prefix="",
     resource_create_type: type[ResourceCreate] | None = None,
+    resource_create_response_type: type[pydantic.BaseModel] | None = None,
     resource_update_type: type[pydantic.BaseModel] | None = None,
 ) -> APIRouter:
     """
@@ -73,6 +74,7 @@ def create_router(
     operations for resource_type.
     """
     resource_create_type = resource_create_type or resource_type
+    resource_create_response_type = resource_create_response_type or resource_type
     resource_update_type = resource_update_type or resource_type
     router = APIRouter(prefix=f"{url_prefix}/{url_path}", tags=[resource_type.__name__])
 
@@ -110,14 +112,14 @@ def create_router(
     @router.post(
         "/",
         status_code=HTTPStatus.CREATED,
-        response_model=resource_type,
+        response_model=resource_create_response_type,
     )
     @_apply_resource_type(resource_type=resource_type.__name__)
     async def _create(
         request: Request,
         resource: resource_create_type,
         user: User = Depends(authenticate_user),
-    ) -> resource_type:
+    ) -> resource_create_response_type:
         """create a {resource_type}"""
         resource_dict = resource.model_dump()
         resource_dict.update(request.path_params)
@@ -127,6 +129,7 @@ def create_router(
             session.add(orm)
             session.flush()
             orm.validate_create_or_update()
+        # return resource_create_response_type.model_validate(orm.model_dump(mode="json"))
         return orm.model_dump(mode="json")
 
     @router.put("/{id}")

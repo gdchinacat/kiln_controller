@@ -10,6 +10,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from ..models import (
     Device,
     DeviceCreate,
+    DeviceCreateResponse,
     DeviceUpdate,
     DeviceORM,
     Session,
@@ -24,6 +25,7 @@ devices_router = create_router(
     DeviceORM,
     resource_update_type=DeviceUpdate,
     resource_create_type=DeviceCreate,
+    resource_create_response_type=DeviceCreateResponse,
 )
 
 

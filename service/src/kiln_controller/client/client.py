@@ -31,6 +31,10 @@ class UserBase(DataclassBase):
 class DeviceBase(DataclassBase):
     user_id: int
     description: str | None = None
+    auth_token: str | None = None
+
+    def __post_init__(self) -> None:
+        self.auth_token = None
 
 
 @dataclass

@@ -99,14 +99,8 @@ def create_router(
         with Session() as session:
             orm = session.get(orm_type, id)
         if not orm:
-            return (
-                Response(
-                    status_code=HTTPStatus.NOT_FOUND,
-                    content={
-                        "message": f"{resource_type.__name__} with id={id} not found"
-                    },
-                ),
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
         return orm.model_dump(mode="json")
 
     @router.post(

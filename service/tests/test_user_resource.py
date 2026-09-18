@@ -9,7 +9,7 @@ import unittest
 import pytest
 
 from fixtures import kwargs
-from kiln_controller.client import ClientException, ValidationErrors
+from kiln_controller.client import ClientException, ValidationErrors, NotFoundException
 
 from ._fixtures import (
     mock_service_fixture,
@@ -70,3 +70,14 @@ class UserTest(unittest.TestCase):
         with mock_service.patch():
             user.get()
             assert not user.password
+
+    @ kwargs["mock_service"] << mock_service_fixture()
+    @ kwargs["client"] << client_fixture()
+    @ kwargs["user"] << user_fixture()
+    def test_user_not_found(self, user, mock_service, **_):
+        with mock_service.patch():
+            user_id = user.id
+            user.delete()
+            user.id = user_id
+            with self.assertRaises(NotFoundException):
+                user.get()

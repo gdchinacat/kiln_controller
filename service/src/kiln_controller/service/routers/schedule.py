@@ -28,4 +28,17 @@ phases_router = create_router(
     "/schedule/{schedule_id}",
     resource_update_type=PhaseUpdate,
     resource_create_type=PhaseCreate,
+    openapi_extra={
+        "parameters": [
+            {
+                "name": "schedule_id",
+                "in": "path",
+                "required": True,
+                "schema": {
+                    "type": "string",
+                    "description": "The id of the schedule",
+                },
+            }
+        ]
+    },
 )

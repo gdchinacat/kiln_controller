@@ -43,7 +43,7 @@ async def _authenticate_device(
 
 
 binary_route = partial(
-    devices_router.post, responses={200: {"content": "application/octet-stream"}}
+    devices_router.post, responses={200: {"content": {"application/octet-stream": {}}}}
 )
 
 

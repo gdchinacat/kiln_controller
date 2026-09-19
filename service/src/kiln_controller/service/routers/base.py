@@ -6,7 +6,7 @@ from abc import ABC
 from functools import wraps
 from http import HTTPStatus
 from logging import getLogger
-from typing import Callable, Dict
+from typing import Callable, Any
 
 from fastapi import Depends, Request, Response, status, HTTPException, APIRouter
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
@@ -62,6 +62,7 @@ def create_router(
     resource_create_type: type[ResourceCreate] | None = None,
     resource_create_response_type: type[pydantic.BaseModel] | None = None,
     resource_update_type: type[pydantic.BaseModel] | None = None,
+    openapi_extra: dict[Any, Any] | None = None,
 ) -> APIRouter:
     """
     Base class for resources (abstract).
@@ -78,7 +79,7 @@ def create_router(
     resource_update_type = resource_update_type or resource_type
     router = APIRouter(prefix=f"{url_prefix}/{url_path}", tags=[resource_type.__name__])
 
-    @router.get("/")
+    @router.get("/", openapi_extra=openapi_extra, operation_id=f"list_{url_path}")
     @_apply_resource_type(resource_type=resource_type.__name__)
     async def _list(
         request: Request, user: User = Depends(authenticate_user)
@@ -92,7 +93,11 @@ def create_router(
                 orm.model_dump(mode="json") for orm in session.execute(query).scalars()
             ]
 
-    @router.get("/{id}")
+    @router.get(
+        "/{id}",
+        openapi_extra=openapi_extra,
+        operation_id=f"get_{url_path}",
+    )
     @_apply_resource_type(resource_type=resource_type.__name__)
     async def _get(id: int, user: User = Depends(authenticate_user)) -> resource_type:
         """get a {resource_type}"""
@@ -107,6 +112,8 @@ def create_router(
         "/",
         status_code=HTTPStatus.CREATED,
         response_model=resource_create_response_type,
+        openapi_extra=openapi_extra,
+        operation_id=f"create_{url_path}",
     )
     @_apply_resource_type(resource_type=resource_type.__name__)
     async def _create(
@@ -126,7 +133,11 @@ def create_router(
         # return resource_create_response_type.model_validate(orm.model_dump(mode="json"))
         return orm.model_dump(mode="json")
 
-    @router.put("/{id}")
+    @router.put(
+        "/{id}",
+        openapi_extra=openapi_extra,
+        operation_id=f"update_{url_path}",
+    )
     @_apply_resource_type(resource_type=resource_type.__name__)
     async def _update(
         id: int,
@@ -186,6 +197,8 @@ def create_router(
         "/{id}",
         status_code=status.HTTP_204_NO_CONTENT,
         response_class=Response,
+        openapi_extra=openapi_extra,
+        operation_id=f"delete_{url_path}",
     )
     @_apply_resource_type(resource_type=resource_type.__name__)
     async def _delete(

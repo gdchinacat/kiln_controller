@@ -21,7 +21,7 @@ const char INDEX_HTML[] PROGMEM =
 "</select>"
 "<div id='scan-status' class='status'>Looking for nearby routers...</div>"
 "<label>Wi-Fi Password:</label><input type='password' name='wifi_password'>"
-"<label>Server Registration URL:</label><input type='text' id='url' name='url' value='https://host/device/' required>"
+"<label>Server Registration URL:</label>""<input type='text' id='url' name='url' value='" REGISTRATION_URL "' required>"
 "<label>Server username:</label><input type='text' id='username' name='username' value='admin' required>"
 "<label>Server password:</label><input type='password' id='password' name='password' value='admin' required>"
 "<label>Device Name:</label><input type='text' id='name' name='name' value='' required>"
@@ -69,7 +69,7 @@ bool Registrar::load() {
 		valid = true;
 		log_i("found valid registration");
 	} else {
-		if (size != 0) {
+		if (REGISTRATION_VERSION != -1 && size != 0) {
 			log_e("existing registration size %d (should be %d) version %d (should be %d)",
 				size, sizeof(registration), registration.version, REGISTRATION_VERSION);
 		}
@@ -203,9 +203,14 @@ bool Registrar::registerWithService(String name, String username, String passwor
 		if (error) {
 			log_e("deserializeJson() failed: %s", error.f_str());
 		}
-		int id = json["id"];
+
+		if (not json["id"].is<unsigned int>()
+			|| (not json["auth_token"].is<String>())) {
+			log_e("received bad registration response: %s", content);
+			return false;
+		}
+		unsigned int id = json["id"];
 		const char* auth_token = json["auth_token"];
-		// todo validate fields are available and valid
 
 		snprintf(registration.service.url, sizeof(registration.service.url),
 			 	 "%s%d/", registration.service.url, id);

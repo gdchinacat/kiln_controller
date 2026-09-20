@@ -8,8 +8,10 @@
 
 #define REGISTRATION_PREFS_NS "registration"
 #define REGISTRATION_PREFS_KEY "bytes"
+//REGISTRATION_VERSION -1 will force registration to be ignored for testing.
 #define REGISTRATION_VERSION 1
 #define REGISTRATION_AP "Kiln Registration"
+#define REGISTRATION_URL "http://dupree:5000/device/"
 
 #define SSID_MAX_LENGTH 33
 #define WIFI_PASSWORD_MAX_LENGTH 64

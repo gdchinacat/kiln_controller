@@ -1,6 +1,6 @@
 Config.Release.board.BOARD.ID=esp32
 Config.Release.board.BOARD.MENU.CPUFreq=240
-Config.Release.board.BOARD.MENU.DebugLevel=none
+Config.Release.board.BOARD.MENU.DebugLevel=debug
 Config.Release.board.BOARD.MENU.EraseFlash=none
 Config.Release.board.BOARD.MENU.EventsCore=0
 Config.Release.board.BOARD.MENU.FlashFreq=80

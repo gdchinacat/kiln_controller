@@ -16,7 +16,7 @@
 					<folderInfo id="io.sloeber.core.sketch.0." name="/" resourcePath="">
 						<toolChain id="io.sloeber.core.toolChain.release.1192918565" name="Arduino Toolchain (Sloeber edition)" superClass="io.sloeber.core.toolChain.release">
 							<targetPlatform archList="all" binaryParser="org.eclipse.cdt.core.ELF" id="io.sloeber.targetplatform.1746414745" name="Arduino Target" osList="all" superClass="io.sloeber.targetplatform"/>
-							<builder buildPath="${workspace_loc:/device}/Release" id="io.sloeber.sketch.builder.1346670176" keepEnvironmentInBuildfile="false" name="Arduino sketch builder" parallelBuildOn="false" superClass="io.sloeber.sketch.builder"/>
+							<builder buildPath="${workspace_loc:/device}/Release" id="io.sloeber.sketch.builder.1346670176" keepEnvironmentInBuildfile="false" managedBuildOn="true" name="Arduino sketch builder" parallelBuildOn="false" superClass="io.sloeber.sketch.builder"/>
 							<tool id="io.sloeber.tool.sketch.compiler.cpp.793617769" name="Arduino C++ Compiler" superClass="io.sloeber.tool.sketch.compiler.cpp">
 								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="io.sloeber.compiler.cpp.sketch.option.incpath.637645844" name="Include Paths (-I)" superClass="io.sloeber.compiler.cpp.sketch.option.incpath" valueType="includePath">
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/core/core}&quot;"/>
@@ -118,6 +118,9 @@
 	</storageModule>
 	<storageModule moduleId="refreshScope" versionNumber="2">
 		<configuration configurationName="Release">
+			<resource resourceType="PROJECT" workspacePath="/device"/>
+		</configuration>
+		<configuration configurationName="Debug">
 			<resource resourceType="PROJECT" workspacePath="/device"/>
 		</configuration>
 	</storageModule>

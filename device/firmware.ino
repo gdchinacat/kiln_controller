@@ -1,20 +1,26 @@
 #include "registrar.h"
+#include "telemetry.h"
 
-Registrar registrar("KilnRegistration");
+Registrar registrar;
+Telemetry telemetry;
 
 enum DeviceState { REGISTERING, RUNNING };
 DeviceState currentState;
 
 void setup() {
-	Serial.begin(115200);
+	Serial.begin(921600);
 	delay(1000); // Settling delay for stable serial output
 
 	if (registrar.load()) {
 		registrar.registration.wifi.connect();
+		//todo set up the device (pins, interupts, etc)
+		telemetry.setup();
+
 		currentState = RUNNING;
 	} else {
-		Serial.println("No valid configuration found. Launching registration Mode.");
+		Serial.println("No valid configuration found. Starting registration.");
 		registrar.start();
+
 		currentState = REGISTERING;
 	}
 }
@@ -26,29 +32,8 @@ void loop() {
 			break;
 
 		case RUNNING:
-			runningLoop();
+			telemetry.loop();
 			break;
 	}
 }
 
-// todo move telemetry stuff into telemetry.(h|cpp)
-void sendTelemetry() {
-	// todo send the telemetry to service
-}
-
-void telemetryLoop() {
-	static unsigned long lastUpdate = 0;
-	unsigned long now = millis();
-	if (now - lastUpdate > 5000) {
-		sendTelemetry();
-		if (lastUpdate == 0 ) {
-			lastUpdate = now;
-		} else {
-			lastUpdate += 5000;
-		}
-	}
-}
-
-void runningLoop() {
-	telemetryLoop();
-}

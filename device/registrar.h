@@ -7,6 +7,11 @@
 #include <Preferences.h>
 #include <HTTPClient.h>
 
+#define REGISTRATION_PREFS_NS "registration"
+#define REGISTRATION_PREFS_KEY "bytes"
+#define REGISTRATION_VERSION 1
+#define REGISTRATION_AP "Kiln Registration"
+
 #define SSID_MAX_LENGTH 33
 #define WIFI_PASSWORD_MAX_LENGTH 64
 #define URL_MAX_LENGTH 256
@@ -16,6 +21,7 @@ class Wifi {
 public:
 	char ssid[SSID_MAX_LENGTH];
 	char password[WIFI_PASSWORD_MAX_LENGTH];
+
 	bool connect();
 };
 
@@ -27,6 +33,8 @@ public:
 
 class Registration {
 public:
+	Registration();
+	char version;
 	Wifi wifi;
 	Service service;
 };
@@ -52,7 +60,7 @@ private:
 	const char* registerWithService(String name, String username, String password);  // returns auth_token
 
 public:
-	Registrar(const char* apSSID = "KilnRegistration");
+	Registrar(const char* apSSID = REGISTRATION_AP);
 
 	Registration registration;
 

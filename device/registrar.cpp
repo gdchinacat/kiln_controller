@@ -3,9 +3,6 @@
 #include "registrar.h"
 
 
-#define REGISTRATION_PREFS_NS "registration"
-#define REGISTRATION_PREFS_KEY "bytes"
-
 const char INDEX_HTML[] PROGMEM =
 "<!DOCTYPE html><html><head>"
 "<meta name='viewport' content='width=device-width, initial-scale=1'>"
@@ -62,11 +59,22 @@ Registrar::Registrar(const char* apSSID)
 
 bool Registrar::load() {
 	_prefs.begin(REGISTRATION_PREFS_NS, true);
-	bool valid = _prefs.isKey("bytes");
-	if (valid) {
-		_prefs.getBytes(REGISTRATION_PREFS_KEY, &registration, sizeof(registration));
-	}
+	bool valid = false;
+	size_t size = _prefs.getBytes(REGISTRATION_PREFS_KEY, &registration, sizeof(registration));
 	_prefs.end();
+	if ((size == sizeof(registration))
+		&& (registration.version == REGISTRATION_VERSION)) {
+		// todo add upgrade path that doesn't force needless registration
+		valid = true;
+		log_i("found valid registration");
+	} else {
+		if (size != 0) {
+			log_e("existing registration size %d (should be %d) version %d (should be %d)",
+				size, sizeof(registration), registration.version, REGISTRATION_VERSION);
+		}
+
+		reset();
+	}
 	return valid;
 }
 
@@ -84,17 +92,16 @@ void Registrar::start() {
 	_server.onNotFound([this]() { this->handleRoot(); });
 
 	_server.begin();
-	Serial.print("[Registrar] Registration service started on SSID ");
-	Serial.println(_apSSID);
+	log_i("Registration service started on SSID %s", _apSSID);
 }
 
 void Registrar::handleRoot() {
-	Serial.println("[Registrar] handleRoot");
+	log_d("handleRoot");
 	_server.send(200, "text/html", INDEX_HTML);
 }
 
 void Registrar::handleScan() {
-	Serial.println("[Registrar] handleScan");
+	log_d("handleScan");
 
 	int networkCount = WiFi.scanNetworks(false, true);
 
@@ -121,7 +128,7 @@ void Registrar::handleScan() {
 }
 
 void Registrar::handleSubmit() {
-	Serial.println("[Registrar] handleSubmit");
+	log_d("handleSubmit");
 	if (_server.hasArg("ssid")
 		&& _server.hasArg("wifi_password")
 		&& _server.hasArg("url")
@@ -149,20 +156,15 @@ void Registrar::handleSubmit() {
 		if (registration.wifi.connect()) {
 			String auth_token = registerWithService(_name, _username, _password);
 			if (auth_token != NULL) {
-				String _auth_token = String("Bearer ");
-				_auth_token += auth_token;
-				_auth_token.toCharArray(registration.service.auth_token, sizeof(registration.service.auth_token));
+				auth_token.toCharArray(registration.service.auth_token, sizeof(registration.service.auth_token));
 				_prefs.begin(REGISTRATION_PREFS_NS, false);
 				_prefs.putBytes(REGISTRATION_PREFS_KEY, &registration, sizeof(registration));
 				_prefs.end();
 				_reboot = true;
 				return;
-			} else {
-				Serial.println("[Registrar] failed to get auth_token.");
 			}
 		} else {
-			Serial.print("[Registrar] could not connect to ");
-			Serial.println(registration.wifi.ssid);
+			log_e("cound not connect to %s", registration.wifi.ssid);
 		}
 		start();
 	} else {
@@ -175,7 +177,7 @@ void Registrar::loop() {
 	_server.handleClient();
 
 	if (_reboot) {
-		Serial.println("[Registrar] Rebooting device ...");
+		log_i("Rebooting device ...");
 		delay(2000);
 		ESP.restart();
 	}
@@ -186,8 +188,7 @@ const char* Registrar::registerWithService(String name, String username, String 
 	HTTPClient http;
 	http.begin(wifi, registration.service.url);
 	http.setAuthorization(username.c_str(), password.c_str());
-	Serial.print("[Registrar] posting to ");
-	Serial.println(registration.service.url);
+	log_i("posting to %s", registration.service.url);
 	http.addHeader("Content-Type", "application/json");
 
 	String payload = "{\"name\":\"" + name + "\"}";
@@ -200,32 +201,29 @@ const char* Registrar::registerWithService(String name, String username, String 
 		JsonDocument json;
 		DeserializationError error = deserializeJson(json, content);
 		if (error) {
-			Serial.print("[Registrar] deserializeJson() failed: ");
-			Serial.println(error.f_str());
+			log_e("deserializeJson() failed: %s", error.f_str());
 		}
 		const char* auth_token = json["auth_token"];
-		Serial.print("[Registrar] got auth_token ");
-		Serial.println(auth_token);
+		log_d("got auth token \"%s\"", auth_token);
 		return auth_token;
 	} else {
-		Serial.print("[Registrar] registration failed: HTTP ");
-		Serial.print(httpCode);
-		Serial.print(": ");
-		Serial.print(content);
+		log_e("registration failed with %d: %s", httpCode, content); 
 		return NULL;
 	}
 }
 
 void Registrar::reset() {
 	_prefs.begin(REGISTRATION_PREFS_NS, false);
-	_prefs.clear();
+	if (not _prefs.clear()) {
+		log_e("failed to reset registration.");
+	} else {
+		log_i("reset registration.");
+	}
 	_prefs.end();
-	_reboot = true;
 }
 
 bool Wifi::connect() {
-	Serial.print("[Wifi] Connecting to ");
-	Serial.println(ssid);
+	log_d("Connecting to SSID %s", ssid);
 
 	WiFi.mode(WIFI_STA);
 	WiFi.begin(ssid, password);
@@ -233,17 +231,16 @@ bool Wifi::connect() {
 	int timeout = 0;
 	while (WiFi.status() != WL_CONNECTED && timeout < 30) {
 		delay(500);
-		Serial.print(".");
 		timeout++;
 	}
 
 	if (WiFi.status() != WL_CONNECTED) {
-		Serial.print("\n[Wifi] Connection timeout or bad credentials: ");
-		Serial.print(WiFi.status());
+		log_e("Connection timeout or bad credentials: %s", WiFi.status());
 		return false;
 	}
 
-	Serial.print("\n[Wifi] Connected to ");
-	Serial.println(ssid);
+	log_i("Connected to %s", ssid);
 	return true;
 }
+
+Registration::Registration() : version(REGISTRATION_VERSION) {}

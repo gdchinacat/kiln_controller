@@ -35,9 +35,15 @@ async def _authenticate_device(
 ) -> Device:
     with Session() as session:
         device_orm = session.get(DeviceORM, device_id)
-        if device_orm and device_orm.auth_token == credentials.credentials:
+        if not device_orm:
+            # todo - is it OK to expose this as 404 without auth passing to let
+            #        the device know it needs to re-register?
+            # todo - no test failed when this 401 was changed to 404, need test
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+        if device_orm.auth_token == credentials.credentials:
             return Device.model_validate(device_orm.model_dump())
     raise HTTPException(
+        # todo - don't send json auth errors
         status_code=status.HTTP_401_UNAUTHORIZED,
     )
 

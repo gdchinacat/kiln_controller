@@ -2,7 +2,10 @@
 #include <HTTPClient.h>
 #include <WiFiClient.h>
 #include "registrar.h"
+#include "registration.h"
 
+extern Registration registration;
+extern bool reboot;
 
 const char INDEX_HTML[] PROGMEM =
 "<!DOCTYPE html><html><head>"
@@ -56,28 +59,7 @@ const char INDEX_HTML[] PROGMEM =
 "</script></body></html>";
 
 Registrar::Registrar(const char* apSSID)
-	: _apSSID(apSSID), _apIP(192, 168, 4, 1), _server(80), _reboot(false) {}
-
-bool Registrar::load() {
-	_prefs.begin(REGISTRATION_PREFS_NS, true);
-	bool valid = false;
-	size_t size = _prefs.getBytes(REGISTRATION_PREFS_KEY, &registration, sizeof(registration));
-	_prefs.end();
-	if ((size == sizeof(registration))
-		&& (registration.version == REGISTRATION_VERSION)) {
-		// todo add upgrade path that doesn't force needless registration
-		valid = true;
-		log_i("found valid registration");
-	} else {
-		if (REGISTRATION_VERSION != -1 && size != 0) {
-			log_e("existing registration size %d (should be %d) version %d (should be %d)",
-				size, sizeof(registration), registration.version, REGISTRATION_VERSION);
-		}
-
-		reset();
-	}
-	return valid;
-}
+	: _apSSID(apSSID), _apIP(192, 168, 4, 1), _server(80) {}
 
 void Registrar::start() {
 	WiFi.mode(WIFI_AP);
@@ -97,7 +79,7 @@ void Registrar::start() {
 }
 
 void Registrar::handleRoot() {
-	log_d("handleRoot");
+	log_i("handleRoot %s", _server.uri().c_str());
 	_server.send(200, "text/html", INDEX_HTML);
 }
 
@@ -157,10 +139,8 @@ void Registrar::handleSubmit() {
 		if (registration.wifi.connect()) {
 			bool registered = registerWithService(_name, _username, _password);
 			if (registered) {
-				_prefs.begin(REGISTRATION_PREFS_NS, false);
-				_prefs.putBytes(REGISTRATION_PREFS_KEY, &registration, sizeof(registration));
-				_prefs.end();
-				_reboot = true;
+				registration.save();
+				reboot = true;
 				return;
 			}
 		} else {
@@ -175,12 +155,6 @@ void Registrar::handleSubmit() {
 void Registrar::loop() {
 	_dnsServer.processNextRequest();
 	_server.handleClient();
-
-	if (_reboot) {
-		log_i("Rebooting device ...");
-		delay(2000);
-		ESP.restart();
-	}
 }
 
 bool Registrar::registerWithService(String name, String username, String password) {
@@ -206,7 +180,7 @@ bool Registrar::registerWithService(String name, String username, String passwor
 
 		if (not json["id"].is<unsigned int>()
 			|| (not json["auth_token"].is<String>())) {
-			log_e("received bad registration response: %s", content);
+			log_e("received bad registration response: %s", content.c_str());
 			return false;
 		}
 		unsigned int id = json["id"];
@@ -219,19 +193,9 @@ bool Registrar::registerWithService(String name, String username, String passwor
 		log_d("registration updated to url %s, auth token \"%s\"", registration.service.url, registration.service.auth_token);
 		return true;
 	} else {
-		log_e("registration failed with %d: %s", httpCode, content); 
+		log_e("registration failed with %d: %s", httpCode, content.c_str()); 
 		return false;
 	}
-}
-
-void Registrar::reset() {
-	_prefs.begin(REGISTRATION_PREFS_NS, false);
-	if (not _prefs.clear()) {
-		log_e("failed to reset registration.");
-	} else {
-		log_i("reset registration.");
-	}
-	_prefs.end();
 }
 
 bool Wifi::connect() {
@@ -247,12 +211,10 @@ bool Wifi::connect() {
 	}
 
 	if (WiFi.status() != WL_CONNECTED) {
-		log_e("Connection timeout or bad credentials: %s", WiFi.status());
+		log_e("Connection timeout or bad credentials: %d", WiFi.status());
 		return false;
 	}
 
 	log_i("Connected to %s", ssid);
 	return true;
 }
-
-Registration::Registration() : version(REGISTRATION_VERSION) {}

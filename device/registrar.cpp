@@ -1,4 +1,5 @@
 #include <ArduinoJson.h>
+#include <HTTPClient.h>
 #include <WiFiClient.h>
 #include "registrar.h"
 
@@ -154,9 +155,8 @@ void Registrar::handleSubmit() {
 		_url.toCharArray(registration.service.url, sizeof(registration.service.url));
 
 		if (registration.wifi.connect()) {
-			String auth_token = registerWithService(_name, _username, _password);
-			if (auth_token != NULL) {
-				auth_token.toCharArray(registration.service.auth_token, sizeof(registration.service.auth_token));
+			bool registered = registerWithService(_name, _username, _password);
+			if (registered) {
 				_prefs.begin(REGISTRATION_PREFS_NS, false);
 				_prefs.putBytes(REGISTRATION_PREFS_KEY, &registration, sizeof(registration));
 				_prefs.end();
@@ -183,7 +183,7 @@ void Registrar::loop() {
 	}
 }
 
-const char* Registrar::registerWithService(String name, String username, String password) {
+bool Registrar::registerWithService(String name, String username, String password) {
 	WiFiClient wifi;
 	HTTPClient http;
 	http.begin(wifi, registration.service.url);
@@ -203,12 +203,19 @@ const char* Registrar::registerWithService(String name, String username, String 
 		if (error) {
 			log_e("deserializeJson() failed: %s", error.f_str());
 		}
+		int id = json["id"];
 		const char* auth_token = json["auth_token"];
-		log_d("got auth token \"%s\"", auth_token);
-		return auth_token;
+		// todo validate fields are available and valid
+
+		snprintf(registration.service.url, sizeof(registration.service.url),
+			 	 "%s%d/", registration.service.url, id);
+		strncpy(registration.service.auth_token, auth_token, sizeof(registration.service.auth_token));
+
+		log_d("registration updated to url %s, auth token \"%s\"", registration.service.url, registration.service.auth_token);
+		return true;
 	} else {
 		log_e("registration failed with %d: %s", httpCode, content); 
-		return NULL;
+		return false;
 	}
 }
 

@@ -7,11 +7,19 @@ extern Registrar registrar;
 Telemetry::Telemetry() {}
 
 void Telemetry::send() {
-	log_d("sending telemetry");
+	int httpCode = http.POST(NULL, 0);  // todo actually send data
+	String content = http.getString();
+	if (httpCode == 200 || httpCode == 201) {
+		log_d("sent telemetry");
+	} else {
+		log_e("error sending telemetry: %d %s", httpCode, content);
+	}
 }
 
 void Telemetry::setupHTTPClient() {
-	http.begin(wifi, registrar.registration.service.url);
+	String url = registrar.registration.service.url;
+	url += "telemetry";
+	http.begin(wifi, url);
 	http.setAuthorization(registrar.registration.service.auth_token);
 	http.setAuthorizationType("Bearer");
 	http.addHeader("Content-Type", "application/octet_stream");

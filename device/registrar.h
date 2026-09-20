@@ -5,7 +5,6 @@
 #include <DNSServer.h>
 #include <WebServer.h>
 #include <Preferences.h>
-#include <HTTPClient.h>
 
 #define REGISTRATION_PREFS_NS "registration"
 #define REGISTRATION_PREFS_KEY "bytes"
@@ -39,7 +38,6 @@ public:
 	Service service;
 };
 
-
 class Registrar {
 private:
 	const char* _apSSID;
@@ -57,7 +55,7 @@ private:
 	void handleScan();
 	void handleSubmit();
 
-	const char* registerWithService(String name, String username, String password);  // returns auth_token
+	bool registerWithService(String name, String username, String password);
 
 public:
 	Registrar(const char* apSSID = REGISTRATION_AP);

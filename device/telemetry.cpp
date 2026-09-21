@@ -5,6 +5,7 @@
 
 extern Registration registration;
 extern bool reboot;
+extern const char * caCert;
 
 Telemetry::Telemetry() {}
 
@@ -25,7 +26,7 @@ void Telemetry::send() {
 }
 
 void Telemetry::setupHTTPClient() {
-    wifi.setInsecure();  // todo add support for certificates.
+    wifi.setCACert(caCert);
 
 	url = registration.service.url;
 	url += "telemetry";

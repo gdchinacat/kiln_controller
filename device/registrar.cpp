@@ -7,6 +7,7 @@
 
 extern Registration registration;
 extern bool reboot;
+extern const char * caCert;
 
 const char INDEX_HTML[] PROGMEM =
 "<!DOCTYPE html><html><head>"
@@ -158,7 +159,7 @@ void Registrar::loop() {
 
 bool Registrar::registerWithService(String name, String username, String password) {
     WiFiClientSecure wifi;
-    wifi.setInsecure();  // todo add support for certificates.
+    wifi.setCACert(caCert);
 
 	HTTPClient http;
 	http.begin(wifi, registration.service.url);

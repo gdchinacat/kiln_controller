@@ -1,4 +1,5 @@
 #include "registration.h"
+#include <WiFiClient.h>
 
 extern bool reboot;
 
@@ -46,4 +47,25 @@ bool Registration::reset() {
 		log_i("reset registration");
 	}
 	return success;
+}
+
+bool Wifi::connect() {
+	log_d("Connecting to SSID %s", ssid);
+
+	WiFi.mode(WIFI_STA);
+	WiFi.begin(ssid, password);
+
+	int timeout = 0;
+	while (WiFi.status() != WL_CONNECTED && timeout < 30) {
+		delay(500);
+		timeout++;
+	}
+
+	if (WiFi.status() != WL_CONNECTED) {
+		log_e("Connection timeout or bad credentials: %d", WiFi.status());
+		return false;
+	}
+
+	log_i("Connected to %s", ssid);
+	return true;
 }

@@ -1,4 +1,5 @@
 
+#include <WiFiClientSecure.h>
 #include "registrar.h"
 #include "telemetry.h"
 
@@ -22,6 +23,8 @@ void Telemetry::send() {
 }
 
 void Telemetry::setupHTTPClient() {
+    wifi.setInsecure();  // todo add support for certificates.
+
 	String url = registration.service.url;
 	url += "telemetry";
 	http.useHTTP10(true);

@@ -2,6 +2,7 @@
 #define REGISTRATION_H
 
 #include <Preferences.h>
+#include <WiFi.h>
 
 #define REGISTRATION_VERSION 1
 #define REGISTRATION_PREFS_NS "registration"

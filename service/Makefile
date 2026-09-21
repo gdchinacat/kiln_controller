@@ -4,7 +4,10 @@ NON_PERSISTENT ?= false
 
 PIDFILE := /tmp/kiln_controller.$(PORT).pid
 LOGFILE := /tmp/kiln_controller.$(PORT).log
-SERVICE_CMD := NON_PERSISTENT=$(NON_PERSISTENT) uv run fastapi dev --host 0.0.0.0 --port $(PORT) src/kiln_controller/service/__main__.py >> $(LOGFILE) 2>&1
+
+#SERVICE_CMD := NON_PERSISTENT=$(NON_PERSISTENT) uv run fastapi dev --host 0.0.0.0 --port $(PORT) src/kiln_controller/service/__main__.py >> $(LOGFILE) 2>&1
+SERVICE_CMD := NON_PERSISTENT=$(NON_PERSISTENT) uv run uvicorn kiln_controller.service.__main__:app --host 0.0.0.0 --port $(PORT) --ssl-keyfile ./key.pem --ssl-certfile ./cert.pem >> $(LOGFILE) 2>&1
+
 
 .PHONY: all
 all:

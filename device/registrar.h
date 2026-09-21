@@ -1,21 +1,17 @@
 #ifndef REGISTRAR_H
 #define REGISTRAR_H
 
-#include <WiFi.h>
 #include <DNSServer.h>
+#include <IPAddress.h>
 #include <WebServer.h>
 #include "registration.h"
 
-#define REGISTRATION_AP "Kiln Registration"
-#define REGISTRATION_URL "http://dupree:5000/device/"
-
+#define REGISTRATION_URL "https://dupree:5000/device/"
+#define REGISTRATION_AP_SSID "Kiln Registration"
+#define REGISTRATION_AP_IP (IPAddress(192, 168, 4, 1))
 
 class Registrar {
 private:
-	const char* _apSSID;
-	const byte DNS_PORT = 53;
-	IPAddress _apIP;
-
 	DNSServer _dnsServer;
 	WebServer _server;
 
@@ -27,8 +23,6 @@ private:
 	bool registerWithService(String name, String username, String password);
 
 public:
-	Registrar(const char* apSSID = REGISTRATION_AP);
-
 	void start();
 	void loop();
 };

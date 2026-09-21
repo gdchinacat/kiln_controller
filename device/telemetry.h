@@ -6,6 +6,7 @@
 //       allocate memory.
 #include <HTTPClient.h>
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 
 #include "registrar.h"
 
@@ -14,7 +15,7 @@
 class Telemetry {
 private:
 	//todo - sample ring buffer
-	WiFiClient wifi;
+	WiFiClientSecure wifi;
 	HTTPClient http;
 
 	void send();

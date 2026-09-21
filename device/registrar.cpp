@@ -1,6 +1,7 @@
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
-#include <WiFiClient.h>
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include "registrar.h"
 #include "registration.h"
 
@@ -58,15 +59,13 @@ const char INDEX_HTML[] PROGMEM =
 "});"
 "</script></body></html>";
 
-Registrar::Registrar(const char* apSSID)
-	: _apSSID(apSSID), _apIP(192, 168, 4, 1), _server(80) {}
 
 void Registrar::start() {
 	WiFi.mode(WIFI_AP);
-	WiFi.softAPConfig(_apIP, _apIP, IPAddress(255, 255, 255, 0));
-	WiFi.softAP(_apSSID);
+	WiFi.softAPConfig(REGISTRATION_AP_IP, REGISTRATION_AP_IP, IPAddress(255, 255, 255, 0));
+	WiFi.softAP(REGISTRATION_AP_SSID);
 
-	_dnsServer.start(DNS_PORT, "*", _apIP);
+	_dnsServer.start(53, "*", REGISTRATION_AP_IP);
 
 	// Core routes mapping
 	_server.on("/", [this]() { this->handleRoot(); });
@@ -75,7 +74,7 @@ void Registrar::start() {
 	_server.onNotFound([this]() { this->handleRoot(); });
 
 	_server.begin();
-	log_i("Registration service started on SSID %s", _apSSID);
+	log_i("Registration service started on SSID " REGISTRATION_AP_SSID);
 }
 
 void Registrar::handleRoot() {
@@ -158,7 +157,9 @@ void Registrar::loop() {
 }
 
 bool Registrar::registerWithService(String name, String username, String password) {
-	WiFiClient wifi;
+    WiFiClientSecure wifi;
+    wifi.setInsecure();  // todo add support for certificates.
+
 	HTTPClient http;
 	http.begin(wifi, registration.service.url);
 	http.setAuthorization(username.c_str(), password.c_str());
@@ -198,23 +199,3 @@ bool Registrar::registerWithService(String name, String username, String passwor
 	}
 }
 
-bool Wifi::connect() {
-	log_d("Connecting to SSID %s", ssid);
-
-	WiFi.mode(WIFI_STA);
-	WiFi.begin(ssid, password);
-
-	int timeout = 0;
-	while (WiFi.status() != WL_CONNECTED && timeout < 30) {
-		delay(500);
-		timeout++;
-	}
-
-	if (WiFi.status() != WL_CONNECTED) {
-		log_e("Connection timeout or bad credentials: %d", WiFi.status());
-		return false;
-	}
-
-	log_i("Connected to %s", ssid);
-	return true;
-}

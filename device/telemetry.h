@@ -15,6 +15,7 @@
 class Telemetry {
 private:
 	//todo - sample ring buffer
+	String url;
 	WiFiClientSecure wifi;
 	HTTPClient http;
 

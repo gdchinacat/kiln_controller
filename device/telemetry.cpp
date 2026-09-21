@@ -9,8 +9,10 @@ extern bool reboot;
 Telemetry::Telemetry() {}
 
 void Telemetry::send() {
+	http.begin(wifi, url);
 	int httpCode = http.POST(NULL, 0);  // todo actually send data
 	String content = http.getString();
+	http.end();
 	if (httpCode == 200 || httpCode == 201) {
 		log_d("sent telemetry");
 	} else if (httpCode == 404) {
@@ -25,14 +27,13 @@ void Telemetry::send() {
 void Telemetry::setupHTTPClient() {
     wifi.setInsecure();  // todo add support for certificates.
 
-	String url = registration.service.url;
+	url = registration.service.url;
 	url += "telemetry";
 	http.useHTTP10(true);
 	http.setFollowRedirects(HTTPC_DISABLE_FOLLOW_REDIRECTS);
 	http.setAuthorization(registration.service.auth_token);
 	http.setAuthorizationType("Bearer");
 	http.addHeader("Content-Type", "application/octet_stream");
-	http.begin(wifi, url);
 
 	log_i("sending telemetry to %s", url.c_str());
 }

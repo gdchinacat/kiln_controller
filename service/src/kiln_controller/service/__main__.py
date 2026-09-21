@@ -25,10 +25,7 @@ from .routers import users_router, devices_router, schedules_router, phases_rout
 
 logger = logging.getLogger("kiln_controller.app")
 
-app = FastAPI(title="Kiln Controller",
-        ssl_keyfile="./key.pem",
-        ssl_certfile="./cert.pem",
-        )
+app = FastAPI(title="Kiln Controller")
 
 app.frontend("/", directory="./static")
 app.mount("/static", StaticFiles(directory="static"), name="static")

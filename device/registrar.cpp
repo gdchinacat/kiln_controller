@@ -74,7 +74,7 @@ void Registrar::start() {
 	_server.onNotFound([this]() { this->handleRoot(); });
 
 	_server.begin();
-	log_i("Registration service started on SSID " REGISTRATION_AP_SSID);
+	log_i("Registration service started on SSID \"" REGISTRATION_AP_SSID "\"");
 }
 
 void Registrar::handleRoot() {

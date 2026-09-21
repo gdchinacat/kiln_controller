@@ -35,7 +35,7 @@ void Telemetry::setupHTTPClient() {
 	http.setAuthorizationType("Bearer");
 	http.addHeader("Content-Type", "application/octet_stream");
 
-	log_i("sending telemetry to %s", url.c_str());
+	log_i("telemetry URL is %s", url.c_str());
 }
 
 void Telemetry::setup() {

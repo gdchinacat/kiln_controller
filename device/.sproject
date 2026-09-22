@@ -1,7 +1,7 @@
 Config.Release.board.BOARD.ID=d1_mini32
 Config.Release.board.BOARD.MENU.CDCOnBoot=getMenuItemIDFromMenuItemName did not find menu item with name "" for menu ID "CDCOnBoot" and for boardID "esp32"!
 Config.Release.board.BOARD.MENU.CPUFreq=240
-Config.Release.board.BOARD.MENU.DebugLevel=debug
+Config.Release.board.BOARD.MENU.DebugLevel=verbose
 Config.Release.board.BOARD.MENU.EraseFlash=none
 Config.Release.board.BOARD.MENU.EventsCore=getMenuItemIDFromMenuItemName did not find menu item with name "Core 1" for menu ID "EventsCore" and for boardID "d1_mini32"!
 Config.Release.board.BOARD.MENU.FlashFreq=80

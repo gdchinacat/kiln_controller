@@ -50,7 +50,7 @@ void setup() {
 
 		currentState = RUNNING;
 	} else {
-		Serial.println("No valid configuration found. Starting registration.");
+		log_i("No valid configuration found. Starting registration.");
 		registrar.start();
 
 		currentState = REGISTERING;

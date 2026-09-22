@@ -2,10 +2,10 @@ BUILD_TYPE := Release
 
 # Define your tool paths based on your Eclipse plugin structure
 ESPTOOL := python3 /home/lonnieh/eclipse/eclipse/arduinoPlugin/packages/esp32/tools/esptool_py/4.5.1/esptool.py
-PARTITION_GEN := /home/lonnieh/eclipse/eclipse/arduinoPlugin/packages/esp32/hardware/esp32/2.0.17/tools/gen_esp32part.py
+PARTITION_GEN := /home/lonnieh/eclipse/eclipse/arduinoPlugin/packages/esp32/hardware/esp32/3.3.11/tools/gen_esp32part.py
 
 # Source paths for core layout
-PARTITION_CSV  := /home/lonnieh/eclipse/eclipse/arduinoPlugin/packages/esp32/hardware/esp32/2.0.17/tools/partitions/default.csv
+PARTITION_CSV  := /home/lonnieh/eclipse/eclipse/arduinoPlugin/packages/esp32/hardware/esp32/3.3.11/tools/partitions/default.csv
 
 .PHONY: device
 device:
@@ -38,5 +38,5 @@ clean:
 
 .PHONY: upload
 upload: device
-	$(ESPTOOL) --chip esp32 --port /dev/ttyUSB0 --baud 921600 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 80m --flash_size 4MB 0x1000 /home/lonnieh/eclipse-workspace/kiln_controller/device/$(BUILD_TYPE)/device.bootloader.bin 0x8000 /home/lonnieh/eclipse-workspace/kiln_controller/device/$(BUILD_TYPE)/device.partitions.bin 0xe000 /home/lonnieh/eclipse/eclipse/arduinoPlugin/packages/esp32/hardware/esp32/2.0.17/tools/partitions/boot_app0.bin 0x10000 /home/lonnieh/eclipse-workspace/kiln_controller/device/$(BUILD_TYPE)/device.bin
+	$(ESPTOOL) --chip esp32 --port /dev/ttyUSB0 --baud 921600 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 80m --flash_size 4MB 0x1000 /home/lonnieh/eclipse-workspace/kiln_controller/device/$(BUILD_TYPE)/device.bootloader.bin 0x8000 /home/lonnieh/eclipse-workspace/kiln_controller/device/$(BUILD_TYPE)/device.partitions.bin 0xe000 /home/lonnieh/eclipse/eclipse/arduinoPlugin/packages/esp32/hardware/esp32/3.3.11/tools/partitions/boot_app0.bin 0x10000 /home/lonnieh/eclipse-workspace/kiln_controller/device/$(BUILD_TYPE)/device.bin
 

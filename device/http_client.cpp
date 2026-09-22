@@ -2,11 +2,9 @@
 #include "esp_http_client.h"
 #include "esp_tls.h"
 
-boo
-
 class MyHTTPClient {
 private:
-    const char* _request_header_buf;
+    char* _request_header_buf;
     size_t _header_len;
     esp_tls_cfg_t _tls_config;
     esp_tls_t* _tls_handle;
@@ -74,8 +72,8 @@ public:
         disconnect(); // Clear any zombie or stalled sockets from previous intervals cleanly
         
         // Establishes connection and runs the full TLS math handshake using our persistent config profile
-        _tls_handle = esp_tls_conn_new_sync(host, port, &_tls_config);
-        return (_tls_handle != NULL);
+        int status = esp_tls_conn_new_sync(host, strlen(host), port, &_tls_config, _tls_handle);
+        return (status == 0);
     }
 
     void disconnect() {

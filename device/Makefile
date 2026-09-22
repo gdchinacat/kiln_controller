@@ -1,4 +1,4 @@
-BUILD_TYPE := Debug
+BUILD_TYPE := Release
 
 # Define your tool paths based on your Eclipse plugin structure
 ESPTOOL := python3 /home/lonnieh/eclipse/eclipse/arduinoPlugin/packages/esp32/tools/esptool_py/4.5.1/esptool.py

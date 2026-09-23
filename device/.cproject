@@ -25,18 +25,16 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/ArduinoJson/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/DNSServer/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/Preferences/src}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/ESPmDNS/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/Network/src}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/AsyncUDP/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/FS/src}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/Wire/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/NetworkClientSecure/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/base64/src}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/USB/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/WebServer/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/WiFi/src}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/Update/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/Hash/src}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/SD/src}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/SPI/src}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/AsyncUDP/src}&quot;"/>
 								</option>
 								<inputType id="io.sloeber.compiler.cpp.sketch.input.645966249" name="CPP source files" superClass="io.sloeber.compiler.cpp.sketch.input"/>
 							</tool>
@@ -48,18 +46,16 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/ArduinoJson/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/DNSServer/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/Preferences/src}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/Update/src}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/ESPmDNS/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/Network/src}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/AsyncUDP/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/FS/src}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/Wire/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/NetworkClientSecure/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/base64/src}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/USB/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/WebServer/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/WiFi/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/Hash/src}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/SD/src}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/SPI/src}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/AsyncUDP/src}&quot;"/>
 								</option>
 								<inputType id="io.sloeber.compiler.c.sketch.input.122565542" name="C Source Files" superClass="io.sloeber.compiler.c.sketch.input"/>
 							</tool>
@@ -71,18 +67,16 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/ArduinoJson/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/DNSServer/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/Preferences/src}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/Update/src}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/ESPmDNS/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/Network/src}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/AsyncUDP/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/FS/src}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/Wire/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/NetworkClientSecure/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/base64/src}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/USB/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/WebServer/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/WiFi/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/Hash/src}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/SD/src}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/SPI/src}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/AsyncUDP/src}&quot;"/>
 								</option>
 								<inputType id="io.sloeber.compiler.S.sketch.input.1771930532" name="Assembly source files" superClass="io.sloeber.compiler.S.sketch.input"/>
 							</tool>

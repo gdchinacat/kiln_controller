@@ -17,12 +17,13 @@ void Telemetry::setupHTTPClient() {
 	http.setFollowRedirects(HTTPC_DISABLE_FOLLOW_REDIRECTS);
 	http.setAuthorization(registration.service.auth_token);
 	http.setAuthorizationType("Bearer");
+	http.setTimeout(30000);
 	http.addHeader("Content-Type", "application/octet_stream");
 
 	log_i("telemetry URL is %s", url.c_str());
 }
 
-bool Telemetry::scheduled() {
+bool Telemetry::send() {
        http.begin(wifi, url);
        int httpCode = http.POST(NULL, 0);  // todo actually send data
        String content = http.getString();
@@ -44,3 +45,6 @@ void Telemetry::setup() {
 	setupHTTPClient();
 }
 	
+void Telemetry::loop() {
+	sender.loop();
+}

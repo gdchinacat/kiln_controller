@@ -12,9 +12,11 @@
 #include "scheduler.h"
 
 // todo include commands.h
+#define TELEMETRY_SEND_RATE 5000
 
-class Telemetry : public Scheduler {
+class Telemetry {
 private:
+	Scheduler sender;
 
 	//todo - sample ring buffer
 	String url;
@@ -23,11 +25,16 @@ private:
 
 	void setupHTTPClient();
 
-protected:
-	bool scheduled();
+	bool send();
 
 public:
+	Telemetry():
+		sender([this]() {return this->send();},
+				TELEMETRY_SEND_RATE, TELEMETRY_SEND_RATE * (1 << 4))
+	{};
+
 	void setup();
+	void loop();
 };
 
 #endif

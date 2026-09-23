@@ -188,7 +188,7 @@ bool Registrar::registerWithService(String name, String username, String passwor
 		unsigned int id = json["id"];
 		const char* auth_token = json["auth_token"];
 
-		snprintf(registration.service.url, sizeof(registration.service.url),
+		snprintf(registration.service.url, sizeof(registration.service.url) - 4,
 			 	 "%s%d/", registration.service.url, id);
 		strncpy(registration.service.auth_token, auth_token, sizeof(registration.service.auth_token));
 

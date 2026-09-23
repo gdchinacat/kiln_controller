@@ -1,25 +1,39 @@
 #ifndef SCHEDULER_H
 #define SCHEDULER_H
 
-#define TELEMETRY_SEND_RATE 1000
+#include <functional>
 
 class Scheduler {
 private:
-	unsigned int lastUpdate = 0;
-	unsigned int defaultSendRate = TELEMETRY_SEND_RATE;
-	unsigned int maxSendRate = TELEMETRY_SEND_RATE * (1 << 4);
+	unsigned int lastCall = 0;
+	unsigned int defaultRate;
+	unsigned int maxRate;
 
-	bool shouldSend();
-	void sent();
+	bool shouldCall(unsigned int now);
+
+	const std::function<bool()>callback;
 
 protected:
-	unsigned int sendRate = TELEMETRY_SEND_RATE;
-	virtual bool scheduled();
+	unsigned int rate;
 
-	void backOffSends();
-	void resumeSends();
+	void backoff();
+	void resume();
 
 public:
+	Scheduler(
+			std::function<bool()> cb,
+			unsigned int _rate,
+			unsigned int _maxRate = 0):
+		defaultRate(_rate),
+		maxRate(_maxRate ? _maxRate : _rate),
+		callback(std::move(cb)),
+		rate(_rate)
+	{}
+
+    typedef bool (*Callback)();
+
 	void loop();
+
 };
+
 #endif

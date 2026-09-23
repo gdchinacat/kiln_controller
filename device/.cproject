@@ -22,7 +22,6 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/core/core}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/core/variant}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/WebServer/src}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/HTTPClient/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/ArduinoJson/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/WiFi}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/WiFi/src}&quot;"/>
@@ -34,6 +33,7 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/FS/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${A.HARDWARE.PATH}/libraries/Hash/src&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/Hash/src}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/HTTPClient/src}&quot;"/>
 								</option>
 								<inputType id="io.sloeber.compiler.cpp.sketch.input.1454301575" name="CPP source files" superClass="io.sloeber.compiler.cpp.sketch.input"/>
 							</tool>
@@ -42,7 +42,6 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/core/core}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/core/variant}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/WebServer/src}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/HTTPClient/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/ArduinoJson/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/WiFi}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/WiFi/src}&quot;"/>
@@ -53,6 +52,7 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/AsyncUDP/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/FS/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/Hash/src}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/HTTPClient/src}&quot;"/>
 								</option>
 								<inputType id="io.sloeber.compiler.c.sketch.input.1117370178" name="C Source Files" superClass="io.sloeber.compiler.c.sketch.input"/>
 							</tool>
@@ -61,7 +61,6 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/core/core}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/core/variant}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/WebServer/src}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/HTTPClient/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/ArduinoJson/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/WiFi}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/WiFi/src}&quot;"/>
@@ -72,6 +71,7 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/AsyncUDP/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/FS/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/Hash/src}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/HTTPClient/src}&quot;"/>
 								</option>
 								<inputType id="io.sloeber.compiler.S.sketch.input.1978842861" name="Assembly source files" superClass="io.sloeber.compiler.S.sketch.input"/>
 							</tool>
@@ -112,7 +112,7 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="libraries/FreeRTOS/doc|libraries/base64/arduino-test|libraries/?*/**/?xamples/**|libraries/?*/**/?xtras/**|libraries/?*/**/test*/**|libraries/?*/**/third-party/**|libraries/**/._*|libraries/?*/utility/*/*" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name=""/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>

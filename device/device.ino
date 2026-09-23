@@ -1,4 +1,4 @@
-#include <SHA1Builder.h> // sloeber doesn't find that WebServer needs this, help it out
+//#include <SHA1Builder.h> // sloeber doesn't find that WebServer needs this, help it out
 
 #include "registrar.h"
 #include "telemetry.h"

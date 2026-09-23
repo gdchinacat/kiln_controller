@@ -9,24 +9,25 @@
 #include <WiFiClientSecure.h>
 
 #include "registrar.h"
+#include "scheduler.h"
 
 // todo include commands.h
 
-class Telemetry {
+class Telemetry : public Scheduler {
 private:
+
 	//todo - sample ring buffer
 	String url;
 	WiFiClientSecure wifi;
 	HTTPClient http;
 
-	void send();
 	void setupHTTPClient();
 
-public:
-	Telemetry();
+protected:
+	bool scheduled();
 
+public:
 	void setup();
-	void loop();
 };
 
 #endif

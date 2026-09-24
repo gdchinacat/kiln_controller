@@ -160,6 +160,11 @@ struct Sample {
     uint32_t timestamp;
 
     /**
+     * @brief the number of taken for the sample.
+     */
+    uint8_t sample_count;
+
+    /**
      * @brief memory usage statistics.
      */
     Memory memory;

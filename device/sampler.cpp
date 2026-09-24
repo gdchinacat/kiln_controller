@@ -1,5 +1,4 @@
 
-#include <cstring>
 #include <Arduino.h>
 #include "protocol.h"
 #include "sampler.h"
@@ -33,10 +32,11 @@ protocol::Sample* const Sampler::_currentSample(uint32_t now) {
 		}
 
 		// Initialize the new sample.
+		memset(sample, 0, sizeof(protocol::Sample));
 		sample = &buffer[current];
-		memset(sample, 0, sizeof(sample));
 		sample->timestamp = ((now / sample_period) * sample_period) / 1000;
 
+		log_i("start sampling for %d[%d]", buffer[current].timestamp, current);
 		if (last_timestamp + (sample_period / 1000) != sample->timestamp) {
 			log_w("missed %d samples", (sample->timestamp - last_timestamp) / sample_period);
 		}
@@ -65,6 +65,12 @@ bool Sampler::sample() {
 	auto now = millis();
 	auto sample = _currentSample(now);
 
+	sample->sample_count += 1;
+
+	log_i("updated sample %d [%d] sample_count: %d",
+			buffer[current].timestamp,
+			current,
+			sample->sample_count);
 	return true;
 }
 

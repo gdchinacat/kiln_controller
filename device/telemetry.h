@@ -13,7 +13,7 @@
 #include "scheduler.h"
 
 #define TELEMETRY_SAMPLE_PERIOD 5000
-#define TELEMETRY_SEND_RATE 5000
+#define TELEMETRY_SEND_RATE 15000
 
 class Telemetry {
 private:

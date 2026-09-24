@@ -3,7 +3,7 @@
 #include "scheduler.h"
 
 bool Scheduler::shouldCall(unsigned int now) {
-	return (lastCall == 0 || lastCall + rate < now);
+	return lastCall + rate < now;
 }
 
 void Scheduler::backoff() {
@@ -19,6 +19,6 @@ void Scheduler::loop() {
 	unsigned int now = millis();
 	if (shouldCall(now)) {
 		callback();
-		lastCall = (now / rate) * rate;
+		lastCall = now - now % rate;
 	}
 }

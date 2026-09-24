@@ -37,7 +37,6 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/AsyncUDP/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/rtc/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/Wire/src}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/FreeRTOS/src}&quot;"/>
 								</option>
 								<inputType id="io.sloeber.compiler.cpp.sketch.input.645966249" name="CPP source files" superClass="io.sloeber.compiler.cpp.sketch.input"/>
 							</tool>
@@ -61,7 +60,6 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/AsyncUDP/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/rtc/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/Wire/src}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/FreeRTOS/src}&quot;"/>
 								</option>
 								<inputType id="io.sloeber.compiler.c.sketch.input.122565542" name="C Source Files" superClass="io.sloeber.compiler.c.sketch.input"/>
 							</tool>
@@ -85,7 +83,6 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/AsyncUDP/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/rtc/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/Wire/src}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/FreeRTOS/src}&quot;"/>
 								</option>
 								<inputType id="io.sloeber.compiler.S.sketch.input.1771930532" name="Assembly source files" superClass="io.sloeber.compiler.S.sketch.input"/>
 							</tool>

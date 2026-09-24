@@ -16,13 +16,20 @@ uint16_t Sampler::_wrap(uint16_t index) {
 	return (index >= buffer_size) ? 0 : index;
 }
 
+uint32_t Sampler::_bucket_timestamp(uint32_t now) {
+	uint64_t adjusted = now_offset + now;
+	return (uint32_t)((adjusted - adjusted % sample_period)/1000);
+
+}
+
 /**
  * @brief get the current sample to update
  */
 protocol::Sample* const Sampler::_currentSample(uint32_t now) {
 	protocol::Sample* sample = &buffer[current];
-	if (now > sample->timestamp * 1000 + sample_period) {
-		auto last_timestamp = sample->timestamp;
+	uint32_t bucket_timestamp = _bucket_timestamp(now);
+	if (bucket_timestamp > sample->timestamp) {
+		uint32_t last_timestamp = sample->timestamp;
 
 		// Advance the current sample, wrapping if necessary and advancing start
 		// if buffer is full.
@@ -34,7 +41,7 @@ protocol::Sample* const Sampler::_currentSample(uint32_t now) {
 		// Initialize the new sample.
 		memset(sample, 0, sizeof(protocol::Sample));
 		sample = &buffer[current];
-		sample->timestamp = ((now / sample_period) * sample_period) / 1000;
+		sample->timestamp = bucket_timestamp;
 
 		log_i("start sampling for %d[%d]", buffer[current].timestamp, current);
 		if (last_timestamp + (sample_period / 1000) != sample->timestamp) {
@@ -53,8 +60,7 @@ Sampler::Sampler(uint16_t _sample_period):
 
 void Sampler::setup() {
 	// initialize the first sample time
-	auto now = millis();
-	buffer[0].timestamp = ((now / sample_period) * sample_period) / 1000;
+	buffer[0].timestamp = _bucket_timestamp(millis());
 }
 
 void Sampler::loop() {
@@ -74,4 +80,9 @@ bool Sampler::sample() {
 	return true;
 }
 
-
+/**
+ * @brief set the current time.
+ */
+void Sampler::set_now(uint64_t now) {
+	now_offset = now - millis();
+}

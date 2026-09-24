@@ -2,6 +2,8 @@
 Device related Flask resources
 """
 
+import struct
+import time
 from functools import partial
 
 from fastapi import Depends, HTTPException, status, Request, Response
@@ -64,4 +66,5 @@ async def telemetry(
 ) -> OctetStreamResponse:
     # TODO - implement binary telemetry protocol
     # TODO - logic should be on Device
-    return OctetStreamResponse(b"")
+    timestamp = struct.pack("<Q", int(time.time() * 1000))
+    return OctetStreamResponse(timestamp)

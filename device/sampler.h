@@ -5,7 +5,7 @@
 #include "protocol.h"
 #include "scheduler.h"
 
-#define SAMPLE_RATE 1000
+#define SAMPLE_RATE 500
 #define SAMPLES_TO_BUFFER 10 // todo? base the number of samples in buffer on free memory
 
 extern bool reboot;
@@ -67,10 +67,31 @@ private:
 
 	void _sampleMemory();
 
+	uint32_t _bucket_timestamp(uint32_t now);
+
+	/**
+	 * @brief the adjustment to synchronize millis() based time with server
+	 *        epoch time.
+	 *
+	 * This is made more complicated by the fact that epoch time in milliseconds
+	 * requires more than 32 bits. Doing everything in seconds results in very
+	 * poor resolution and can lead to device being one second ahead or one
+	 * second behind actual unix time. A two second slop in a five second
+	 * sample period is "too much".
+	 *
+	 * todo? - is there a way that makes sense (not too convoluted) to use 32
+	 *         bit values to accomplish this?
+	 */
+	uint64_t now_offset = 0;
 public:
 	Sampler(uint16_t _sample_period);
 	void loop();
 	void setup();
+
+	/**
+	 * @brief tell the sampler what time it is now.
+	 */
+	void set_now(uint64_t now);
 
 };
 

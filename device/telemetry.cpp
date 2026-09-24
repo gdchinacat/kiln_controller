@@ -1,4 +1,5 @@
 
+#include <stdint.h>
 #include <Esp.h>
 #include <WiFiClientSecure.h>
 #include "registrar.h"
@@ -26,17 +27,22 @@ void Telemetry::setupHTTPClient() {
 bool Telemetry::send() {
        http.begin(wifi, url);
        int httpCode = http.POST(NULL, 0);  // todo actually send data
-       String content = http.getString();
+       int size = http.getSize();
+       uint64_t buffer[1];
+       http.getStream().read((uint8_t*)buffer, sizeof(buffer));
        http.end();
        if (httpCode == 200 || httpCode == 201) {
-               log_d("sent telemetry");
-               return true;
+           sampler.set_now(buffer[0]);
+
+           log_d("sent telemetry");
+           return true;
+       //} else if (httpCode == 404) { todo - handle other http codes like NOT_AUTH...
        } else if (httpCode == 404) {
                log_e("Device does not exist (404). Initiating registration.");
                registration.reset();
                reboot = true;
        } else {
-               log_e("error sending telemetry: %d %s", httpCode, content.c_str());
+               log_e("error sending telemetry: %d", httpCode);
        }
        return false;
 }

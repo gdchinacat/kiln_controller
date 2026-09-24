@@ -1,7 +1,11 @@
 //#include <SHA1Builder.h> // sloeber doesn't find that WebServer needs this, help it out
 
+#include <esp_task_wdt.h>
 #include "registrar.h"
 #include "telemetry.h"
+
+#define WDT_SETUP_TIMEOUT_MS 15000
+#define WDT_RUNNING_TIMEOUT_MS 3000
 
 Registration registration;
 Registrar registrar;
@@ -39,9 +43,32 @@ const char * caCert = "-----BEGIN CERTIFICATE-----\n" \
 "z2nQhjJZRqvXGA9fERr6t425tSl7e/rMKiKXU2JuviM5h8Ya6AHx\n" \
 "-----END CERTIFICATE-----\n";
 
+void _wdt_set_timeout(auto timeout) {
+	esp_task_wdt_config_t wdt_config = {
+		.timeout_ms = timeout,
+		.idle_core_mask = (portNUM_PROCESSORS) - 1, // Monitor idle tasks on all cores
+		.trigger_panic = true					   // Reboot and dump stack trace on failure
+	};
+	esp_err_t error =  esp_task_wdt_reconfigure(&wdt_config);
+	if (ESP_OK != error) {
+		log_d("failed to configure wdt %d", error);
+		ESP.restart(); // Refuse to run without a watchdog.
+	}
+}
+void _wdt_reset() {
+	auto error = esp_task_wdt_reset();
+	if (ESP_OK != error) {
+		log_e("failed to reset watchdog", error);
+		ESP.restart(); // Refuse to run without a watchdog.
+	}
+}
+
 void setup() {
 	Serial.begin(921600);
 	delay(1000); // Settling delay for stable serial output
+
+	esp_task_wdt_add(NULL);
+	_wdt_set_timeout(WDT_SETUP_TIMEOUT_MS);
 
 	if (registration.load()) {
 		registration.wifi.connect();
@@ -55,9 +82,13 @@ void setup() {
 
 		currentState = REGISTERING;
 	}
+
+	_wdt_set_timeout(WDT_RUNNING_TIMEOUT_MS);
 }
 
 void loop() {
+	_wdt_reset();
+
 	if (reboot) {
 		log_i("Rebooting device ...");
 		delay(2000);

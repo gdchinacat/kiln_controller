@@ -1,0 +1,77 @@
+#ifndef SAMPLER_H
+#define SAMPLER_H
+
+#include <stdint.h>
+#include "protocol.h"
+#include "scheduler.h"
+
+#define SAMPLE_RATE 1000
+#define SAMPLES_TO_BUFFER 10 // todo? base the number of samples in buffer on free memory
+
+extern bool reboot;
+
+/**
+ * @brief Sampler is responsible for sampling the hardware and providing the
+ * samples for Telemetry to report.
+ */
+class Sampler {
+private:
+	/**
+	 * @brief the sample period.
+	 *
+	 * This is the number of milliseconds in each sample. The scheduler interval
+	 * is (typically) set to ensure oversampling to smooth out noise in
+	 * measurements like temperature.
+	 */
+	uint16_t sample_period;
+
+	/**
+	 * @brief The scheduler that manages when to sample.
+	 */
+	Scheduler scheduler;
+
+	/**
+	 * @brief the number of samples in the buffer.
+	 */
+	uint16_t buffer_size;
+
+	/**
+	 * @brief buffer is the ring buffer.
+	 */
+	protocol::Sample* const buffer;
+
+	/**
+	 * @brief start is the first sample in the buffer.
+	 */
+	uint16_t start = 0;
+
+	/**
+	 * @brief current is the sample for the current sample period.
+	 */
+	uint16_t current = 0;
+
+	bool sample();
+
+	/**
+	 * @brief get the sample now is in.
+	 *
+	 * This moves the sample forward, possibly dropping a sample if the ring
+	 * buffer is full.
+	 */
+	protocol::Sample* const _currentSample(uint32_t now);
+
+	/**
+	 * @brief wrap the index if it exceeds the length of the buffer.
+	 */
+	uint16_t _wrap(uint16_t index);
+
+	void _sampleMemory();
+
+public:
+	Sampler(uint16_t _sample_period);
+	void loop();
+	void setup();
+
+};
+
+#endif

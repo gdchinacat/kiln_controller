@@ -79,3 +79,18 @@ docs-view: docs
 	else \
 		echo "Error: HTML documentation not found. Run 'make docs' first."; \
 	fi
+
+# Default settings (can be overridden from CLI)
+ELF ?= $(BUILD_TYPE)/device.elf
+ADDR2LINE ?= ~/eclipse/eclipse/arduinoPlugin/packages/esp32/tools/xtensa-esp32-elf-gcc/esp-2021r2-patch5-8.4.0/bin/xtensa-esp32-elf-addr2line
+
+.PHONY: decode
+decode:
+ifndef BT
+	$(error BT is not set. Usage: make decode BT="0x400d6331 0x400d640f ...")
+endif
+	@if [ ! -f $(ELF) ]; then \
+		echo "Error: ELF file '$(ELF)' not found. Specify via ELF=path/to/file.elf"; \
+		exit 1; \
+	fi
+	$(ADDR2LINE) -pfiaC -e $(ELF) $(BT)

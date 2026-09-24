@@ -20,13 +20,5 @@ void Scheduler::loop() {
 	if (shouldCall(now)) {
 		callback();
 		lastCall = (now / rate) * rate;
-		log_e("[%d] lastCall=%d", now, lastCall);
-
-		// todo include memory in the status payload (to watch for signs of failure)
-		log_i("total: %d free: %d  min free: %d max allocation: %d",
-				ESP.getHeapSize(),
-				ESP.getFreeHeap(),
-				ESP.getMinFreeHeap(),
-				ESP.getMaxAllocHeap());
 	}
 }

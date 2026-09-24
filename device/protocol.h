@@ -117,6 +117,34 @@ enum class CommandType : uint8_t {
 #pragma pack(push, 1)
 
 /**
+ * @struct Memory
+ * @brief Memory usage statistics.
+ */
+struct Memory {
+	/**
+	 * @brief the total amount of memory on the heap.
+	 */
+	uint32_t size;
+
+	/**
+	 * @brief the amount of memory available for allocation.
+	 */
+	uint32_t free;
+
+	/**
+	 * @brief the minimum amount of memory free for allocations.
+	 */
+
+	uint32_t min;
+	/**
+	 * @brief The max size that can be allocated.
+	 *
+	 * A decrease in this value over time can indicate memory fragmentation.
+	 */
+	uint32_t max;
+};
+
+/**
  * @struct Sample
  * @brief A sample of metrics reported to the service.
  */
@@ -132,6 +160,11 @@ struct Sample {
     uint32_t timestamp;
 
     /**
+     * @brief memory usage statistics.
+     */
+    Memory memory;
+
+    /**
      * @brief Bit field indicating the device state.
      *
      * Bits are set if their state occurred at any time during the sample period.
@@ -141,19 +174,19 @@ struct Sample {
 	/**
 	 * @brief The mean temperature in Celcius of the over the sample period.
 	 */
-    uint16_t current_temp;
+    int16_t current_temp;
 
 	/**
 	 * @brief the temperature in Celsius the firmware is trying to maintain.
 	 *
 	 * This can change within the sample period, the last value is reported.
 	 */
-    uint16_t target_temp;
+    int16_t target_temp;
 
 	/**
 	 * @brief The mean temperature in Celsius of the thermocouple cold junction.
 	 */
-    uint16_t cold_junction_temp;
+    int16_t cold_junction_temp;
 
 	/**
 	 * @brief The percentage of time the element had power applied over sample period.

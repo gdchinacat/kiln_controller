@@ -9,14 +9,16 @@
 #include <WiFiClientSecure.h>
 
 #include "registrar.h"
+#include "sampler.h"
 #include "scheduler.h"
 
-// todo include commands.h
+#define TELEMETRY_SAMPLE_PERIOD 5000
 #define TELEMETRY_SEND_RATE 5000
 
 class Telemetry {
 private:
 	Scheduler sender;
+	Sampler sampler;
 
 	//todo - sample ring buffer
 	String url;
@@ -30,7 +32,8 @@ private:
 public:
 	Telemetry():
 		sender([this]() {return this->send();},
-				TELEMETRY_SEND_RATE, TELEMETRY_SEND_RATE * (1 << 4))
+				TELEMETRY_SEND_RATE, TELEMETRY_SEND_RATE * (1 << 4)),
+		sampler(TELEMETRY_SAMPLE_PERIOD)
 	{};
 
 	void setup();

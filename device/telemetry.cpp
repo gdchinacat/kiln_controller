@@ -43,8 +43,10 @@ bool Telemetry::send() {
 
 void Telemetry::setup() {
 	setupHTTPClient();
+	sampler.setup();
 }
 	
 void Telemetry::loop() {
+	sampler.loop();
 	sender.loop();
 }

@@ -206,6 +206,11 @@ struct Sample {
  */
 struct Telemetry {
 	/**
+	 * @brief the time the device thinks it is (in milliseconds).
+	 */
+	uint64_t timestamp;
+
+	/**
 	 * @brief the current state of the device.
 	 */
     State state;

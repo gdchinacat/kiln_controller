@@ -120,8 +120,9 @@ class Sample(_Packable):
 
 @dataclass
 class Telemetry(_Packable):
-    struct: ClassVar[Struct] = Struct(f"<{State.struct.size}sH0s")
+    struct: ClassVar[Struct] = Struct(f"<Q{State.struct.size}sH0s")
 
+    timestamp_ms: int
     state: State
     sample_count: int  # uint16_t
     samples: list[Sample]

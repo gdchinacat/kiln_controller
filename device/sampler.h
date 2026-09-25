@@ -93,6 +93,11 @@ public:
 	 */
 	void set_now(uint64_t now);
 
+	/**
+	 * @brief get the current synced time in milliseconds.
+	 */
+	uint64_t now() { return now_offset + millis(); };
+
 };
 
 #endif

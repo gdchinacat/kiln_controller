@@ -165,11 +165,6 @@ struct Sample {
     uint8_t sample_count;
 
     /**
-     * @brief memory usage statistics.
-     */
-    Memory memory;
-
-    /**
      * @brief Bit field indicating the device state.
      *
      * Bits are set if their state occurred at any time during the sample period.
@@ -197,6 +192,12 @@ struct Sample {
 	 * @brief The percentage of time the element had power applied over sample period.
 	 */
     uint8_t duty_cycle;
+
+    /**
+     * @brief memory usage statistics.
+     */
+    Memory memory;
+
 };
 
 /**
@@ -212,12 +213,12 @@ struct Telemetry {
 	/**
 	 *
 	 */
-    uint16_t metric_count;
+    uint16_t sample_count;
 
     /**
      *
      */
-    Sample metrics[];
+    Sample samples[];
 };
 
 /**

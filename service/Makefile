@@ -1,12 +1,12 @@
 # 1. Default PORT to 5000 if not explicitly set via environment or command line
 PORT ?= 5000
 NON_PERSISTENT ?= false
+SERVICE_CMD ?= NON_PERSISTENT=$(NON_PERSISTENT) uv run uvicorn kiln_controller.service.__main__:app --host 0.0.0.0 --port $(PORT) --ssl-keyfile ./key.pem --ssl-certfile ./cert.pem >> $(LOGFILE) 2>&1
+TEST_SERVICE_CMD ?= uv run uvicorn kiln_controller.service.__main__:app --host 0.0.0.0 --port $(PORT) >> $(LOGFILE) 2>&1
 
 PIDFILE := /tmp/kiln_controller.$(PORT).pid
 LOGFILE := /tmp/kiln_controller.$(PORT).log
 
-#SERVICE_CMD := NON_PERSISTENT=$(NON_PERSISTENT) uv run fastapi dev --host 0.0.0.0 --port $(PORT) src/kiln_controller/service/__main__.py >> $(LOGFILE) 2>&1
-SERVICE_CMD := NON_PERSISTENT=$(NON_PERSISTENT) uv run uvicorn kiln_controller.service.__main__:app --host 0.0.0.0 --port $(PORT) --ssl-keyfile ./key.pem --ssl-certfile ./cert.pem >> $(LOGFILE) 2>&1
 
 
 .PHONY: all
@@ -15,7 +15,7 @@ all:
 .PHONY: start_service
 start_service:
 	@echo "Starting service on port $(PORT) in the background..."
-	@$(SERVICE_CMD) 2>&1 > /dev/null & echo $$! > $(PIDFILE)
+	$(SERVICE_CMD) 2>&1 > /dev/null & echo $$! > $(PIDFILE)
 	@sleep 2
 	@echo "Service started on port $(PORT) PID=$$(cat $(PIDFILE))"
 
@@ -51,13 +51,13 @@ mock_clean_test:
 .PHONY: live_dirty_test
 live_dirty_test: PORT := 50001
 live_dirty_test:
-	@NON_PERSISTENT=true $(MAKE) start_service PORT=$(PORT)
-	NON_PERSISTENT=true SERVICE_PORT=$(PORT) LIVE_SERVICE=true SKIP_CLEANUP=true uv run pytest -s
+	@SERVICE_CMD='$(TEST_SERVICE_CMD)' NON_PERSISTENT=true $(MAKE) start_service PORT=$(PORT)
+	@NON_PERSISTENT=true SERVICE_PORT=$(PORT) LIVE_SERVICE=true SKIP_CLEANUP=true uv run pytest -s
 	@$(MAKE) stop_service PORT=$(PORT)
 
 .PHONY: live_clean_test
 live_clean_test: PORT := 50001
 live_clean_test:
-	@NON_PERSISTENT=true $(MAKE) start_service PORT=$(PORT)
-	NON_PERSISTENT=true SERVICE_PORT=$(PORT) LIVE_SERVICE=true SKIP_CLEANUP=false uv run pytest -s
+	@SERVICE_CMD='$(TEST_SERVICE_CMD)' NON_PERSISTENT=true $(MAKE) start_service PORT=$(PORT)
+	@NON_PERSISTENT=true SERVICE_PORT=$(PORT) LIVE_SERVICE=true SKIP_CLEANUP=false uv run pytest -s
 	@$(MAKE) stop_service PORT=$(PORT)

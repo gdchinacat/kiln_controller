@@ -6,7 +6,6 @@
 
 #define WDT_SETUP_TIMEOUT_MS 15000
 #define WDT_RUNNING_TIMEOUT_MS 3000
-#define WDT_TIMEOUT_MS 10000
 
 Registration registration;
 Registrar registrar;
@@ -65,17 +64,6 @@ void _wdt_reset() {
 }
 
 void setup() {
-	// create a watchdog for the main task
-    esp_task_wdt_add(NULL);
-    esp_task_wdt_config_t wdt_config = {
-        .timeout_ms = WDT_TIMEOUT_MS,
-        .idle_core_mask = (1 << portNUM_PROCESSORS) - 1, // Monitor idle tasks on all cores
-        .trigger_panic = true                            // Reboot and dump stack trace on failure
-    };
-    esp_task_wdt_reconfigure(&wdt_config);
-
-
-
 	Serial.begin(921600);
 	delay(1000); // Settling delay for stable serial output
 
@@ -116,6 +104,5 @@ void loop() {
 			telemetry.loop();
 			break;
 	}
-    esp_task_wdt_reset(); // reset the watchdog on each loop
 }
 

@@ -62,18 +62,19 @@ class OctetStreamResponse(Response):
         super().__init__(*args, **kwargs, media_type="application/octet-stream")
 
 
-logger = logging.getLogger('kiln_controller.device')
+logger = logging.getLogger("kiln_controller.device")
+
+
 @binary_route("/{device_id}/telemetry")
 async def telemetry(
-    request: Request,
-    device_id: int,
-    device: Device = Depends(_authenticate_device)
+    request: Request, device_id: int, device: Device = Depends(_authenticate_device)
 ) -> OctetStreamResponse:
 
     body = await request.body()
     # TODO - logic should be on Device
-    telemetry = Telemetry.unpack(body);
-    logger.error(f'{telemetry=}')
+    telemetry = Telemetry.unpack(body)
+    logger.error(f"{telemetry=}")
+    logger.error(f"{telemetry.timestamp_ms - int(time.time() * 1000)=}")
 
     timestamp = struct.pack("<Q", int(time.time() * 1000))
     response = TelemetryResponse(int(time.time() * 1000))

@@ -135,6 +135,10 @@ class Telemetry(_Packable):
 
     @classmethod
     def unpack(cls, buffer: bytes) -> Self:
+        if len(buffer) < cls.struct.size:
+            raise ValueError(
+                f"{cls.__name__} requires {cls.struct.size} but got {len(buffer)}"
+            )
         offset = cls.struct.size
         self = super().unpack(buffer[:offset])
         self.samples = []

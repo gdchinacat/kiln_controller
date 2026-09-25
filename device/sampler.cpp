@@ -42,6 +42,7 @@ protocol::Sample* const Sampler::_currentSample(uint32_t now) {
 		memset(sample, 0, sizeof(protocol::Sample));
 		sample = &buffer[current];
 		sample->timestamp = bucket_timestamp;
+		sample->device_state = protocol::State::IDLE | protocol::State::DOOR_OPEN | protocol::State::COMMUNICATION_ERROR; //todo fill this out properly
 
 		log_i("start sampling for %d[%d]", buffer[current].timestamp, current);
 		if (last_timestamp + (sample_period / 1000) != sample->timestamp) {
@@ -73,10 +74,16 @@ bool Sampler::sample() {
 
 	sample->sample_count += 1;
 
-	log_i("updated sample %d [%d] sample_count: %d",
+	sample->memory.size = ESP.getHeapSize();
+	sample->memory.free = ESP.getFreeHeap();
+	sample->memory.min =  ESP.getMinFreeHeap();
+	sample->memory.max = ESP.getMaxAllocHeap();
+
+	log_v("updated sample %d [%d] sample_count: %d",
 			buffer[current].timestamp,
 			current,
 			sample->sample_count);
+
 	return true;
 }
 
@@ -84,5 +91,8 @@ bool Sampler::sample() {
  * @brief set the current time.
  */
 void Sampler::set_now(uint64_t now) {
-	now_offset = now - millis();
+	if (now_offset == 0) {
+		now_offset = now - millis();
+		log_d("updated time sync offset to %lld", now_offset);
+	}
 }

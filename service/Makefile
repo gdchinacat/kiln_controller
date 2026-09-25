@@ -1,7 +1,7 @@
 # 1. Default PORT to 5000 if not explicitly set via environment or command line
 PORT ?= 5000
 NON_PERSISTENT ?= false
-SERVICE_CMD ?= NON_PERSISTENT=$(NON_PERSISTENT) uv run uvicorn kiln_controller.service.__main__:app --host 0.0.0.0 --port $(PORT) --ssl-keyfile ./key.pem --ssl-certfile ./cert.pem >> $(LOGFILE) 2>&1
+SERVICE_CMD ?= NON_PERSISTENT=$(NON_PERSISTENT) uv run uvicorn kiln_controller.service.__main__:app --host 0.0.0.0 --port $(PORT) --ssl-keyfile ./key.pem --ssl-certfile ./cert.pem --timeout-keep-alive 300 >> $(LOGFILE) 2>&1
 TEST_SERVICE_CMD ?= uv run uvicorn kiln_controller.service.__main__:app --host 0.0.0.0 --port $(PORT) >> $(LOGFILE) 2>&1
 
 PIDFILE := /tmp/kiln_controller.$(PORT).pid
@@ -25,6 +25,10 @@ stop_service:
 		PID=$$(cat $(PIDFILE)); \
 		echo "Stopping PID $$PID on port $(PORT)..."; \
 		kill $$PID && rm -f $(PIDFILE); \
+		sleep 1; \
+		kill -INT $$PID 2>/dev/null; \
+		while kill -0 $$PID 2>/dev/null;  do echo -n . ; sleep 1; done; \
+		rm -f $(PIDFILE); \
 		echo "Service on port $(PORT) stopped"; \
 	else \
 		echo "No PID file found for port $(PORT)"; \

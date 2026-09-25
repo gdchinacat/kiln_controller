@@ -6,7 +6,7 @@
 #include "scheduler.h"
 
 #define SAMPLE_RATE 500
-#define SAMPLES_TO_BUFFER 10 // todo? base the number of samples in buffer on free memory
+#define SAMPLES_TO_BUFFER 128 // todo? base the number of samples in buffer on free memory
 
 extern bool reboot;
 
@@ -97,6 +97,8 @@ public:
 	 * @brief get the current synced time in milliseconds.
 	 */
 	uint64_t now() { return now_offset + millis(); };
+
+	protocol::Sample* currentSample() { return &buffer[current]; };
 
 };
 

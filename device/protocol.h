@@ -83,7 +83,21 @@ enum class State : uint16_t {
 	 * @brief The device door was open.
 	 */
 	DOOR_OPEN = 1 << 10
+
 };
+
+inline uint16_t operator|(State lhs, State rhs) {
+	return static_cast<uint16_t>(lhs) | static_cast<uint16_t>(rhs);
+}
+
+inline uint16_t operator|(uint16_t lhs, State rhs) {
+	return lhs | static_cast<uint16_t>(rhs);
+}
+
+inline uint16_t operator&(uint16_t lhs, State rhs) {
+    return lhs & static_cast<uint16_t>(rhs);
+}
+
 
 /**
  * @enum CommandType
@@ -224,6 +238,17 @@ struct Telemetry {
      *
      */
     Sample samples[];
+};
+
+/**
+ * @struct TelemetryResponse
+ * @brief The response to a Telemetry request.
+ */
+struct TelemetryResponse {
+	/**
+	 * @brief the time the server thinks it is (in milliseconds).
+	 */
+	uint64_t timestamp;
 };
 
 /**

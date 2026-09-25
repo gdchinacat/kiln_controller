@@ -1,5 +1,6 @@
 
 #include <stdint.h>
+#include <cstring>
 #include <Esp.h>
 #include <WiFiClientSecure.h>
 #include "protocol.h"
@@ -13,9 +14,10 @@ extern const char * caCert;
 
 void Telemetry::setupHTTPClient() {
 	wifi.setCACert(caCert);
-
 	url = registration.service.url;
 	url += "telemetry";
+	http.begin(wifi, url);
+	http.setReuse(true);
 	http.setFollowRedirects(HTTPC_DISABLE_FOLLOW_REDIRECTS);
 	http.setAuthorization(registration.service.auth_token);
 	http.setAuthorizationType("Bearer");
@@ -26,33 +28,46 @@ void Telemetry::setupHTTPClient() {
 }
 
 bool Telemetry::send() {
-	   http.begin(wifi, url);
 
-	   protocol::Telemetry telemetry {
-		   .timestamp = sampler.now(),
-		   .state = protocol::State::IDLE,
-		   .sample_count = 0
-	   };
+	// todo - check the status of wifi and don't even try to send if wifi isn't
+	//        connected.
+	uint8_t buffer[1024]; // both request and response buffer
 
-	   int httpCode = http.POST((uint8_t*)&telemetry, sizeof(telemetry));
-	   int size = http.getSize();
-	   uint64_t buffer[1];
-	   http.getStream().read((uint8_t*)buffer, sizeof(buffer));
-	   http.end();
-	   if (httpCode == 200 || httpCode == 201) {
-		   sampler.set_now(buffer[0]);
+	protocol::Telemetry* telemetry = (protocol::Telemetry*)buffer;
+	protocol::Sample* sample = (protocol::Sample*)(telemetry + 1);
+	telemetry->timestamp = sampler.now();
+	telemetry->state = protocol::State::IDLE;
+	telemetry->sample_count = 0;
 
-		   log_d("sent telemetry");
-		   return true;
+	memcpy(sample, sampler.currentSample(), sizeof(protocol::Sample));
+	telemetry->sample_count += 1;
+	sample += 1;
+
+	size_t size = (uint8_t*)sample - buffer;
+	log_e("writing telemetry with %d samples, (%d bytes)", telemetry->sample_count, size);
+	int httpCode = http.POST(buffer, size);
+	size = http.getSize();
+	http.getStream().read((uint8_t*)buffer, sizeof(buffer));
+	if (httpCode == 200 || httpCode == 201) {
+		sampler.set_now(((protocol::TelemetryResponse*)buffer)->timestamp);
+
+		log_d("sent telemetry");
+		return true;
 	   //} else if (httpCode == 404) { todo - handle other http codes like NOT_AUTH...
-	   } else if (httpCode == 404) {
-			   log_e("Device does not exist (404). Initiating registration.");
-			   registration.reset();
-			   reboot = true;
-	   } else {
-			   log_e("error sending telemetry: %d", httpCode);
-	   }
-	   return false;
+	} else if (httpCode == 404) {
+		log_e("Device does not exist (404). Initiating registration.");
+		registration.reset();
+		reboot = true;
+	} else {
+		// todo - it is a bit heavy handed to reset the client on any other
+		//        error, but it's the safe thing...look at statuses and other
+		//        things httpclient exposes and improve this to realy be for
+		//        network errors.
+		log_e("error sending telemetry: %d", httpCode);
+		http.end();
+		setupHTTPClient();
+	}
+	return false;
 }
 
 void Telemetry::setup() {

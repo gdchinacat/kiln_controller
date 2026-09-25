@@ -9,6 +9,7 @@ from functools import partial
 from fastapi import Depends, HTTPException, status, Request, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
+from ...device.protocol import Telemetry, TelemetryResponse
 from ..models import (
     Device,
     DeviceCreate,
@@ -67,4 +68,5 @@ async def telemetry(
     # TODO - implement binary telemetry protocol
     # TODO - logic should be on Device
     timestamp = struct.pack("<Q", int(time.time() * 1000))
-    return OctetStreamResponse(timestamp)
+    response = TelemetryResponse(int(time.time() * 1000))
+    return OctetStreamResponse(response.pack())

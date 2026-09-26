@@ -85,6 +85,9 @@ async def telemetry(
         while True:
             body = await websocket.receive_bytes()
 
+            # todo? improve this logic to detect if the device has been deleted?
+            await _authenticate_device_websocket(device_id, websocket)
+
             telemetry = Telemetry.unpack(body)
 
             delta = telemetry.timestamp_ms - int(time.time() * 1000)
@@ -94,3 +97,14 @@ async def telemetry(
             await websocket.send_bytes(TelemetryResponse(now).pack())
     except WebSocketDisconnect as wsd:
         logger.info(wsd)
+    except HTTPException as he:
+        if he.status_code in (
+            status.HTTP_401_UNAUTHORIZED,
+            status.HTTP_404_NOT_FOUND,
+        ):
+            # todo? - send a ReregisterCommand rather than just disconnecting
+            #         the client and letting it decide how to proceed when it
+            #         tries to reconnect and it fails on the 401 or 404?
+            pass
+        else:
+            raise

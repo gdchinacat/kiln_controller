@@ -13,6 +13,8 @@
 #define TELEMETRY_SEND_RATE 3000
 #define TELEMETRY_WS_RECONNECT_INTERVAL 4000
 
+
+
 /**
  * @brief internal subclass of WebSocketsClient to allow sending the frames
  *		necessary (binary/!fin; continuation/!fin; ...; continuation/fin).
@@ -40,6 +42,7 @@ private:
 
 	void webSocketEvent(WStype_t type, uint8_t * payload, size_t length);
 
+	void dispatchCommand(uint8_t* payload, size_t length);
 public:
 	Telemetry():
 		sender([this]() {return this->send();},

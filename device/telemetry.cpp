@@ -166,11 +166,39 @@ void Telemetry::loop() {
 	sender.loop();
 }
 
+void Telemetry::dispatchCommand(uint8_t* payload, size_t length) {
+	if (length < sizeof(protocol::Command)) {
+		log_e("received invalid command length %d", length);
+		//todo: give the reliability of TCP/IP/SSL, etc this is most likely a
+		//      version sync issue between client and server. Handling is
+		//      deferred till versioning is implemented.
+		webSocket.disconnect();
+		setupWebSocket();
+		return;
+	}
+
+	protocol::Command* command = (protocol::Command*)payload;
+
+
+	protocol::TelemetryResponse* telemetryResponse = (protocol::TelemetryResponse*)payload;
+	sampler.setNow(telemetryResponse->timestamp);
+}
+
 void Telemetry::webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
 
 	switch(type) {
 		case WStype_DISCONNECTED:
-			log_d("[WSc] Disconnected!\n");
+			// todo? WebSocketsClient doesn't seem too expose the status code in
+			//       a reasonable way, only through the payload string...is
+			//       there a less hacky way to do this?
+			if (payload != nullptr && strstr((const char*)payload, "404") != NULL) {
+				log_d("Device does not exist on server. Forcing reregistration.");
+				registration.reset();
+				reboot = true;
+			} else {
+				log_d("[WSc] Disconnected! reason: %s\n",
+						(payload != nullptr ? (const char*)payload : "<unknown>"));
+			}
 			break;
 		case WStype_CONNECTED:
 			log_d("[WSc] Connected to url: %s\n", payload);
@@ -179,13 +207,7 @@ void Telemetry::webSocketEvent(WStype_t type, uint8_t * payload, size_t length) 
 			log_d("[WSc] get text: %s\n", payload);
 			break;
 		case WStype_BIN:
-			// This is where commands are received...handle them!
-			// todo actually look at the command, for now the only thing is
-			// TelemetryResponse so that's all this does...
-			{
-				protocol::TelemetryResponse* telemetryResponse = (protocol::TelemetryResponse*)payload;
-				sampler.setNow(telemetryResponse->timestamp);
-			}
+			dispatchCommand(payload, length);
 			break;
 		case WStype_FRAGMENT_BIN_START:
 		case WStype_ERROR:

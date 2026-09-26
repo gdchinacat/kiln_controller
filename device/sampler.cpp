@@ -1,5 +1,6 @@
 
 #include <Arduino.h>
+#include <stdlib.h>
 #include "protocol.h"
 #include "sampler.h"
 
@@ -39,12 +40,12 @@ protocol::Sample* const Sampler::_currentSample(uint32_t now) {
 		}
 
 		// Initialize the new sample.
-		memset(sample, 0, sizeof(protocol::Sample));
 		sample = &buffer[current];
+		memset(sample, 0, sizeof(protocol::Sample));
 		sample->timestamp = bucket_timestamp;
 		sample->device_state = protocol::State::IDLE | protocol::State::DOOR_OPEN | protocol::State::COMMUNICATION_ERROR; //todo fill this out properly
 
-		log_i("start sampling for %d[%d]", buffer[current].timestamp, current);
+		log_v("start sampling for %d[%d]", buffer[current].timestamp, current);
 		if (last_timestamp + (sample_period / 1000) != sample->timestamp) {
 			log_w("missed %d samples", (sample->timestamp - last_timestamp) / sample_period);
 		}
@@ -69,8 +70,8 @@ void Sampler::loop() {
 }
 
 bool Sampler::sample() {
-	auto now = millis();
-	auto sample = _currentSample(now);
+	uint32_t now = millis();
+	protocol::Sample* sample = _currentSample(now);
 
 	sample->sample_count += 1;
 
@@ -79,10 +80,15 @@ bool Sampler::sample() {
 	sample->memory.min =  ESP.getMinFreeHeap();
 	sample->memory.max = ESP.getMaxAllocHeap();
 
-	log_v("updated sample %d [%d] sample_count: %d",
+	// todo all of the other metrics
+
+	/*
+	log_v("updated sample 0x%08x %d [%d] sample_count: %d",
+			sample,
 			buffer[current].timestamp,
 			current,
 			sample->sample_count);
+	*/
 
 	return true;
 }
@@ -90,9 +96,39 @@ bool Sampler::sample() {
 /**
  * @brief set the current time.
  */
-void Sampler::set_now(uint64_t now) {
-	if (now_offset == 0) {
-		now_offset = now - millis();
-		log_d("updated time sync offset to %lld", now_offset);
+void Sampler::setNow(uint64_t now) {
+	int64_t newOffset = now - millis();
+	int64_t delta = newOffset - now_offset;
+	if (now_offset == 0 or abs(delta) > 1000) {
+		now_offset = newOffset;
+		log_i("updated time sync offset to %lld", now_offset);
 	}
+}
+
+void Sampler::getSamples(int index, SampleBuffer* sampleBuffer) {
+	sampleBuffer->count = 0;
+	sampleBuffer->buffer = NULL;
+
+	if (start != current) {
+		if (index == 0) {
+			sampleBuffer->count = ((current > start) ? current : buffer_size) - start;
+			sampleBuffer->buffer = sampleBuffer->count ? &buffer[start] : NULL;
+		} else if (index == 1 && current < start) {
+			if (current) {
+				sampleBuffer->count = current;
+				sampleBuffer->buffer = buffer;
+			}
+		}
+	}
+	/*
+	log_d("getSamples index: %d start: %d current: %d buffer_size: %d count: %d buffer idx: %d *_buffer: 0x%08x buffer: 0x%08x",
+			index, start, current, buffer_size, sampleBuffer->count,
+			sampleBuffer->buffer != NULL ? ((sampleBuffer->buffer - buffer) / sizeof(protocol::Sample)) : -1,
+			sampleBuffer->buffer, buffer);
+	*/
+}
+
+
+void Sampler::discard(uint16_t count) {
+	start = (start + min(count, buffer_size)) % buffer_size;
 }

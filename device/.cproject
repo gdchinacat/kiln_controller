@@ -37,6 +37,8 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/AsyncUDP/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/rtc/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/Wire/src}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/WebSockets/src}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/Ethernet/src}&quot;"/>
 								</option>
 								<inputType id="io.sloeber.compiler.cpp.sketch.input.645966249" name="CPP source files" superClass="io.sloeber.compiler.cpp.sketch.input"/>
 							</tool>
@@ -60,6 +62,8 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/AsyncUDP/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/rtc/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/Wire/src}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/WebSockets/src}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/Ethernet/src}&quot;"/>
 								</option>
 								<inputType id="io.sloeber.compiler.c.sketch.input.122565542" name="C Source Files" superClass="io.sloeber.compiler.c.sketch.input"/>
 							</tool>
@@ -83,6 +87,8 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/AsyncUDP/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/rtc/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/Wire/src}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/WebSockets/src}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/device/libraries/Ethernet/src}&quot;"/>
 								</option>
 								<inputType id="io.sloeber.compiler.S.sketch.input.1771930532" name="Assembly source files" superClass="io.sloeber.compiler.S.sketch.input"/>
 							</tool>
@@ -124,7 +130,7 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="libraries/FreeRTOS/doc|libraries/base64/catch-standard.cpp|libraries/base64/catch-base64-url.cpp|libraries/base64/arduino-test|libraries/?*/**/?xamples/**|libraries/?*/**/?xtras/**|libraries/?*/**/test*/**|libraries/?*/**/third-party/**|libraries/**/._*|libraries/?*/utility/*/*" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="libraries/WebSockets/travis|libraries/FreeRTOS/doc|libraries/base64/catch-standard.cpp|libraries/base64/catch-base64-url.cpp|libraries/base64/arduino-test|libraries/?*/**/?xamples/**|libraries/?*/**/?xtras/**|libraries/?*/**/test*/**|libraries/?*/**/third-party/**|libraries/**/._*|libraries/?*/utility/*/*" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>

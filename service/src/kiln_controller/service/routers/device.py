@@ -3,11 +3,18 @@ Device related Flask resources
 """
 
 import logging
-import struct
 import time
 from functools import partial
 
-from fastapi import Depends, HTTPException, status, Request, Response
+from fastapi import (
+    Depends,
+    HTTPException,
+    status,
+    Request,
+    Response,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from ...device.protocol import Telemetry, TelemetryResponse
@@ -33,49 +40,57 @@ devices_router = create_router(
 )
 
 
-async def _authenticate_device(
+logger = logging.getLogger("kiln_controller.device")
+
+
+async def _authenticate_device_websocket(
     device_id: int,
-    credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
+    websocket: WebSocket,
 ) -> Device:
-    with Session() as session:
-        device_orm = session.get(DeviceORM, device_id)
-        if not device_orm:
-            # todo - is it OK to expose this as 404 without auth passing to let
-            #        the device know it needs to re-register?
-            # todo - no test failed when this 401 was changed to 404, need test
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-        if device_orm.auth_token == credentials.credentials:
-            return Device.model_validate(device_orm.model_dump())
+    auth_header = websocket.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        auth_token = auth_header.split(" ")[1]
+
+        with Session() as session:
+            device_orm = session.get(DeviceORM, device_id)
+            if not device_orm:
+                # todo - is it OK to expose this as 404 without auth passing to let
+                #        the device know it needs to re-register?
+                # todo - no test failed when this 401 was changed to 404, need test
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+            if device_orm.auth_token == auth_token:
+                return Device.model_validate(device_orm.model_dump())
     raise HTTPException(
         # todo - don't send json auth errors
         status_code=status.HTTP_401_UNAUTHORIZED,
     )
 
 
-binary_route = partial(
-    devices_router.post, responses={200: {"content": {"application/octet-stream": {}}}}
-)
-
-
-class OctetStreamResponse(Response):
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs, media_type="application/octet-stream")
-
-
-logger = logging.getLogger("kiln_controller.device")
-
-
-@binary_route("/{device_id}/telemetry")
+@devices_router.websocket("/{device_id}/telemetry")
 async def telemetry(
-    request: Request, device_id: int, device: Device = Depends(_authenticate_device)
-) -> OctetStreamResponse:
+    websocket: WebSocket,
+    device_id: int,
+    device: Device = Depends(_authenticate_device_websocket),
+) -> None:
 
-    body = await request.body()
-    # TODO - logic should be on Device
-    telemetry = Telemetry.unpack(body)
-    logger.error(f"{telemetry=}")
-    logger.error(f"{telemetry.timestamp_ms - int(time.time() * 1000)=}")
+    await websocket.accept()
+    # todo - send a time sync on connection
 
-    timestamp = struct.pack("<Q", int(time.time() * 1000))
-    response = TelemetryResponse(int(time.time() * 1000))
-    return OctetStreamResponse(response.pack())
+    # todo - change from request/response model to full bidirectional mode
+    # todo - create a task for sending commands
+    # todo? - create a metric request command
+    # todo? - create a metric throttle command
+
+    try:
+        while True:
+            body = await websocket.receive_bytes()
+
+            telemetry = Telemetry.unpack(body)
+
+            delta = telemetry.timestamp_ms - int(time.time() * 1000)
+            logger.error(f"device {device.id} telemetry delta {delta}")
+
+            now = int(time.time() * 1000)
+            await websocket.send_bytes(TelemetryResponse(now).pack())
+    except WebSocketDisconnect as wsd:
+        logger.info(wsd)

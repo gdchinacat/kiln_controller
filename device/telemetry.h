@@ -1,33 +1,44 @@
 #ifndef TELEMETRY_H
 #define TELEMETRY_H
 
-//todo - HTTPClient does runtime memory allocation that is not suitable for the
-//       running loop. Get everything working then replace/configure it to not
-//       allocate memory.
-#include <HTTPClient.h>
+#include <WebSocketsClient.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 
+#include "scheduler.h"
 #include "registrar.h"
 #include "sampler.h"
-#include "scheduler.h"
 
-#define TELEMETRY_SAMPLE_PERIOD 5000
-#define TELEMETRY_SEND_RATE 15000
+#define TELEMETRY_SAMPLE_PERIOD 1000
+#define TELEMETRY_SEND_RATE 3000
+#define TELEMETRY_WS_RECONNECT_INTERVAL 4000
+
+/**
+ * @brief internal subclass of WebSocketsClient to allow sending the frames
+ *		necessary (binary/!fin; continuation/!fin; ...; continuation/fin).
+ */
+class _WebSocketsClient : public WebSocketsClient {
+public:
+	bool _sendFrame(WSopcode_t opcode, uint8_t* payload, size_t length, bool fin) {
+		return sendFrame(&_client, opcode, payload, length, fin);
+	}
+};
 
 class Telemetry {
 private:
 	Scheduler sender;
 	Sampler sampler;
 
-	//todo - sample ring buffer
 	String url;
 	WiFiClientSecure wifi;
-	HTTPClient http;
+	_WebSocketsClient webSocket;
 
-	void setupHTTPClient();
+	void setupWebSocket();
 
 	bool send();
+
+
+	void webSocketEvent(WStype_t type, uint8_t * payload, size_t length);
 
 public:
 	Telemetry():

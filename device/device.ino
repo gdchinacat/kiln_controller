@@ -6,6 +6,7 @@
 
 #define WDT_SETUP_TIMEOUT_MS 15000
 #define WDT_RUNNING_TIMEOUT_MS 3000
+#define WDT_REGISTERING_TIMEOUT_MS 60000
 
 Registration registration;
 Registrar registrar;
@@ -76,14 +77,15 @@ void setup() {
 		telemetry.setup();
 
 		currentState = RUNNING;
+		_wdt_set_timeout(WDT_RUNNING_TIMEOUT_MS);
 	} else {
 		log_i("No valid configuration found. Starting registration.");
 		registrar.start();
 
 		currentState = REGISTERING;
+		_wdt_set_timeout(WDT_REGISTERING_TIMEOUT_MS);
 	}
 
-	_wdt_set_timeout(WDT_RUNNING_TIMEOUT_MS);
 }
 
 void loop() {

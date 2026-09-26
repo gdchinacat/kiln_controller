@@ -23,7 +23,7 @@ def sample(memory: Memory) -> Sample:
 
 @pytest.fixture
 def telemetry(state: State, sample: Sample) -> Telemetry:
-    return Telemetry(state, 1, [sample])
+    return Telemetry(123456789, state, 1, [sample])
 
 
 @pytest.fixture

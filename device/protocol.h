@@ -235,9 +235,12 @@ struct Telemetry {
     uint16_t sample_count;
 
     /**
-     *
+     * @brief Telemetry is immediately followed by sample_count samples.
+	 *
+	 * Declared as [0] to allow this to not be the terminal member of classes
+	 * that contain it.
      */
-    Sample samples[];
+    Sample samples[0];
 };
 
 /**
@@ -245,6 +248,7 @@ struct Telemetry {
  * @brief The response to a Telemetry request.
  */
 struct TelemetryResponse {
+	// todo change TelemetryResponse to a SetTime command.
 	/**
 	 * @brief the time the server thinks it is (in milliseconds).
 	 */

@@ -10,6 +10,16 @@
 
 extern bool reboot;
 
+#define BUFFER_INDEX_ERROR -1 // the requested buffer index is invalid
+
+/**
+ *
+ */
+typedef struct {
+	protocol::Sample* buffer = NULL;
+	uint16_t count = 0;
+} SampleBuffer;
+
 /**
  * @brief Sampler is responsible for sampling the hardware and providing the
  * samples for Telemetry to report.
@@ -91,14 +101,38 @@ public:
 	/**
 	 * @brief tell the sampler what time it is now.
 	 */
-	void set_now(uint64_t now);
+	void setNow(uint64_t now);
 
 	/**
 	 * @brief get the current synced time in milliseconds.
 	 */
 	uint64_t now() { return now_offset + millis(); };
 
-	protocol::Sample* currentSample() { return &buffer[current]; };
+	/**
+	 * @brief Get the sample buffer.
+	 *
+	 * The address is stored into buffer and the number of samples in that
+	 * buffer is returned. This may be less than sampleCount() returns if the
+	 * samples are not contiguous (ie the ring buffer wraps). If there are
+	 * no remaining samples buffer is NULL and zero is returned.
+	 *
+	 * index is used to specify which buffer is being requested. The currrent
+	 * implementation accepts 0 and poissibly 1 if the current state wraps. All
+	 * other values are invalid and INDEX_ERROR will be returned.
+	 *
+	 * TODO - locking...this essentially checks the samples out and they should
+	 * not be overwriten. This isn't an issue currently with the sampler and
+	 * sender in the same task, but if they are ever made concurrent the case
+	 * where the sender "checks out" samples must take into account a concurrent
+	 * sampling that advances current into the samples that were checked out,
+	 * which could lead to partial reads of incomplete samples.
+	 */
+	void getSamples(int index, SampleBuffer* sampleBuffer);
+
+	/**
+	 * @brief discard count samples (presumably because they have been sent).
+	 */
+	void discard(uint16_t count);
 
 };
 

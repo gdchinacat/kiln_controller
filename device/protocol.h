@@ -126,6 +126,11 @@ enum class CommandType : uint8_t {
 	 * @brief Resume firing after a pause.
 	 */
     RESUME = 3,
+
+	/**
+	 * @brief Tell the device what time it is.
+	 */
+	SET_TIME = 4,
 };
 
 #pragma pack(push, 1)
@@ -243,62 +248,60 @@ struct Telemetry {
     Sample samples[0];
 };
 
+class Command {
+public:
+	uint8_t type;
+};
+
 /**
- * @struct TelemetryResponse
- * @brief The response to a Telemetry request.
+ * @brief Informs the device what the time is.
  */
-struct TelemetryResponse {
-	// todo change TelemetryResponse to a SetTime command.
+class SetTimeCommand : public Command {
+public:
 	/**
 	 * @brief the time the server thinks it is (in milliseconds).
 	 */
 	uint64_t timestamp;
 };
 
+
 /**
- * @struct StartCommand
  * @brief Command start a firing.
  */
-struct StartCommand {
-    CommandType command_id = CommandType::START;
+class StartCommand : public Command {
+public:
+    CommandType type = CommandType::START;
     // todo include the schedule/phases.
 };
 
 /**
- * @struct StopCommand
  * @brief Command to cancel a firing.
  */
-struct StopCommand {
-    CommandType command_id = CommandType::STOP;
+class StopCommand : public Command {
+public:
+    CommandType type = CommandType::STOP;
 };
 
 /**
  * @struct PauseCommand
  * @brief Command to cancel a firing.
  */
-struct PauseCommand {
-    CommandType command_id = CommandType::PAUSE;
+class PauseCommand : public Command {
+public:
+    CommandType type = CommandType::PAUSE;
 };
 
 /**
  * @struct ResumeCommand
  * @brief Command to resume a paused firing.
  */
-struct ResumeCommand {
-    CommandType command_id = CommandType::RESUME;
+class ResumeCommand : public Command {
+public:
+    CommandType type = CommandType::RESUME;
 };
 
 #pragma pack(pop)
 
-/**
- * @brief Command is a command the server responds to the kiln with.
- */
-using Command = std::variant<
-    StartCommand,
-    StopCommand,
-    PauseCommand,
-    ResumeCommand
->;
 
 } // namespace protocol
 

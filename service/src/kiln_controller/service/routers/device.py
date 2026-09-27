@@ -17,7 +17,7 @@ from fastapi import (
 )
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-from ...device.protocol import Telemetry, TelemetryResponse
+from ...device.protocol import Telemetry, SetTimeCommand
 from ..models import (
     Device,
     DeviceCreate,
@@ -94,7 +94,7 @@ async def telemetry(
             logger.error(f"device {device.id} telemetry delta {delta}")
 
             now = int(time.time() * 1000)
-            await websocket.send_bytes(TelemetryResponse(now).pack())
+            await websocket.send_bytes(SetTimeCommand(now).pack())
     except WebSocketDisconnect as wsd:
         logger.info(wsd)
     except HTTPException as he:

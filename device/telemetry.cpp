@@ -179,9 +179,20 @@ void Telemetry::dispatchCommand(uint8_t* payload, size_t length) {
 
 	protocol::Command* command = (protocol::Command*)payload;
 
+	switch (static_cast<protocol::CommandType>(command->type)) {
+		case protocol::CommandType::SET_TIME: {
+			protocol::SetTimeCommand* command = (protocol::SetTimeCommand*)payload;
+			sampler.setNow(command->timestamp);
+			}
+			break;
+		case protocol::CommandType::START:
+		case protocol::CommandType::STOP:
+		case protocol::CommandType::PAUSE:
+		case protocol::CommandType::RESUME:
+			log_d("received unimplemented command %d", command->type);
+	};
 
-	protocol::TelemetryResponse* telemetryResponse = (protocol::TelemetryResponse*)payload;
-	sampler.setNow(telemetryResponse->timestamp);
+
 }
 
 void Telemetry::webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {

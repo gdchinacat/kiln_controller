@@ -18,7 +18,7 @@ uint16_t Sampler::_wrap(uint16_t index) {
 }
 
 uint32_t Sampler::_bucket_timestamp(uint32_t now) {
-	uint64_t adjusted = now_offset + now;
+	uint64_t adjusted = timeSync.now();
 	return (uint32_t)((adjusted - adjusted % sample_period)/1000);
 
 }
@@ -91,18 +91,6 @@ bool Sampler::sample() {
 	*/
 
 	return true;
-}
-
-/**
- * @brief set the current time.
- */
-void Sampler::setNow(uint64_t now) {
-	int64_t newOffset = now - millis();
-	int64_t delta = newOffset - now_offset;
-	if (now_offset == 0 or abs(delta) > 1000) {
-		now_offset = newOffset;
-		log_i("updated time sync offset to %lld", now_offset);
-	}
 }
 
 void Sampler::getSamples(int index, SampleBuffer* sampleBuffer) {

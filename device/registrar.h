@@ -1,5 +1,4 @@
-#ifndef REGISTRAR_H
-#define REGISTRAR_H
+#pragma once
 
 #include <DNSServer.h>
 #include <IPAddress.h>
@@ -26,5 +25,3 @@ public:
 	void start();
 	void loop();
 };
-
-#endif

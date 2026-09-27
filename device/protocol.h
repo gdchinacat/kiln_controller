@@ -1,5 +1,4 @@
-#ifndef PROTOCOL_H
-#define PROTOCOL_H
+#pragma once
 
 #include <stdint.h>
 #include <variant>
@@ -304,5 +303,3 @@ public:
 
 
 } // namespace protocol
-
-#endif // PROTOCOL_H

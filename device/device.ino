@@ -1,15 +1,19 @@
 
 #include <esp_task_wdt.h>
+#include "firing.h"
 #include "registrar.h"
 #include "telemetry.h"
+#include "time_sync.h"
 
 #define WDT_SETUP_TIMEOUT_MS 15000
 #define WDT_RUNNING_TIMEOUT_MS 3000
 #define WDT_REGISTERING_TIMEOUT_MS 60000
 
-Registration registration;
-Registrar registrar;
-Telemetry telemetry;
+Registration registration{};
+Registrar registrar{};
+Telemetry telemetry{};
+Firing firing{};
+TimeSync timeSync{};
 bool reboot = false;
 
 enum DeviceState { REGISTERING, RUNNING };

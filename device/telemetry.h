@@ -1,5 +1,4 @@
-#ifndef TELEMETRY_H
-#define TELEMETRY_H
+#pragma once
 
 #include <WebSocketsClient.h>
 #include <WiFi.h>
@@ -53,5 +52,3 @@ public:
 	void setup();
 	void loop();
 };
-
-#endif

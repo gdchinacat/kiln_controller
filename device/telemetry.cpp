@@ -6,12 +6,16 @@
 #include <Esp.h>
 #include <WebSocketsClient.h>
 #include <WiFiClientSecure.h>
+#include "firing.h"
 #include "protocol.h"
 #include "registrar.h"
 #include "registration.h"
 #include "telemetry.h"
+#include "time_sync.h"
 
 extern Registration registration;
+extern Firing firing;
+extern TimeSync timeSync;
 extern bool reboot;
 extern const char * caCert;
 
@@ -122,7 +126,7 @@ bool Telemetry::send() {
 	}
 
 	protocol::Telemetry _telemetry = {
-		.timestamp = sampler.now(),
+		.timestamp = timeSync.now(),
 		.state = protocol::State::IDLE, // todo put in proper state
 		.sample_count = sampleCount
 	};
@@ -180,16 +184,24 @@ void Telemetry::dispatchCommand(uint8_t* payload, size_t length) {
 	protocol::Command* command = (protocol::Command*)payload;
 
 	switch (static_cast<protocol::CommandType>(command->type)) {
-		case protocol::CommandType::SET_TIME: {
-			protocol::SetTimeCommand* command = (protocol::SetTimeCommand*)payload;
-			sampler.setNow(command->timestamp);
-			}
+		case protocol::CommandType::SET_TIME:
+			timeSync.setTime(static_cast<protocol::SetTimeCommand*>(command));
 			break;
 		case protocol::CommandType::START:
+			firing.start(static_cast<protocol::StartCommand*>(command));
+			break;
 		case protocol::CommandType::STOP:
+			firing.stop(static_cast<protocol::StopCommand*>(command));
+			break;
 		case protocol::CommandType::PAUSE:
+			firing.pause(static_cast<protocol::PauseCommand*>(command));
+			break;
 		case protocol::CommandType::RESUME:
+			firing.resume(static_cast<protocol::ResumeCommand*>(command));
+			break;
+		default:
 			log_d("received unimplemented command %d", command->type);
+			break;
 	};
 
 

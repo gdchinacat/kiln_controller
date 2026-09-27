@@ -1,5 +1,4 @@
-#ifndef REGISTRATION_H
-#define REGISTRATION_H
+#pragma once
 
 #include <Preferences.h>
 #include <WiFi.h>
@@ -41,5 +40,3 @@ public:
 private:
 	Preferences _prefs;
 };
-
-#endif

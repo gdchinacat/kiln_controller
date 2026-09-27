@@ -1,5 +1,4 @@
-#ifndef SCHEDULER_H
-#define SCHEDULER_H
+#pragma once
 
 #include <functional>
 
@@ -35,5 +34,3 @@ public:
 	void loop();
 
 };
-
-#endif

@@ -111,11 +111,11 @@ class State(_Packable):
 
 
 class CommandType(Enum):
-    START = 0
-    STOP = 1
+    START = 1
     PAUSE = 2
     RESUME = 3
-    SET_TIME = 4
+    STOP = 4
+    SET_TIME = 5
 
 
 @dataclass
@@ -208,11 +208,6 @@ class StartCommand(_Command):
 
 
 @dataclass
-class StopCommand(_Command):
-    command_type = CommandType.STOP
-
-
-@dataclass
 class PauseCommand(_Command):
     command_type = CommandType.PAUSE
 
@@ -220,3 +215,8 @@ class PauseCommand(_Command):
 @dataclass
 class ResumeCommand(_Command):
     command_type = CommandType.RESUME
+
+
+@dataclass
+class StopCommand(_Command):
+    command_type = CommandType.STOP

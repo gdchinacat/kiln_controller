@@ -1,101 +1,12 @@
 #pragma once
 
 #include <stdint.h>
-#include <variant>
+
+typedef enum class State : uint16_t;
+#include "firing.h"
 
 namespace protocol {
 
-/**
- * @enum State
- * @brief Bitmasks for the various states.
- *
- * The state is included in each sample, it is possible for it to be IDLE,
- * RUNNING, and ERROR all within a single sample, they are not mutually
- * exclusive. Any state that existed in the sample period should be set.
- *
- * When used for the current state (as in Telemetry request) the enum value is
- * used, not a bitmask.
- */
-enum class State : uint16_t {
-
-	/**
-	 * @brief Device has a persistent error requiring operator attention and
-	 * reset.
-	 */
-	ERROR = 1 << 0,
-
-	/**
-	 * @brief No firing was in progress.
-	 */
-    IDLE = 1 << 1,
-
-	/**
-	 * @brief Firing was in progress.
-	 */
-    RUNNING = 1 << 2,
-
-	/**
-	 * @brief Firing was paused.
-	 *
-	 * This can be due to a PAUSE command, the door being open, device not having
-	 * time sync, etc. Any time the device is not actively controlling the element
-	 * during a firing should report as paused.
-	 */
-    PAUSED = 1 << 3,
-
-	/**
-	 * @brief Firing completed.
-	 *
-	 * This state persists until it is cleared, typically by the acknowledging
-	 * it with a STOP command, but could also be due to a device reset (although
-	 * devices can persist it if they choose to).
-	 */
-    COMPLETE = 1 << 4,
-
-	/**
-	 * @brief Indicates an error reading the thermocouple temperature.
-	 */
-    THERMOCOUPLE_ERROR = 1 << 5,
-
-	/**
-	 * @brief Device initiated firing cancelation due to excessive temperature.
-	 */
-    OVER_TEMP = 1 << 6,
-
-	/**
-	 * @brief Device detected power was not applied to heating element when it
-	 *        attempted to do so.
-	 */
-    HEATING_FAILED = 1 << 7,
-
-	/**
-	 * @brief Temperature deviated from target temperature by too much.
-	 */
-    REGULATION_FAILURE = 1 << 8,
-
-	/**
-	 * @brief Device was unable to communicate with server.
-	 */
-    COMMUNICATION_ERROR = 1 << 9,
-
-	/**
-	 * @brief The device door was open.
-	 */
-	DOOR_OPEN = 1 << 10
-
-};
-
-inline uint16_t operator|(State lhs, State rhs) {
-	return static_cast<uint16_t>(lhs) | static_cast<uint16_t>(rhs);
-}
-
-inline uint16_t operator|(uint16_t lhs, State rhs) {
-	return lhs | static_cast<uint16_t>(rhs);
-}
-
-inline uint16_t operator&(uint16_t lhs, State rhs) {
-    return lhs & static_cast<uint16_t>(rhs);
-}
 
 
 /**
@@ -107,12 +18,7 @@ enum class CommandType : uint8_t {
 	/**
 	 * @brief Start a firing.
 	 */
-    START = 0,
-
-	/**
-	 * @brief Stop a firing or acknowledge completion.
-	 */
-    STOP = 1,
+    START = 1,
 
 	/**
 	 * @brief Temporarily pause a firing.
@@ -127,9 +33,15 @@ enum class CommandType : uint8_t {
     RESUME = 3,
 
 	/**
+	 * @brief Stop a firing or acknowledge completion.
+	 */
+    STOP = 4,
+
+
+	/**
 	 * @brief Tell the device what time it is.
 	 */
-	SET_TIME = 4,
+	SET_TIME = 5,
 };
 
 #pragma pack(push, 1)
@@ -231,7 +143,7 @@ struct Telemetry {
 	/**
 	 * @brief the current state of the device.
 	 */
-    State state;
+	State state;
 
 	/**
 	 *
@@ -274,14 +186,6 @@ public:
 };
 
 /**
- * @brief Command to cancel a firing.
- */
-class StopCommand : public Command {
-public:
-    CommandType type = CommandType::STOP;
-};
-
-/**
  * @struct PauseCommand
  * @brief Command to cancel a firing.
  */
@@ -298,6 +202,15 @@ class ResumeCommand : public Command {
 public:
     CommandType type = CommandType::RESUME;
 };
+
+/**
+ * @brief Command to cancel a firing.
+ */
+class StopCommand : public Command {
+public:
+    CommandType type = CommandType::STOP;
+};
+
 
 #pragma pack(pop)
 

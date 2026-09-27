@@ -1,8 +1,11 @@
 
 #include <Arduino.h>
 #include <stdlib.h>
+#include "firing.h"
 #include "protocol.h"
 #include "sampler.h"
+
+extern Firing firing;
 
 void Sampler::_sampleMemory() {
 
@@ -17,8 +20,8 @@ uint16_t Sampler::_wrap(uint16_t index) {
 	return (index >= buffer_size) ? 0 : index;
 }
 
-uint32_t Sampler::_bucket_timestamp(uint32_t now) {
-	uint64_t adjusted = timeSync.now();
+uint32_t Sampler::_bucketTimestamp(unsigned long now) {
+	unsigned long long adjusted = timeSync.now();
 	return (uint32_t)((adjusted - adjusted % sample_period)/1000);
 
 }
@@ -26,10 +29,11 @@ uint32_t Sampler::_bucket_timestamp(uint32_t now) {
 /**
  * @brief get the current sample to update
  */
-protocol::Sample* const Sampler::_currentSample(uint32_t now) {
+protocol::Sample* const Sampler::currentSample() {
+	unsigned long now = millis();
 	protocol::Sample* sample = &buffer[current];
-	uint32_t bucket_timestamp = _bucket_timestamp(now);
-	if (bucket_timestamp > sample->timestamp) {
+	uint32_t bucketTimestamp = _bucketTimestamp(now);
+	if (bucketTimestamp > sample->timestamp) {
 		uint32_t last_timestamp = sample->timestamp;
 
 		// Advance the current sample, wrapping if necessary and advancing start
@@ -42,8 +46,8 @@ protocol::Sample* const Sampler::_currentSample(uint32_t now) {
 		// Initialize the new sample.
 		sample = &buffer[current];
 		memset(sample, 0, sizeof(protocol::Sample));
-		sample->timestamp = bucket_timestamp;
-		sample->device_state = protocol::State::IDLE | protocol::State::DOOR_OPEN | protocol::State::COMMUNICATION_ERROR; //todo fill this out properly
+		sample->timestamp = bucketTimestamp;
+		sample->device_state |= static_cast<uint16_t>(firing.currentState());
 
 		log_v("start sampling for %d[%d]", buffer[current].timestamp, current);
 		if (last_timestamp + (sample_period / 1000) != sample->timestamp) {
@@ -62,7 +66,7 @@ Sampler::Sampler(uint16_t _sample_period):
 
 void Sampler::setup() {
 	// initialize the first sample time
-	buffer[0].timestamp = _bucket_timestamp(millis());
+	buffer[0].timestamp = _bucketTimestamp(millis());
 }
 
 void Sampler::loop() {
@@ -70,8 +74,7 @@ void Sampler::loop() {
 }
 
 bool Sampler::sample() {
-	uint32_t now = millis();
-	protocol::Sample* sample = _currentSample(now);
+	protocol::Sample* sample = currentSample();
 
 	sample->sample_count += 1;
 

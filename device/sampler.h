@@ -64,26 +64,26 @@ private:
 	bool sample();
 
 	/**
-	 * @brief get the sample now is in.
-	 *
-	 * This moves the sample forward, possibly dropping a sample if the ring
-	 * buffer is full.
-	 */
-	protocol::Sample* const _currentSample(uint32_t now);
-
-	/**
 	 * @brief wrap the index if it exceeds the length of the buffer.
 	 */
 	uint16_t _wrap(uint16_t index);
 
 	void _sampleMemory();
 
-	uint32_t _bucket_timestamp(uint32_t now);
+	uint32_t _bucketTimestamp(uint32_t now);
 
 public:
 	Sampler(uint16_t _sample_period);
 	void loop();
 	void setup();
+
+	/**
+	 * @brief get the sample now is in.
+	 *
+	 * This moves the sample forward, possibly dropping a sample if the ring
+	 * buffer is full.
+	 */
+	protocol::Sample* const currentSample();
 
 	/**
 	 * @brief Get the sample buffer.

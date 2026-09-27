@@ -87,7 +87,6 @@ async def telemetry(
 
             # todo? improve this logic to detect if the device has been deleted?
             await _authenticate_device_websocket(device_id, websocket)
-
             telemetry = Telemetry.unpack(body)
 
             delta = telemetry.timestamp_ms - int(time.time() * 1000)

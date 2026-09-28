@@ -49,7 +49,7 @@ def metrics_for_sample(
     """
     # todo? - json is really heavyweight, consider using a more efficient
     #         way to inject the metrics. (this works for now though)
-    for k, v in metrics.items():
+    for k, v in metrics.field_values():
         if isinstance(v, Metrics):
             yield from metrics_for_sample(tags, timestamp, v, f"{name}{k}.")
         else:

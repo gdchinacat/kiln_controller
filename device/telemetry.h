@@ -8,7 +8,7 @@
 #include "registrar.h"
 #include "sampler.h"
 
-#define TELEMETRY_SEND_RATE 60000
+#define TELEMETRY_SEND_RATE 3000
 #define TELEMETRY_WS_RECONNECT_INTERVAL 4000
 
 extern Sampler sampler;

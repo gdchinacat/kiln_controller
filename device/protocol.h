@@ -102,7 +102,7 @@ struct Sample {
     uint16_t device_state;
 
 	/**
-	 * @brief The mean temperature in Celcius of the over the sample period.
+	 * @brief The mean temperature in Celsius of the over the sample period.
 	 */
     int16_t current_temp;
 

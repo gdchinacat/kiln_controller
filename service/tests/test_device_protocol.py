@@ -39,9 +39,18 @@ def memory() -> Memory:
 
 
 @pytest.fixture
-def sample(memory: Memory, time: _Time) -> Sample:
+def temperature() -> Temperature:
+    return Temperature(20, 20, 20)
+
+
+@pytest.fixture
+def sample(
+    memory: Memory,
+    temperature: Temperature,
+    time: _Time,
+) -> Sample:
     return Sample(
-        int(time.time()), 1, StateEnum.COMPLETE | StateEnum.IDLE, 20, 20, 20, 0, memory
+        int(time.time()), 1, StateEnum.COMPLETE | StateEnum.IDLE, temperature, 0, memory
     )
 
 
@@ -81,6 +90,10 @@ def test_state_roundtrip(state: State) -> None:
 
 def test_memory_roundtrip(memory: Memory) -> None:
     assert memory == Memory.unpack(memory.pack())
+
+
+def test_temperature_roundtrip(temperature: Temperature) -> None:
+    assert temperature == Temperature.unpack(temperature.pack())
 
 
 def test_sample_roundtrip(sample: Sample) -> None:

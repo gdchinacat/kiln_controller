@@ -132,7 +132,6 @@ bool Telemetry::send() {
 	};
 
 
-	// todo check the success/failure for the sends below
 	bool success = webSocket._sendFrame(
 			WSop_binary,
 			(uint8_t*) &_telemetry,
@@ -148,7 +147,7 @@ bool Telemetry::send() {
 				(uint8_t*)buffer.buffer,
 				buffer.count * sizeof(protocol::Sample),
 				_sampleCount == 0);
-			if (success) {
+			if (success && _sampleCount == 0) {
 				// todo discard samples through command to confirm they were received.
 				//      maybe do it by timestamp rather than count.
 				sampler.discard(sampleCount);
@@ -174,9 +173,9 @@ void Telemetry::loop() {
 void Telemetry::dispatchCommand(uint8_t* payload, size_t length) {
 	if (length < sizeof(protocol::Command)) {
 		log_e("received invalid command length %d", length);
-		//todo: give the reliability of TCP/IP/SSL, etc this is most likely a
+		//todo: given the reliability of TCP/IP/SSL, etc this is most likely a
 		//      version sync issue between client and server. Handling is
-		//      deferred till versioning is implemented.
+		//      deferred until versioning is implemented.
 		webSocket.disconnect();
 		setupWebSocket();
 		return;

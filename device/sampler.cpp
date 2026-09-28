@@ -97,6 +97,18 @@ bool Sampler::sample() {
 }
 
 void Sampler::getSamples(int index, SampleBuffer* sampleBuffer) {
+	// todo - this seems to have a bug with wrapping:
+	// 143 metrics sent successfully for 13 samples for 60, 1790573890, 1790573895, 1790573900, 1790573905, 1790573910, 1790573915, 1790573920, 1790573925, 1790573930, 1790573935, 1790573940, 1790573945.
+	// ...
+	// 135 metrics sent successfully for 12 samples for 1790578930, 1790578935, 1790578940, 1790578945, 1790578950, 1790578955, 1790578960, 1790578965, 1790578970, 1790578975, 1790578980, 1790578985.
+	// 11256 metrics sent successfully for 1023 samples for 1790573935, 1790573940, 1790573945,..., 1790579035, 1790579040, 1790579045.
+	// 146 metrics sent successfully for 13 samples for 1790579045, 1790579050, 1790579055, 1790579060, 1790579065, 1790579070, 1790579075, 1790579080, 1790579085, 1790579090, 1790579095, 1790579100, 1790579105.
+	///
+	//
+	// 1790573935 was sent twice, and the 1023 samples is the entire buffer...
+	// something is clearly wrong with wrapping.
+	// 1790579045 was also double sent
+
 	sampleBuffer->count = 0;
 	sampleBuffer->buffer = NULL;
 

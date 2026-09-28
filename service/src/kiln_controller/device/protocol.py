@@ -9,7 +9,7 @@ for it.
 
 from abc import ABC
 from collections.abc import Iterable
-from dataclasses import dataclass, Field, fields, field
+from dataclasses import dataclass, Field, fields, field, asdict
 from enum import Enum
 from itertools import pairwise
 from struct import pack, unpack, Struct
@@ -26,6 +26,7 @@ __all__ = (
     "PauseCommand",
     "ResumeCommand",
     "SetTimeCommand",
+    "Metrics",
 )
 
 
@@ -118,8 +119,13 @@ class CommandType(Enum):
     SET_TIME = 5
 
 
+class Metrics(_Packable):
+    def items(self) -> Iterable[tuple[str, Any]]:
+        yield from ((field.name, getattr(self, field.name)) for field in fields(self))
+
+
 @dataclass
-class Memory(_Packable):
+class Memory(Metrics):
     struct: ClassVar[Struct] = Struct("<IIII")
     size: int  # uint32_t
     free: int  # uint32_t
@@ -128,7 +134,7 @@ class Memory(_Packable):
 
 
 @dataclass
-class Sample(_Packable):
+class Sample(Metrics):
     struct: ClassVar[Struct] = Struct(f"<IBHhhhB{Memory.struct.size}s")
     timestamp: int  # uint32_t
     count: int  # uint8_t

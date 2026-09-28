@@ -4,7 +4,6 @@ Device related Flask resources
 
 import logging
 import time
-from functools import partial
 
 from fastapi import (
     Depends,
@@ -18,6 +17,7 @@ from fastapi import (
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from ...device.protocol import Telemetry, SetTimeCommand
+from ..metrics import MetricsServer
 from ..models import (
     Device,
     DeviceCreate,
@@ -46,12 +46,12 @@ logger = logging.getLogger("kiln_controller.device")
 async def _authenticate_device_websocket(
     device_id: int,
     websocket: WebSocket,
-) -> Device:
+) -> DeviceORM:
     auth_header = websocket.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
         auth_token = auth_header.split(" ")[1]
 
-        with Session() as session:
+        with Session(expire_on_commit=False) as session:
             device_orm = session.get(DeviceORM, device_id)
             if not device_orm:
                 # todo - is it OK to expose this as 404 without auth passing to let
@@ -59,18 +59,24 @@ async def _authenticate_device_websocket(
                 # todo - no test failed when this 401 was changed to 404, need test
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
             if device_orm.auth_token == auth_token:
-                return Device.model_validate(device_orm.model_dump())
+                device_orm.user  # pre-load it, it's going to need it
+                return device_orm
     raise HTTPException(
         # todo - don't send json auth errors
         status_code=status.HTTP_401_UNAUTHORIZED,
     )
 
 
+def _metrics_server(websocket: WebSocket) -> MetricsServer:
+    return websocket.app.state.metrics_server
+
+
 @devices_router.websocket("/{device_id}/telemetry")
 async def telemetry(
     websocket: WebSocket,
     device_id: int,
-    device: Device = Depends(_authenticate_device_websocket),
+    metrics_server: MetricsServer = Depends(_metrics_server),
+    device: DeviceORM = Depends(_authenticate_device_websocket),
 ) -> None:
 
     await websocket.accept()
@@ -89,8 +95,7 @@ async def telemetry(
             await _authenticate_device_websocket(device_id, websocket)
             telemetry = Telemetry.unpack(body)
 
-            delta = telemetry.timestamp_ms - int(time.time() * 1000)
-            logger.error(f"device {device.id} telemetry delta {delta}")
+            await metrics_server.add_samples(device, telemetry)
 
             now = int(time.time() * 1000)
             await websocket.send_bytes(SetTimeCommand(now).pack())

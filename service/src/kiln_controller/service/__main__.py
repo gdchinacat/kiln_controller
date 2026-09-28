@@ -16,6 +16,7 @@ import sqlalchemy
 from .models import db  # initialize the database
 from .models.validators import ValidationError
 from .routers import users_router, devices_router, schedules_router, phases_router
+from .metrics.victoriametrics import VictoriaMetricsServer
 
 # debug
 # logging.basicConfig()
@@ -29,6 +30,8 @@ app = FastAPI(title="Kiln Controller")
 
 app.frontend("/", directory="./static")
 app.mount("/static", StaticFiles(directory="static"), name="static")
+app.state.metrics_server = VictoriaMetricsServer("http://localhost:4242/api/put")
+logger.error(f"{app.state.metrics_server=}")
 
 
 app.include_router(users_router)

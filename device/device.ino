@@ -2,6 +2,7 @@
 #include <esp_task_wdt.h>
 #include "firing.h"
 #include "registrar.h"
+#include "sampler.h"
 #include "telemetry.h"
 #include "time_sync.h"
 
@@ -14,6 +15,7 @@ Registrar registrar{};
 Telemetry telemetry{};
 Firing firing{};
 TimeSync timeSync{};
+Sampler sampler{};
 bool reboot = false;
 
 enum DeviceState { REGISTERING, RUNNING };

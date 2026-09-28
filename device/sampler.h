@@ -5,8 +5,9 @@
 #include "scheduler.h"
 #include "time_sync.h"
 
+#define SAMPLE_PERIOD 1000
 #define SAMPLE_RATE 500
-#define SAMPLES_TO_BUFFER 128 // todo? base the number of samples in buffer on free memory
+#define SAMPLES_TO_BUFFER 1024 // todo? base the number of samples in buffer on free memory
 
 extern TimeSync timeSync;
 extern bool reboot;
@@ -73,7 +74,7 @@ private:
 	uint32_t _bucketTimestamp(uint32_t now);
 
 public:
-	Sampler(uint16_t _sample_period);
+	Sampler(uint16_t samplePeriod = SAMPLE_PERIOD);
 	void loop();
 	void setup();
 

@@ -148,13 +148,14 @@ bool Telemetry::send() {
 				(uint8_t*)buffer.buffer,
 				buffer.count * sizeof(protocol::Sample),
 				_sampleCount == 0);
+			if (success) {
+				// todo discard samples through command to confirm they were received.
+				//      maybe do it by timestamp rather than count.
+				sampler.discard(sampleCount);
+				log_v("sent %d samples", sampleCount);
+			}
 		}
 	}
-
-	// todo discard samples through command to confirm they were received.
-	//      maybe do it by timestamp rather than count.
-	sampler.discard(sampleCount);
-	log_v("sent %d samples", sampleCount);
 
 	return false;
 }

@@ -8,11 +8,10 @@
 #include "registrar.h"
 #include "sampler.h"
 
-#define TELEMETRY_SAMPLE_PERIOD 1000
 #define TELEMETRY_SEND_RATE 3000
 #define TELEMETRY_WS_RECONNECT_INTERVAL 4000
 
-
+extern Sampler sampler;
 
 /**
  * @brief internal subclass of WebSocketsClient to allow sending the frames
@@ -28,8 +27,6 @@ public:
 class Telemetry {
 private:
 	Scheduler sender;
-	Sampler sampler;
-
 	String url;
 	WiFiClientSecure wifi;
 	_WebSocketsClient webSocket;
@@ -45,8 +42,7 @@ private:
 public:
 	Telemetry():
 		sender([this]() {return this->send();},
-				TELEMETRY_SEND_RATE, TELEMETRY_SEND_RATE * (1 << 4)),
-		sampler(TELEMETRY_SAMPLE_PERIOD)
+				TELEMETRY_SEND_RATE, TELEMETRY_SEND_RATE * (1 << 4))
 	{};
 
 	void setup();

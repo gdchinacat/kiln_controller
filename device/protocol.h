@@ -141,6 +141,12 @@ struct Telemetry {
 	uint64_t timestamp;
 
 	/**
+	 * @brief system clock time to reflect uptime (~49 day overflow)
+	 */
+	uint32_t uptime;
+
+
+	/**
 	 * @brief the current state of the device.
 	 */
 	State state;

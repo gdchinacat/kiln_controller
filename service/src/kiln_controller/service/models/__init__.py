@@ -8,9 +8,22 @@ from .user import *
 from .schedule import *
 from .device import *
 
+
+###
+# Hack FiringORM in to avovid having to come back to victoriametrics in a bit
+class FiringORM:
+    """stub for now...metrics needs it"""
+
+    id = 0
+
+
+DeviceORM.firing = FiringORM
+### End FiringORM hack
+
 __all__ = (
     "Session",
     "ResourceCreate",
+    "FirinngORM",
     *db.__all__,
     *user.__all__,
     *schedule.__all__,

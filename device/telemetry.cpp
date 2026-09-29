@@ -127,6 +127,7 @@ bool Telemetry::send() {
 
 	protocol::Telemetry _telemetry = {
 		.timestamp = timeSync.now(),
+		.uptime = millis(),
 		.state = firing.currentState(),
 		.sample_count = sampleCount
 	};

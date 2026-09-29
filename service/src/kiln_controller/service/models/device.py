@@ -17,6 +17,7 @@ __all__ = (
     "DeviceCreateResponse",
     "DeviceUpdate",
     "DeviceORM",
+    "FiringORM",  # hack until it's actually implemented (moves to firing.py)
 )
 
 
@@ -67,6 +68,9 @@ class Device(pydantic.BaseModel):
     description: str | None = pydantic.Field(default=None)
 
 
+from typing import ClassVar  # hack
+
+
 class DeviceORM(DeviceValidator, sqlmodel.SQLModel, table=True):
     __tablename__ = "devices"
     id: int | None = sqlmodel.Field(default=None, primary_key=True)
@@ -78,10 +82,23 @@ class DeviceORM(DeviceValidator, sqlmodel.SQLModel, table=True):
 
     user_id: int = sqlmodel.Field(foreign_key="users.id")
 
-    user: UserORM | None = sqlmodel.Relationship(
+    user: UserORM = sqlmodel.Relationship(
         back_populates="devices",
         sa_relationship_kwargs={"viewonly": True, "lazy": True},
     )
     """
     The user that manages the device (not the users with access to the device).
     """
+
+    ###
+    # Hack FiringORM in to avovid having to come back to victoriametrics in a bit
+    class FiringORM:
+        """stub for now...metrics needs it"""
+
+        id = 0
+
+    firing: ClassVar[Any] = FiringORM()
+
+
+FiringORM = DeviceORM.FiringORM
+### End FiringORM hack

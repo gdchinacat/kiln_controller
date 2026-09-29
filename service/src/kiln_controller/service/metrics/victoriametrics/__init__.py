@@ -5,43 +5,66 @@ Tags:
     device_id - the Device.id of the kiln
 
 TODO
-    - (bug) I changed the tag for the device from 'job' to 'device_id' and the
-      series for the two overlapped...sum'ing the two with a label_replace
-      doubled the time_delta. I'm not exactly sure why this occurred.
-        - artifact of time sync since the schedule is aligned to millis()? Not
-          likely since the device didn't restart.
-        - did client double-send the sample because a disconnect happened after
-          the metrics were sent that caused the websocket to error and the
-          sample discard not happen (tiny race, but conceivable). If VM has
-          duplicate sample rejection it wouldn't apply in this case because the
-          tags were different.
-        - the 5s resolution the device was using at the time was higher than
-          what VM supports so two different samples went into the same VM
-          bucket and there only appeared to be an overlap (mismatched source
-          and TSDB resolutions).
+    - kiln.info relationships (user_id, firing_id, etc) are assigned when the
+      metrics are processed. This means changes to them won't be reflected in
+      the metrics until the samples are delivered, which could be quite a while.
+      An alternative is to track the changes in the application and do the
+      joins in post processing (yuck) or provide that data to this metrics
+      adapter so it can create info records with the proper timestamps and
+      ids (almost as yucky but not done at post-processing, so a bit better).
+      Deferred until there's a compelling reason to do better than at sample
+      delivery time. todo?
 
 """
 
-from fastapi import status
-from collections.abc import Iterable
+from collections.abc import Iterable, Callable
 from dataclasses import dataclass
-import httpx
+import datetime
 import logging
 import time
 from typing import override, Any
 
+from fastapi import status
+import httpx
+
 from .. import MetricsServer
 from ....device.protocol import Telemetry, Sample, Metrics
-from ...models import DeviceORM
+from ...models import DeviceORM, UserORM, FiringORM
 
 logger = logging.getLogger("kiln_controller.victoriametrics")
+
+JOB_NAME = "kiln_controller"
+
+
+def log_metrics[**P, R](func: Callable[P, R]) -> Callable[P, R]:
+    if False:
+        return func
+
+    def wrap(*args: P.args, **kwargs: P.kwargs) -> R:
+        metric = func(*args, **kwargs)
+        logger.error(f"created metric {metric}")
+        return metric
+
+    return wrap
+
+
+@log_metrics
+def metric(
+    name: str, timestamp: int, value: Any, tags: dict[str, str]
+) -> dict[str, Any]:
+    return {
+        "metric": name,
+        "timestamp": timestamp,
+        "value": value,
+        "tags": tags,
+    }
 
 
 def metrics_for_sample(
     tags: dict[str, Any],
     timestamp: int,
     metrics: Metrics,
-    name: str = "",
+    prefix: str = "",
 ) -> Iterable[dict[str, Any]]:
     """
     Generate metrics like for the sample. Nested metrics will use dotted metric
@@ -49,23 +72,25 @@ def metrics_for_sample(
     """
     # todo? - json is really heavyweight, consider using a more efficient
     #         way to inject the metrics. (this works for now though)
-    for k, v in metrics.field_values():
-        if isinstance(v, Metrics):
-            yield from metrics_for_sample(tags, timestamp, v, f"{name}{k}.")
+    for name, value in metrics.field_values():
+        if isinstance(value, Metrics):
+            yield from metrics_for_sample(tags, timestamp, value, f"{prefix}{name}.")
         else:
-            metric = {
-                "metric": f"{name}{k}",
-                "timestamp": timestamp,
-                "value": v,
-                "tags": tags,
-            }
-            yield metric
+            yield metric(f"{prefix}{name}", timestamp, value, tags)
 
 
 @dataclass
 class VictoriaMetricsServer(MetricsServer):
     url: str
 
+    # TODO - Metrics that need to be stored. Most of these are "metric info"
+    #        metrics with a value of 1 and tags for the instance and its
+    #        associated id. PromQL supoorts joining on these and providing the
+    #        join value over time or filtering by that value.
+    #   info metrics
+    #
+    #     user_id : _user_id
+    #     firing_id
     @override
     async def add_samples(self, device: DeviceORM, telemetry: Telemetry) -> None:
         logger.debug("add_samples {device} {samples}")
@@ -78,44 +103,51 @@ class VictoriaMetricsServer(MetricsServer):
         # samples could be adjusted to account for connection latency (ie a
         # slow proxy), but honestly...I don't think a few seconds off really
         # matters much.
+        timestamp = int(telemetry.timestamp_ms / 1000)
         delta = telemetry.timestamp_ms - int(time.time() * 1000)
 
         tags = {
-            "device_id": str(device.id),
-            # LH I don't think it is "correct" to add these ephemeral values as
-            #    tags because (for example) changing the user seems to create a
-            #    new series. While having them could be useful for querying
-            #    them in metricsql, I think a single set of metrics by device
-            #    is preferable to having them change when the user modifies
-            #    things like names, operators, etc.
-            # "device_name": device.name,
-            # "user_id": str(device.user.id),
-            # "user_name": device.user.name,
-            #'instance': device.firing.id,  # todo - samples should probably have the firing id rather than patching it up here
-            # todo? what else do metrics need to be looked up by
+            "job": JOB_NAME,
+            "instance": str(device.id),
         }
 
-        json = list(
+        json: list[dict[str, Any]] = []
+
+        # todo lots of code duplication here...Telemetry is just another Metric
+        # to dump. Refactor so that Telemetry isn't special cased so this can
+        # be just one call to a 'metrics_for(telemetry)' that replaces the
+        # sample specifc one that handles values that are list[Metric]
+        # one issue is samples would appear as children of telemetry rather
+        # than as siblings.
+        json += [
+            metric(
+                f"kiln.telemetry.{name}",
+                timestamp,
+                value,
+                tags,
+            )
+            for (name, value) in (
+                ("sample_count", telemetry.sample_count),
+                ("time_delta", delta),
+                ("uptime", telemetry.uptime),
+                ("status", telemetry.state.state.value),
+            )
+        ]
+        json += (
+            metric(
+                "kiln.info",
+                timestamp,
+                1,
+                tags
+                | {"user_id": str(device.user.id), "firing_id": str(device.firing.id)},
+            ),
+        )
+
+        json += list(
             metric
             for sample in telemetry.samples
             for metric in metrics_for_sample(tags, sample.timestamp, sample, "kiln.")
         )
-        json += [
-            {
-                "metric": f"kiln.telemetry.{k}",
-                "timestamp": int(telemetry.timestamp_ms / 1000),
-                "value": v,
-                "tags": tags,
-            }
-            for (k, v) in (
-                ("sample_count", telemetry.sample_count),
-                ("time_delta", delta),
-                (
-                    "status",
-                    telemetry.state.state.value,  # todo - yuck..get rid of double-state
-                ),
-            )
-        ]
 
         async with httpx.AsyncClient() as client:  # todo - reuse the same httpx client
             response = await client.put(self.url, json=json)

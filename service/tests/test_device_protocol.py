@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import pytest
 import random
 from typing import Protocol
@@ -5,27 +6,34 @@ from typing import Protocol
 from kiln_controller.device.protocol import *
 
 
-class _Time(Protocol):  # impersonates the time module
+class _Time[T](Protocol):  # impersonates the time module
     ## time module implementation
-    def time(self) -> float: ...
+    def time(self) -> T: ...
 
     ## Testing functions (to make time do what we want...we can dream, right?)
     def advance(self, offset: float) -> None: ...
 
 
-class _TimeImpl(_Time):
-    _time = 1234567890.0
+@dataclass
+class _TimeImpl[T: int | float](_Time[T]):
+    _type: type[T]
+    _time: float = 0.0
 
-    def time(self) -> float:
-        return self._time
+    def time(self) -> T:
+        return self._type(self._time)
 
     def advance(self, offset: float) -> None:
         self._time += offset
 
 
 @pytest.fixture
-def time() -> _Time:
-    return _TimeImpl()
+def time() -> _Time[float]:
+    return _TimeImpl(float, 1234567890.0)
+
+
+@pytest.fixture
+def uptime() -> _Time[int]:
+    return _TimeImpl(int)
 
 
 @pytest.fixture
@@ -47,7 +55,7 @@ def temperature() -> Temperature:
 def sample(
     memory: Memory,
     temperature: Temperature,
-    time: _Time,
+    time: _Time[float],
 ) -> Sample:
     return Sample(
         int(time.time()), 1, StateEnum.COMPLETE | StateEnum.IDLE, temperature, 0, memory
@@ -55,12 +63,14 @@ def sample(
 
 
 @pytest.fixture
-def telemetry(time: _Time, state: State, sample: Sample) -> Telemetry:
-    return Telemetry(int(time.time() * 1000), state, 1, [sample])
+def telemetry(
+    time: _Time[float], uptime: _Time[int], state: State, sample: Sample
+) -> Telemetry:
+    return Telemetry(int(time.time() * 1000), uptime.time(), state, 1, [sample])
 
 
 @pytest.fixture
-def set_time_command(time: _Time) -> SetTimeCommand:
+def set_time_command(time: _Time[float]) -> SetTimeCommand:
     return SetTimeCommand(int(time.time() * 1000))
 
 

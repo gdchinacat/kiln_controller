@@ -180,11 +180,12 @@ class Sample(Metrics):
 
 @dataclass
 class Telemetry(Metrics):
-    struct: ClassVar[Struct] = Struct(f"<Q{State.struct.size}sH0s")
+    struct: ClassVar[Struct] = Struct(f"<QI{State.format}H0s")
 
     timestamp_ms: int
+    uptime: int
     state: State
-    sample_count: int  # uint16_t
+    sample_count: int
     samples: list[Sample]
 
     def __post_init__(self) -> None:

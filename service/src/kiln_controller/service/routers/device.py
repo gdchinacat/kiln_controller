@@ -92,7 +92,7 @@ async def telemetry(
             body = await websocket.receive_bytes()
 
             # todo? improve this logic to detect if the device has been deleted?
-            await _authenticate_device_websocket(device_id, websocket)
+            device = await _authenticate_device_websocket(device_id, websocket)
             telemetry = Telemetry.unpack(body)
 
             await metrics_server.add_samples(device, telemetry)

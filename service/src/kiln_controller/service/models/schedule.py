@@ -5,6 +5,7 @@ Schedule related ORMs
 from datetime import time
 
 import pydantic
+import sqlalchemy
 import sqlmodel
 
 from ...common.enums import PhaseType
@@ -46,7 +47,15 @@ class ScheduleORM(ScheduleValidator, sqlmodel.SQLModel, table=True):
 
     __tablename__ = "schedules"
 
-    id: int | None = sqlmodel.Field(default=None, primary_key=True)
+    id: int | None = sqlmodel.Field(
+        default=None,
+        sa_column=sqlalchemy.Column(
+            sqlalchemy.Integer,
+            sqlalchemy.Identity(always=True, cycle=False),
+            primary_key=True,
+        ),
+    )
+
     name: str = sqlmodel.Field(max_length=NAME_LENGTH)
     user: UserORM = sqlmodel.Relationship(
         back_populates="schedules",
@@ -146,7 +155,14 @@ class PhaseORM(PhaseValidator, sqlmodel.SQLModel, table=True):
         sqlmodel.UniqueConstraint("schedule_id", "ordinal"),
     )
 
-    id: int | None = sqlmodel.Field(default=None, primary_key=True)
+    id: int | None = sqlmodel.Field(
+        default=None,
+        sa_column=sqlalchemy.Column(
+            sqlalchemy.Integer,
+            sqlalchemy.Identity(always=True, cycle=False),
+            primary_key=True,
+        ),
+    )
     name: str = sqlmodel.Field(default=None, max_length=NAME_LENGTH)
     ordinal: int
     phase_type: PhaseType

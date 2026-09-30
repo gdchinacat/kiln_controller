@@ -316,10 +316,15 @@ class BaseRestClient(ABC):
     """REST resource client framework."""
 
     def __init__(
-        self, username: str, password: str, host: str = "localhost", port: int = 5000
+        self,
+        username: str,
+        password: str,
+        host: str = "localhost",
+        port: int = 5000,
+        proto: str = "http",
     ) -> None:
         self.auth = (username, password)
-        self.url = f"http://{host}:{port}"
+        self.url = f"{proto}://{host}:{port}"
 
     @staticmethod
     def _response_handler(func):
@@ -369,25 +374,29 @@ class BaseRestClient(ABC):
         # id before sending it to the server. But is there
         # a better way? Practicality beats purity, so there
         # is a todo about it.
-        return requests.post(url, json=obj_dict, auth=self.auth, timeout=timeout)
+        return requests.post(
+            url, json=obj_dict, auth=self.auth, timeout=timeout, verify=False
+        )
 
     @detect_bad_url
     @format_url
     @_response_handler
     @trace
     def get(self, url, timeout=DEFAULT_TIMEOUT):
-        return requests.get(url, auth=self.auth, timeout=timeout)
+        return requests.get(url, auth=self.auth, timeout=timeout, verify=False)
 
     @detect_bad_url
     @format_url
     @_response_handler
     @trace
     def delete(self, url, timeout=DEFAULT_TIMEOUT):
-        return requests.delete(url, auth=self.auth, timeout=timeout)
+        return requests.delete(url, auth=self.auth, timeout=timeout, verify=False)
 
     @detect_bad_url
     @format_url
     @_response_handler
     @trace
     def put(self, url, obj, timeout=DEFAULT_TIMEOUT):
-        return requests.put(url, json=obj.asdict(), auth=self.auth, timeout=timeout)
+        return requests.put(
+            url, json=obj.asdict(), auth=self.auth, timeout=timeout, verify=False
+        )

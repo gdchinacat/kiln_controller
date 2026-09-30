@@ -46,15 +46,9 @@ class Schedule(ScheduleUpdate):
 class ScheduleORM(ScheduleValidator, sqlmodel.SQLModel, table=True):
 
     __tablename__ = "schedules"
+    __table_args__ = {"sqlite_autoincrement": True}
 
-    id: int | None = sqlmodel.Field(
-        default=None,
-        sa_column=sqlalchemy.Column(
-            sqlalchemy.Integer,
-            sqlalchemy.Identity(always=True, cycle=False),
-            primary_key=True,
-        ),
-    )
+    id: int | None = sqlmodel.Field(default=None, primary_key=True)
 
     name: str = sqlmodel.Field(max_length=NAME_LENGTH)
     user: UserORM = sqlmodel.Relationship(
@@ -153,16 +147,10 @@ class PhaseORM(PhaseValidator, sqlmodel.SQLModel, table=True):
     __table_args__ = (
         sqlmodel.UniqueConstraint("schedule_id", "name"),
         sqlmodel.UniqueConstraint("schedule_id", "ordinal"),
+        {"sqlite_autoincrement": True},
     )
 
-    id: int | None = sqlmodel.Field(
-        default=None,
-        sa_column=sqlalchemy.Column(
-            sqlalchemy.Integer,
-            sqlalchemy.Identity(always=True, cycle=False),
-            primary_key=True,
-        ),
-    )
+    id: int | None = sqlmodel.Field(default=None, primary_key=True)
     name: str = sqlmodel.Field(default=None, max_length=NAME_LENGTH)
     ordinal: int
     phase_type: PhaseType

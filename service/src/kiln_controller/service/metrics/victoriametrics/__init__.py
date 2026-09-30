@@ -19,6 +19,7 @@ TODO
 
 from collections.abc import Iterable, Callable
 from dataclasses import dataclass
+from enum import Enum
 import datetime
 import logging
 import time
@@ -30,6 +31,7 @@ import httpx
 from .. import MetricsServer
 from ....device.protocol import Telemetry, Sample, Metrics
 from ...models import DeviceORM, UserORM, FiringORM
+import functools
 
 logger = logging.getLogger("kiln_controller.victoriametrics")
 
@@ -37,9 +39,6 @@ JOB_NAME = "kiln_controller"
 
 
 def log_metrics[**P, R](func: Callable[P, R]) -> Callable[P, R]:
-    if False:
-        return func
-
     def wrap(*args: P.args, **kwargs: P.kwargs) -> R:
         metric = func(*args, **kwargs)
         logger.error(f"created metric {metric}")
@@ -50,7 +49,7 @@ def log_metrics[**P, R](func: Callable[P, R]) -> Callable[P, R]:
 
 @log_metrics
 def metric(
-    name: str, timestamp: int, value: Any, tags: dict[str, str]
+    name: str, value: Any, timestamp: int, tags: dict[str, str]
 ) -> dict[str, Any]:
     return {
         "metric": name,
@@ -61,10 +60,10 @@ def metric(
 
 
 def metrics_for_sample(
-    tags: dict[str, Any],
-    timestamp: int,
+    prefix: str,
     metrics: Metrics,
-    prefix: str = "",
+    timestamp: int,
+    tags: dict[str, Any],
 ) -> Iterable[dict[str, Any]]:
     """
     Generate metrics like for the sample. Nested metrics will use dotted metric
@@ -73,26 +72,35 @@ def metrics_for_sample(
     # todo? - json is really heavyweight, consider using a more efficient
     #         way to inject the metrics. (this works for now though)
     for name, value in metrics.field_values():
-        if isinstance(value, Metrics):
-            yield from metrics_for_sample(tags, timestamp, value, f"{prefix}{name}.")
-        else:
-            yield metric(f"{prefix}{name}", timestamp, value, tags)
+        match value:
+            case Metrics():
+                yield from metrics_for_sample(
+                    f"{prefix}{name}.", value, timestamp, tags
+                )
+            case Iterable():
+                # prefix is hardcoded because that's where samples go, so make sure
+                # this is only applied to Samples
+                assert all(type(x) is Sample for x in value)
+                yield from (
+                    metric
+                    for sample in value
+                    for metric in metrics_for_sample(
+                        "kiln.", sample, sample.timestamp, tags
+                    )
+                )
+            case Enum():
+                # name hack is to remove extra state in kiln.telemetry.state.state
+                yield metric(f"{prefix}"[:-1], value.value, timestamp, tags)
+            case _:
+                yield metric(f"{prefix}{name}", value, timestamp, tags)
 
 
 @dataclass
 class VictoriaMetricsServer(MetricsServer):
     url: str
 
-    # TODO - Metrics that need to be stored. Most of these are "metric info"
-    #        metrics with a value of 1 and tags for the instance and its
-    #        associated id. PromQL supoorts joining on these and providing the
-    #        join value over time or filtering by that value.
-    #   info metrics
-    #
-    #     user_id : _user_id
-    #     firing_id
     @override
-    async def add_samples(self, device: DeviceORM, telemetry: Telemetry) -> None:
+    async def telemetry(self, telemetry: Telemetry, device: DeviceORM) -> None:
         logger.debug("add_samples {device} {samples}")
 
         # delta is significantly higher (~70ms) when calculated here relative
@@ -106,47 +114,23 @@ class VictoriaMetricsServer(MetricsServer):
         timestamp = int(telemetry.timestamp_ms / 1000)
         delta = telemetry.timestamp_ms - int(time.time() * 1000)
 
-        tags = {
-            "job": JOB_NAME,
-            "instance": str(device.id),
-        }
+        tags = {"job": JOB_NAME, "instance": str(device.id)}
 
-        json: list[dict[str, Any]] = []
-
-        # todo lots of code duplication here...Telemetry is just another Metric
-        # to dump. Refactor so that Telemetry isn't special cased so this can
-        # be just one call to a 'metrics_for(telemetry)' that replaces the
-        # sample specifc one that handles values that are list[Metric]
-        # one issue is samples would appear as children of telemetry rather
-        # than as siblings.
-        json += [
-            metric(
-                f"kiln.telemetry.{name}",
-                timestamp,
-                value,
-                tags,
-            )
-            for (name, value) in (
-                ("sample_count", telemetry.sample_count),
-                ("time_delta", delta),
-                ("uptime", telemetry.uptime),
-                ("status", telemetry.state.state.value),
-            )
-        ]
-        json += (
-            metric(
-                "kiln.info",
-                timestamp,
-                1,
-                tags
-                | {"user_id": str(device.user.id), "firing_id": str(device.firing.id)},
-            ),
-        )
-
-        json += list(
-            metric
-            for sample in telemetry.samples
-            for metric in metrics_for_sample(tags, sample.timestamp, sample, "kiln.")
+        json: list[dict[str, Any]] = (
+            [  # json (the core cpython library) does not support Iterable
+                metric("kiln.telemetry.time_delta", delta, timestamp, tags),
+                metric(
+                    "kiln.info",
+                    1,
+                    timestamp,
+                    tags
+                    | {
+                        "user_id": str(device.user.id),
+                        "firing_id": str(device.firing.id),
+                    },
+                ),
+                *metrics_for_sample(f"kiln.telemetry.", telemetry, timestamp, tags),
+            ]
         )
 
         async with httpx.AsyncClient() as client:  # todo - reuse the same httpx client

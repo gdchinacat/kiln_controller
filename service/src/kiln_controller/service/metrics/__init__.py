@@ -16,7 +16,7 @@ class MetricsServer(ABC):
     """
 
     @abstractmethod
-    async def add_samples(self, device: DeviceORM, telemetry: Telemetry) -> None:
+    async def telemetry(self, telemetry: Telemetry, device: DeviceORM) -> None:
         """
         Add the samples from the device to the metric service.
         """

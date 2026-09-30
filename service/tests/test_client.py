@@ -270,6 +270,7 @@ class ClientTest(unittest.TestCase):
                     {
                         "auth": client._client.auth,
                         "timeout": DEFAULT_TIMEOUT,
+                        "verify": False,
                     },
                     return_=None,
                 )
@@ -331,6 +332,7 @@ class ClientTest(unittest.TestCase):
                     {
                         "auth": client._client.auth,
                         "timeout": DEFAULT_TIMEOUT,
+                        "verify": False,
                     },
                     return_=None,
                 )
@@ -349,6 +351,7 @@ class ClientTest(unittest.TestCase):
                     {
                         "auth": client._client.auth,
                         "timeout": DEFAULT_TIMEOUT,
+                        "verify": False,
                     },
                     return_=Any,
                 )
@@ -443,7 +446,11 @@ class ClientTest(unittest.TestCase):
                 Call(
                     mock_service.get.__name__,
                     (f"{client._client.url}{schedule._url}/phase/",),
-                    {"auth": client._client.auth, "timeout": DEFAULT_TIMEOUT},
+                    {
+                        "auth": client._client.auth,
+                        "timeout": DEFAULT_TIMEOUT,
+                        "verify": False,
+                    },
                     return_=[phase.asdict()],
                 )
             ],

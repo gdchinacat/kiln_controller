@@ -23,7 +23,7 @@ DeviceORM.firing = FiringORM
 __all__ = (
     "Session",
     "ResourceCreate",
-    "FirinngORM",
+    "FiringORM",
     *db.__all__,
     *user.__all__,
     *schedule.__all__,

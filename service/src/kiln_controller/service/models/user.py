@@ -50,15 +50,9 @@ class User(pydantic.BaseModel):
 
 class UserORM(UserValidator, sqlmodel.SQLModel, table=True):
     __tablename__ = "users"
+    __table_args__ = {"sqlite_autoincrement": True}
 
-    id: int | None = sqlmodel.Field(
-        default=None,
-        sa_column=sqlalchemy.Column(
-            sqlalchemy.Integer,
-            sqlalchemy.Identity(always=True, cycle=False),
-            primary_key=True,
-        ),
-    )
+    id: int | None = sqlmodel.Field(default=None, primary_key=True)
     name: str = sqlmodel.Field(max_length=NAME_LENGTH)
     username: str = sqlmodel.Field(max_length=USERNAME_LENGTH, unique=True)
     password: str = sqlmodel.Field(max_length=PASSWORD_LENGTH)

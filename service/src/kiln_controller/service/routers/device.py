@@ -95,7 +95,7 @@ async def telemetry(
             device = await _authenticate_device_websocket(device_id, websocket)
             telemetry = Telemetry.unpack(body)
 
-            await metrics_server.add_samples(device, telemetry)
+            await metrics_server.telemetry(telemetry, device)
 
             now = int(time.time() * 1000)
             await websocket.send_bytes(SetTimeCommand(now).pack())

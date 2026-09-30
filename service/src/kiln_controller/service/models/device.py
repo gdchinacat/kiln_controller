@@ -74,14 +74,9 @@ from typing import ClassVar  # hack
 
 class DeviceORM(DeviceValidator, sqlmodel.SQLModel, table=True):
     __tablename__ = "devices"
-    id: int | None = sqlmodel.Field(
-        default=None,
-        sa_column=sqlalchemy.Column(
-            sqlalchemy.Integer,
-            sqlalchemy.Identity(always=True, cycle=False),
-            primary_key=True,
-        ),
-    )
+    __table_args__ = {"sqlite_autoincrement": True}
+
+    id: int | None = sqlmodel.Field(default=None, primary_key=True)
     name: str = sqlmodel.Field(max_length=NAME_LENGTH)
     auth_token: str = sqlmodel.Field(max_length=AUTH_TOKEN_LENGTH)
 

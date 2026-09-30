@@ -39,7 +39,10 @@ def test_ids_are_not_reused() -> None:
         device1 = DeviceORM.model_validate(device_dict)
         session.add(device1)
         session.commit()
-        device1.id
+    with Session() as session:
+        session.delete(device1)
+        session.commit()
+        assert not session.get(DeviceORM, device1.id)
 
     with Session() as session:
         device2 = DeviceORM.model_validate(device_dict)

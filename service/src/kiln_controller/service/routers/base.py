@@ -17,9 +17,9 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
 import sqlmodel
 
 from ...common.validators import ValidationError, ValidationErrors
-from ..models import User, UserORM, ResourceCreate, SessionMaker
 from ..dependencies import sessionmaker
-from kiln_controller.service.models.validators import ValidatorMixinBase
+from ..models import User, UserORM, ResourceCreate, SessionMaker
+from ..models.validators import ValidatorMixinBase
 
 __all__ = []
 

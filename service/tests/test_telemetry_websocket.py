@@ -1,3 +1,4 @@
+from collections.abc import Iterable, AsyncGenerator
 from dataclasses import dataclass, field
 import os
 import time
@@ -6,6 +7,7 @@ from typing import TypedDict, NamedTuple, override
 from fastapi import status, FastAPI
 from fastapi.testclient import TestClient
 import pytest
+from sqlalchemy.ext.asyncio import AsyncEngine
 from starlette.testclient import WebSocketDenialResponse
 
 from kiln_controller.device.protocol import Telemetry, State, StateEnum, SetTimeCommand
@@ -18,7 +20,7 @@ from kiln_controller.service.models import (
     DeviceCreate,
     DeviceORM,
 )
-from kiln_controller.service.models.db import SessionMaker
+from kiln_controller.service.models.db import SessionMaker, get_engine
 
 os.environ["NON_PERSISTENT"] = "TRUE"
 
@@ -59,7 +61,16 @@ def test_app(metrics_server: FakeMetricsServer) -> FastAPI:
 
 
 @pytest.fixture
-def client(test_app: FastAPI, sessionmaker: SessionMaker) -> TestClient:
+async def engine() -> AsyncGenerator[Any, Any, AsyncEngine]:
+    app.state.db_engine = await get_engine()
+    yield app.state.db_engine
+    await app.state.db_engine.dispose(close=True)
+
+
+@pytest.fixture
+def client(
+    engine: AsyncEngine, test_app: FastAPI, sessionmaker: SessionMaker
+) -> TestClient:
     test_app.state.db_sessionmaker = sessionmaker
     return TestClient(app)
 
@@ -71,7 +82,7 @@ class AuthenticatedUser(User):
 @pytest.fixture
 def user(
     client: TestClient,
-    admin_auth: auth,  # to create the user
+    admin_auth: _Auth,  # to create the user
     name: str = "name",
     username: str = "username",
     password: str = "password",
@@ -138,15 +149,18 @@ def test_telemetry_success(
         f"/device/{device.id}/telemetry",
         headers={"Authorization": f"Bearer {device.auth_token}"},
     ) as websocket:
+        now = int(time.time() * 1000)
         telemetry = Telemetry(
-            timestamp_ms=int(time.time() * 1000),
+            timestamp_ms=now,
             uptime=1,
             state=State(StateEnum.IDLE),
             sample_count=0,
             samples=[],
         )
         websocket.send_bytes(telemetry.pack())
-        set_time_command_bytes = websocket.receive_bytes()
-        set_time_command = SetTimeCommand.unpack(set_time_command_bytes)
+
+        set_time_bytes = websocket.receive_bytes()
+        set_time = SetTimeCommand.unpack(set_time_bytes)
+        assert (now - set_time.timestamp) == pytest.approx(0, abs=100)  # ms
 
     assert metrics_server.received_telemetry == [telemetry]

@@ -20,6 +20,7 @@ from struct import pack, unpack, Struct
 from typing import Self, Protocol, ClassVar, Any, overload
 
 __all__ = (
+    "Command",
     "Memory",
     "Temperature",
     "Sample",
@@ -93,7 +94,7 @@ class Metrics(DataclassInstance):
         Get the field values that will be packed.
 
         Subclasses can override this to inject fields that aren't user settable
-        and aren't in the dataclass fields. For example, _Command uses this to
+        and aren't in the dataclass fields. For example, Command uses this to
         insert the automatically managed command_type.
         """
         yield from ((field.name, getattr(self, field.name)) for field in fields(self))
@@ -208,7 +209,7 @@ class Telemetry(Metrics):
 
 
 @dataclass
-class _Command(Metrics, ABC):
+class Command(Metrics, ABC):
     struct: ClassVar[Struct] = Struct("<B")
     command_type: ClassVar[CommandType]
 
@@ -225,8 +226,8 @@ class _Command(Metrics, ABC):
 
 
 @dataclass
-class SetTimeCommand(_Command):
-    struct: ClassVar[Struct] = Struct(_Command.struct.format + "Q")
+class SetTimeCommand(Command):
+    struct: ClassVar[Struct] = Struct(Command.struct.format + "Q")
     command_type: ClassVar[CommandType] = field(
         default=CommandType.SET_TIME, init=False
     )
@@ -234,22 +235,22 @@ class SetTimeCommand(_Command):
 
 
 @dataclass
-class StartCommand(_Command):
-    struct: ClassVar[Struct] = Struct(_Command.struct.format + "")
+class StartCommand(Command):
+    struct: ClassVar[Struct] = Struct(Command.struct.format + "")
     command_type = CommandType.START
     # todo include the schedule/phases.
 
 
 @dataclass
-class PauseCommand(_Command):
+class PauseCommand(Command):
     command_type = CommandType.PAUSE
 
 
 @dataclass
-class ResumeCommand(_Command):
+class ResumeCommand(Command):
     command_type = CommandType.RESUME
 
 
 @dataclass
-class StopCommand(_Command):
+class StopCommand(Command):
     command_type = CommandType.STOP

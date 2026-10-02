@@ -19,8 +19,9 @@ TODO
 
 from collections.abc import Iterable, Callable
 from dataclasses import dataclass
-from enum import Enum
 import datetime
+from enum import Enum
+import functools
 import logging
 import time
 from typing import override, Any
@@ -31,7 +32,6 @@ import httpx
 from .. import MetricsServer
 from ....device.protocol import Telemetry, Sample, Metrics
 from ...models import DeviceORM, UserORM, FiringORM
-import functools
 
 logger = logging.getLogger("kiln_controller.victoriametrics")
 

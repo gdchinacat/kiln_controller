@@ -6,9 +6,9 @@
 #include "time_sync.h"
 
 #define SAMPLE_PERIOD 1000  // milliseconds for each sample
-#define OVERSAMPLING 2    // how many sub-samples for each sample
+#define OVERSAMPLING 5    // how many sub-samples for each sample
 #define SAMPLE_RATE (SAMPLE_PERIOD / OVERSAMPLING)
-#define SAMPLE_BUFFER_SIZE 8 // todo? base the number of samples in buffer on free memory
+#define SAMPLE_BUFFER_SIZE 1000 // todo? base the number of samples in buffer on free memory
 
 extern TimeSync timeSync;
 extern bool reboot;

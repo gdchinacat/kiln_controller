@@ -48,7 +48,7 @@ def memory() -> Memory:
 
 @pytest.fixture
 def temperature() -> Temperature:
-    return Temperature(20, 20, 20)
+    return Temperature(current=20, target=20, cold_junction=20, core=118)
 
 
 @pytest.fixture

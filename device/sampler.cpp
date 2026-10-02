@@ -1,5 +1,6 @@
 
 #include <Arduino.h>
+#include <esp32-hal.h>
 #include <stdlib.h>
 #include "firing.h"
 #include "protocol.h"
@@ -73,15 +74,28 @@ void Sampler::loop() {
 	scheduler.loop();
 }
 
+#define min(A, B) (A < B ? A : B)
+#define max(A, B) (A > B ? A : B)
+//todo? - avg implementation is not great due to integer math with division and
+//        recalculating total then dividing. Should samples be fixed up on the
+//        way out (taking resends into account)? Should the server calculate
+//        value based on sample_count? Which fields to apply this to?
+#define avg(COUNT, A, B) ((A * COUNT + B) / (COUNT + 1))
+
 bool Sampler::sample() {
 	protocol::Sample* sample = currentSample();
 
 	sample->sample_count += 1;
 
-	sample->memory.size = ESP.getHeapSize();
-	sample->memory.free = ESP.getFreeHeap();
-	sample->memory.min =  ESP.getMinFreeHeap();
-	sample->memory.max = ESP.getMaxAllocHeap();
+	sample->memory.size = min(sample->memory.size, ESP.getHeapSize());
+	sample->memory.free = min(sample->memory.free, ESP.getFreeHeap());
+	sample->memory.min = min(sample->memory.min, ESP.getMinFreeHeap());
+	sample->memory.max = min(sample->memory.max, ESP.getMaxAllocHeap());
+
+	protocol::Temperature* temperature = &(sample->temperature);
+	temperature->core = avg(sample->sample_count - 1,\
+						   temperature->core,\
+						   temperatureRead());
 
 	// todo all of the other metrics
 

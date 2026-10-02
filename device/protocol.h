@@ -74,6 +74,31 @@ struct Memory {
 	uint32_t max;
 };
 
+
+struct Temperature {
+	/**
+	 * @brief The mean temperature in Celsius of the over the sample period.
+	 */
+    int16_t current;
+
+	/**
+	 * @brief the temperature in Celsius the firmware is trying to maintain.
+	 *
+	 * This can change within the sample period, the last value is reported.
+	 */
+    int16_t target;
+
+	/**
+	 * @brief The mean temperature in Celsius of the thermocouple cold junction.
+	 */
+    int16_t cold_junction;
+
+	/**
+	 * @brief The core temperature of the microcontroller.
+	 */
+    int16_t core;
+};
+
 /**
  * @struct Sample
  * @brief A sample of metrics reported to the service.
@@ -101,23 +126,10 @@ struct Sample {
      */
     uint16_t device_state;
 
-	/**
-	 * @brief The mean temperature in Celsius of the over the sample period.
-	 */
-    int16_t current_temp;
-
-	/**
-	 * @brief the temperature in Celsius the firmware is trying to maintain.
-	 *
-	 * This can change within the sample period, the last value is reported.
-	 */
-    int16_t target_temp;
-
-	/**
-	 * @brief The mean temperature in Celsius of the thermocouple cold junction.
-	 */
-    int16_t cold_junction_temp;
-
+    /**
+     * @brief the temperatures.
+     */
+    Temperature temperature;
 	/**
 	 * @brief The percentage of time the element had power applied over sample period.
 	 */

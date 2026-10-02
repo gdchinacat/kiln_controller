@@ -167,10 +167,11 @@ class CommandType(Enum):
 
 @dataclass
 class Temperature(Metrics):
-    struct: ClassVar[Struct] = Struct("<hhh")
+    struct: ClassVar[Struct] = Struct("<hhhh")
     current: int  # int16_t
     target: int  # int16_t
     cold_junction: int  # int16_t
+    core: int  # int16_t
 
 
 @dataclass

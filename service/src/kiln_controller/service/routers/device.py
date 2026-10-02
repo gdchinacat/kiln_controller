@@ -109,7 +109,6 @@ class _TelemetryIO:
                 now = int(time.time() * 1000)  # todo move this into writer?
                 delta = now - telemetry.timestamp_ms
                 if abs(delta) > 10_000:
-                    logger.error(f"{delta=}")
                     await self.queue.put(SetTimeCommand(now))
 
         except HTTPException as he:

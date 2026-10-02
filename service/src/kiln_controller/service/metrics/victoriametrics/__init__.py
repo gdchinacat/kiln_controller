@@ -41,12 +41,13 @@ JOB_NAME = "kiln_controller"
 def log_metrics[**P, R](func: Callable[P, R]) -> Callable[P, R]:
     def wrap(*args: P.args, **kwargs: P.kwargs) -> R:
         metric = func(*args, **kwargs)
+        logger.debug(metric)
         return metric
 
     return wrap
 
 
-@log_metrics
+# @log_metrics
 def metric(
     name: str, value: Any, timestamp: int, tags: dict[str, str]
 ) -> dict[str, Any]:

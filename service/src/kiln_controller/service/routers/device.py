@@ -107,10 +107,11 @@ class _TelemetryIO:
 
                 # todo - only send time sync command if time delta is too large
                 now = int(time.time() * 1000)  # todo move this into writer?
-                await self.queue.put(SetTimeCommand(now))
+                delta = now - telemetry.timestamp_ms
+                if abs(delta) > 10_000:
+                    logger.error(f"{delta=}")
+                    await self.queue.put(SetTimeCommand(now))
 
-        except WebSocketDisconnect as wsd:
-            logger.info(wsd)
         except HTTPException as he:
             if he.status_code in (
                 status.HTTP_401_UNAUTHORIZED,
@@ -119,7 +120,7 @@ class _TelemetryIO:
                 # todo? - send a ReregisterCommand rather than just disconnecting
                 #         the client and letting it decide how to proceed when it
                 #         tries to reconnect and it fails on the 401 or 404?
-                pass
+                raise WebSocketDisconnect(he.status_code, reason=str(he))
             else:
                 raise
 
@@ -142,12 +143,15 @@ async def telemetry(
         return await _authenticate_device_websocket(device_id, websocket, sessionmaker)
 
     await websocket.accept()
-    async with TaskGroup() as task_group:
-        telemetry_io = _TelemetryIO(
-            metrics_server,
-            websocket.receive_bytes,
-            websocket.send_bytes,
-            authenticator,
-        )
-        task_group.create_task(telemetry_io._reader())
-        task_group.create_task(telemetry_io._writer())
+    try:
+        async with TaskGroup() as task_group:
+            telemetry_io = _TelemetryIO(
+                metrics_server,
+                websocket.receive_bytes,
+                websocket.send_bytes,
+                authenticator,
+            )
+            task_group.create_task(telemetry_io._writer())
+            task_group.create_task(telemetry_io._reader())
+    except* WebSocketDisconnect as wsd:
+        await websocket.close()

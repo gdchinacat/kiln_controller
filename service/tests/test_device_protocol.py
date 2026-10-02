@@ -116,19 +116,24 @@ def test_telemetry_roundtrip(telemetry: Telemetry) -> None:
 
 def test_set_time_command_roundtrip(set_time_command: SetTimeCommand) -> None:
     assert set_time_command == SetTimeCommand.unpack(set_time_command.pack())
+    assert set_time_command == CommandType.unpack(set_time_command.pack())
 
 
 def test_start_command_roundtrip(start_command: StartCommand) -> None:
     assert start_command == StartCommand.unpack(start_command.pack())
+    assert start_command == CommandType.unpack(start_command.pack())
 
 
 def test_stop_command_roundtrip(stop_command: StopCommand) -> None:
     assert stop_command == StopCommand.unpack(stop_command.pack())
+    assert stop_command == CommandType.unpack(stop_command.pack())
 
 
 def test_pause_command_roundtrip(pause_command: PauseCommand) -> None:
     assert pause_command == PauseCommand.unpack(pause_command.pack())
+    assert pause_command == CommandType.unpack(pause_command.pack())
 
 
 def test_resume_command_roundtrip(resume_command: ResumeCommand) -> None:
     assert resume_command == ResumeCommand.unpack(resume_command.pack())
+    assert resume_command == CommandType.unpack(resume_command.pack())

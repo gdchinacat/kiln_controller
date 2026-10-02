@@ -21,6 +21,7 @@ from typing import Self, Protocol, ClassVar, Any, overload
 
 __all__ = (
     "Command",
+    "CommandType",
     "Memory",
     "Temperature",
     "Sample",
@@ -141,6 +142,27 @@ class CommandType(Enum):
     RESUME = 3
     STOP = 4
     SET_TIME = 5
+
+    @classmethod
+    def unpack(cls, buffer: bytes) -> Command:
+        """unpack a command which has a type that is not known ahead of time"""
+        command_type = CommandType(
+            Command.struct.unpack(buffer[: Command.struct.size])[0]
+        )
+        # todo? - move this switch into CommandType?
+        match command_type:
+            case CommandType.START:
+                return StartCommand.unpack(buffer)
+            case CommandType.PAUSE:
+                return PauseCommand.unpack(buffer)
+            case CommandType.RESUME:
+                return ResumeCommand.unpack(buffer)
+            case CommandType.STOP:
+                return StopCommand.unpack(buffer)
+            case CommandType.SET_TIME:
+                return SetTimeCommand.unpack(buffer)
+            case _:
+                raise ValueError(f"command type {command_type} is unknown {buffer=}")
 
 
 @dataclass

@@ -41,7 +41,6 @@ JOB_NAME = "kiln_controller"
 def log_metrics[**P, R](func: Callable[P, R]) -> Callable[P, R]:
     def wrap(*args: P.args, **kwargs: P.kwargs) -> R:
         metric = func(*args, **kwargs)
-        logger.error(f"created metric {metric}")
         return metric
 
     return wrap
@@ -101,8 +100,6 @@ class VictoriaMetricsServer(MetricsServer):
 
     @override
     async def telemetry(self, telemetry: Telemetry, device: DeviceORM) -> None:
-        logger.debug("add_samples {device} {samples}")
-
         # delta is significantly higher (~70ms) when calculated here relative
         # to when it was calculated in the websocket route. todo? The main us
         # will be to tell when a device has unreliable connectivity...and tens
@@ -137,7 +134,7 @@ class VictoriaMetricsServer(MetricsServer):
             response = await client.put(self.url, json=json)
             if response.status_code == status.HTTP_204_NO_CONTENT:
                 # todo send device the command to discard successful samples
-                logger.error(
+                logger.debug(
                     f"{len(json)} metrics sent successfully "
                     f"for {len(telemetry.samples)} samples "
                     f"for {', '.join(str(sample.timestamp) for sample in telemetry.samples)}."

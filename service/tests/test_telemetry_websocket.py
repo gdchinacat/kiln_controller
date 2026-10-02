@@ -1,6 +1,8 @@
+import asyncio
 from collections.abc import Iterable, AsyncGenerator
 from dataclasses import dataclass, field
 import os
+from queue import Queue, Empty
 import time
 from typing import TypedDict, NamedTuple, override, Any
 
@@ -8,9 +10,17 @@ from fastapi import status, FastAPI
 from fastapi.testclient import TestClient
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine
-from starlette.testclient import WebSocketDenialResponse
+from starlette.testclient import WebSocketDenialResponse, WebSocketTestSession
+from starlette.websockets import WebSocketDisconnect
 
-from kiln_controller.device.protocol import Telemetry, State, StateEnum, SetTimeCommand
+from kiln_controller.device.protocol import (
+    Telemetry,
+    State,
+    StateEnum,
+    SetTimeCommand,
+    Command,
+    CommandType,
+)
 from kiln_controller.service.main import app
 from kiln_controller.service.metrics import MetricsServer
 from kiln_controller.service.models import (
@@ -42,11 +52,11 @@ def admin_auth() -> _Auth:
 
 @dataclass
 class FakeMetricsServer(MetricsServer):
-    received_telemetry: list[Telemetry] = field(default_factory=list[Telemetry])
+    received_telemetry: Queue[Telemetry] = field(default_factory=Queue[Telemetry])
 
     @override
     async def telemetry(self, telemetry: Telemetry, device: DeviceORM) -> None:
-        self.received_telemetry.append(telemetry)
+        self.received_telemetry.put(telemetry)
 
 
 @pytest.fixture
@@ -139,28 +149,83 @@ def test_telemetry_auth_fails(
                 assert False, "should never execute"
 
 
-def test_telemetry_success(
+def more_commands(websocket: WebSocketTestSession) -> list[Command]:
+    """
+    return whether or not a message exists on the websocket receive.
+    Usage: `assert not more_commands(websocket)`
+
+    This works by closing the websocket and verifying it is closed without any
+    bytes being read.
+    """
+
+    # TODO - why is this not actually causing a WebSocketDisconnect?
+    websocket.close(reason="testing: no_message")
+    commands = []
+    try:
+        while True:
+            command_bytes = websocket.receive_bytes()
+            command = CommandType.unpack(command_bytes)
+            commands.append(command)
+    except WebSocketDisconnect:
+        return commands
+
+
+@pytest.mark.timeout(1)
+def test_telemetry_send_no_delta_no_set_time(
     client: TestClient,
     device: AuthenticatedDevice,
     user: AuthenticatedUser,
     metrics_server: FakeMetricsServer,
 ) -> None:
+    """Test that a telemetry can be sent. Does not verify any commands are received."""
     with client.websocket_connect(
         f"/device/{device.id}/telemetry",
         headers={"Authorization": f"Bearer {device.auth_token}"},
     ) as websocket:
-        now = int(time.time() * 1000)
         telemetry = Telemetry(
-            timestamp_ms=now,
+            timestamp_ms=int(time.time() * 1000),  # time delta will be small
             uptime=1,
             state=State(StateEnum.IDLE),
             sample_count=0,
             samples=[],
         )
+        # websocket passes telemetry to metrics server
         websocket.send_bytes(telemetry.pack())
+        assert telemetry == metrics_server.received_telemetry.get(timeout=0.1)
 
+        # No messages from server in response to small time delta
+        assert not more_commands(websocket)
+
+
+@pytest.mark.timeout(1)
+def test_telemetry_large_delta_sets_time(
+    client: TestClient,
+    device: AuthenticatedDevice,
+    user: AuthenticatedUser,
+    metrics_server: FakeMetricsServer,
+) -> None:
+    """Test that the server sends a SetTime when delta is too great."""
+    with client.websocket_connect(
+        f"/device/{device.id}/telemetry",
+        headers={"Authorization": f"Bearer {device.auth_token}"},
+    ) as websocket:
+        telemetry = Telemetry(
+            timestamp_ms=0,
+            uptime=1,
+            state=State(StateEnum.IDLE),
+            sample_count=0,
+            samples=[],
+        )
+
+        # Verify telemetry is passed to metrics server.
+        websocket.send_bytes(telemetry.pack())
+        assert telemetry == metrics_server.received_telemetry.get(timeout=0.1)
+
+        # Verify a SetTime command is sent.
         set_time_bytes = websocket.receive_bytes()
         set_time = SetTimeCommand.unpack(set_time_bytes)
+        now = int(time.time() * 1000)
         assert (now - set_time.timestamp) == pytest.approx(0, abs=100)  # ms
 
-    assert metrics_server.received_telemetry == [telemetry]
+        # Verify there are no more messages.
+        assert not more_commands(websocket)

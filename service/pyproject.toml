@@ -12,6 +12,7 @@ dependencies = [
     "aiosqlite>=0.22.1",
     "fastapi[standard]>=0.141.1",
     "fixtures",
+    "httpx2>=2.13.1",
     "pydantic[email]>=2.13.4",
     "requests>=2.34.2",
     "sqlalchemy>=2.0.51",

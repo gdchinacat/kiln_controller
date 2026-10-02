@@ -28,24 +28,24 @@ class UserCreate(ResourceCreate):
     name: str = pydantic.Field(max_length=NAME_LENGTH)
     username: str = pydantic.Field(max_length=USERNAME_LENGTH)
     password: str = pydantic.Field(max_length=PASSWORD_LENGTH)
-    email: str | None = pydantic.Field(max_length=EMAIL_LENGTH)
-    phone_number: str | None = pydantic.Field(max_length=PHONE_LENGTH)
+    email: str | None = pydantic.Field(default=None, max_length=EMAIL_LENGTH)
+    phone_number: str | None = pydantic.Field(default=None, max_length=PHONE_LENGTH)
 
 
 class UserUpdate(pydantic.BaseModel):
-    name: str | None = pydantic.Field(max_length=NAME_LENGTH)
-    username: str | None = pydantic.Field(max_length=USERNAME_LENGTH)
-    password: str | None = pydantic.Field(max_length=PASSWORD_LENGTH)
-    email: str | None = pydantic.Field(max_length=EMAIL_LENGTH)
-    phone_number: str | None = pydantic.Field(max_length=PHONE_LENGTH)
+    name: str | None = pydantic.Field(default=None, max_length=NAME_LENGTH)
+    username: str | None = pydantic.Field(default=None, max_length=USERNAME_LENGTH)
+    password: str | None = pydantic.Field(default=None, max_length=PASSWORD_LENGTH)
+    email: str | None = pydantic.Field(default=None, max_length=EMAIL_LENGTH)
+    phone_number: str | None = pydantic.Field(default=None, max_length=PHONE_LENGTH)
 
 
 class User(pydantic.BaseModel):
     id: int
     name: str = pydantic.Field(max_length=NAME_LENGTH)
     username: str = pydantic.Field(max_length=USERNAME_LENGTH)
-    email: str | None = pydantic.Field(max_length=EMAIL_LENGTH)
-    phone_number: str | None = pydantic.Field(max_length=PHONE_LENGTH)
+    email: str | None = pydantic.Field(default=None, max_length=EMAIL_LENGTH)
+    phone_number: str | None = pydantic.Field(default=None, max_length=PHONE_LENGTH)
 
 
 class UserORM(UserValidator, sqlmodel.SQLModel, table=True):

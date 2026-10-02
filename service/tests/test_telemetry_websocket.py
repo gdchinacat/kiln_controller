@@ -2,7 +2,7 @@ from collections.abc import Iterable, AsyncGenerator
 from dataclasses import dataclass, field
 import os
 import time
-from typing import TypedDict, NamedTuple, override
+from typing import TypedDict, NamedTuple, override, Any
 
 from fastapi import status, FastAPI
 from fastapi.testclient import TestClient
@@ -61,7 +61,7 @@ def test_app(metrics_server: FakeMetricsServer) -> FastAPI:
 
 
 @pytest.fixture
-async def engine() -> AsyncGenerator[Any, Any, AsyncEngine]:
+async def engine() -> AsyncGenerator[Any, AsyncEngine]:
     app.state.db_engine = await get_engine()
     yield app.state.db_engine
     await app.state.db_engine.dispose(close=True)

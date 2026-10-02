@@ -42,6 +42,11 @@ enum class CommandType : uint8_t {
 	 * @brief Tell the device what time it is.
 	 */
 	SET_TIME = 5,
+
+	/**
+	 * @brief Tell the device samples have been received.
+	 */
+	SAMPLE_ACK = 6,
 };
 
 #pragma pack(push, 1)
@@ -229,6 +234,18 @@ public:
     CommandType type = CommandType::STOP;
 };
 
+/**
+ * @brief Command to confirm receipt of samples.
+ */
+class SampleAckCommand : public Command {
+public:
+    CommandType type = CommandType::SAMPLE_ACK;
+
+    /**
+	 * @brief The timestamp of the last sample received.
+     */
+    uint32_t timestamp;
+};
 
 #pragma pack(pop)
 

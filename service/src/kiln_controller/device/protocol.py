@@ -33,6 +33,7 @@ __all__ = (
     "PauseCommand",
     "ResumeCommand",
     "SetTimeCommand",
+    "SampleAckCommand",
 )
 
 
@@ -142,6 +143,7 @@ class CommandType(Enum):
     RESUME = 3
     STOP = 4
     SET_TIME = 5
+    SAMPLE_ACK = 6
 
     @classmethod
     def unpack(cls, buffer: bytes) -> Command:
@@ -161,6 +163,8 @@ class CommandType(Enum):
                 return StopCommand.unpack(buffer)
             case CommandType.SET_TIME:
                 return SetTimeCommand.unpack(buffer)
+            case CommandType.SAMPLE_ACK:
+                return SampleAckCommand.unpack(buffer)
             case _:
                 raise ValueError(f"command type {command_type} is unknown {buffer=}")
 
@@ -277,3 +281,10 @@ class ResumeCommand(Command):
 @dataclass
 class StopCommand(Command):
     command_type = CommandType.STOP
+
+
+@dataclass
+class SampleAckCommand(Command):
+    command_type = CommandType.SAMPLE_ACK
+    struct: ClassVar[Struct] = Struct(Command.struct.format + "I")
+    timestamp: int

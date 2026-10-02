@@ -63,6 +63,13 @@ def sample(
 
 
 @pytest.fixture
+def sample_ack_command(
+        sample: Sample,
+) -> SampleAckCommand:
+    return SampleAckCommand(sample.timestamp)
+
+
+@pytest.fixture
 def telemetry(
     time: _Time[float], uptime: _Time[int], state: State, sample: Sample
 ) -> Telemetry:
@@ -137,3 +144,8 @@ def test_pause_command_roundtrip(pause_command: PauseCommand) -> None:
 def test_resume_command_roundtrip(resume_command: ResumeCommand) -> None:
     assert resume_command == ResumeCommand.unpack(resume_command.pack())
     assert resume_command == CommandType.unpack(resume_command.pack())
+
+
+def test_sample_ack_command_roundtrip(sample_ack_command: SampleAckCommand) -> None:
+    assert sample_ack_command == SampleAckCommand.unpack(sample_ack_command.pack())
+    assert sample_ack_command == CommandType.unpack(sample_ack_command.pack())

@@ -1,17 +1,26 @@
+from dataclasses import dataclass, field
 import os
-from kiln_controller.service.models import User, UserCreate, Device, DeviceCreate
+import time
+from typing import TypedDict, NamedTuple, override
+
+from fastapi import status, FastAPI
+from fastapi.testclient import TestClient
+import pytest
+from starlette.testclient import WebSocketDenialResponse
+
+from kiln_controller.device.protocol import Telemetry, State, StateEnum, SetTimeCommand
+from kiln_controller.service.main import app
+from kiln_controller.service.metrics import MetricsServer
+from kiln_controller.service.models import (
+    User,
+    UserCreate,
+    Device,
+    DeviceCreate,
+    DeviceORM,
+)
 from kiln_controller.service.models.db import SessionMaker
 
 os.environ["NON_PERSISTENT"] = "TRUE"
-
-
-import pytest
-from typing import TypedDict, NamedTuple
-
-from fastapi import status
-from fastapi.testclient import TestClient
-
-from kiln_controller.service.main import app
 
 
 class _Auth(NamedTuple):
@@ -29,9 +38,29 @@ def admin_auth() -> _Auth:
     return _Auth("admin", "admin")
 
 
+@dataclass
+class FakeMetricsServer(MetricsServer):
+    received_telemetry: list[Telemetry] = field(default_factory=list[Telemetry])
+
+    @override
+    async def telemetry(self, telemetry: Telemetry, device: DeviceORM) -> None:
+        self.received_telemetry.append(telemetry)
+
+
 @pytest.fixture
-def client(sessionmaker: SessionMaker) -> TestClient:
-    app.state.db_sessionmaker = sessionmaker
+def metrics_server() -> FakeMetricsServer:
+    return FakeMetricsServer()
+
+
+@pytest.fixture
+def test_app(metrics_server: FakeMetricsServer) -> FastAPI:
+    app.state.metrics_server = metrics_server
+    return app
+
+
+@pytest.fixture
+def client(test_app: FastAPI, sessionmaker: SessionMaker) -> TestClient:
+    test_app.state.db_sessionmaker = sessionmaker
     return TestClient(app)
 
 
@@ -55,12 +84,18 @@ def user(
     return AuthenticatedUser.model_validate(json)
 
 
+class AuthenticatedDevice(Device):
+    auth_token: str
+
+
 @pytest.fixture
-def device(client: TestClient, user: AuthenticatedUser, name: str = "kiln") -> Device:
+def device(
+    client: TestClient, user: AuthenticatedUser, name: str = "kiln"
+) -> AuthenticatedDevice:
     create = DeviceCreate(name=name)
     response = client.post("/device", json=dict(create), auth=user.auth)
     response.raise_for_status()
-    return Device.model_validate(response.json())
+    return AuthenticatedDevice.model_validate(response.json())
 
 
 def test_get_device_401(client: TestClient) -> None:
@@ -68,7 +103,7 @@ def test_get_device_401(client: TestClient) -> None:
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
-def test_get_device_401(client: TestClient, user: AuthenticatedUser) -> None:
+def test_register_device(client: TestClient, user: AuthenticatedUser) -> None:
     response = client.post("/device/", json={"name": "device name"}, auth=user.auth)
     response.raise_for_status()
     device_json = response.json()
@@ -80,3 +115,38 @@ def test_get_device_200(
 ) -> None:
     response = client.get(f"/device/{device.id}", auth=user.auth)
     response.raise_for_status()
+
+
+def test_telemetry_auth_fails(
+    client: TestClient, device: Device, user: AuthenticatedUser
+) -> None:
+    for auth in (None, ("", ""), user.auth):  # no auth  # bad auth  # user auth
+        with pytest.raises(WebSocketDenialResponse):
+            with client.websocket_connect(
+                f"/device/{device.id}/telemetry", auth=auth
+            ) as websocket:
+                assert False, "should never execute"
+
+
+def test_telemetry_success(
+    client: TestClient,
+    device: AuthenticatedDevice,
+    user: AuthenticatedUser,
+    metrics_server: FakeMetricsServer,
+) -> None:
+    with client.websocket_connect(
+        f"/device/{device.id}/telemetry",
+        headers={"Authorization": f"Bearer {device.auth_token}"},
+    ) as websocket:
+        telemetry = Telemetry(
+            timestamp_ms=int(time.time() * 1000),
+            uptime=1,
+            state=State(StateEnum.IDLE),
+            sample_count=0,
+            samples=[],
+        )
+        websocket.send_bytes(telemetry.pack())
+        set_time_command_bytes = websocket.receive_bytes()
+        set_time_command = SetTimeCommand.unpack(set_time_command_bytes)
+
+    assert metrics_server.received_telemetry == [telemetry]

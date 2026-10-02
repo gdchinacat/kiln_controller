@@ -171,6 +171,8 @@ class ClientTest(unittest.TestCase):
             # test post with resource.id fails
             self.assertRaises(AttributeError, resource.post, client)
 
+            resource.refresh()
+
     @ kwargs["mock_service"] << mock_service_fixture()
     @ kwargs["user"] << user_fixture(skip_create=True)
     def test_post_user(self, user, **_):

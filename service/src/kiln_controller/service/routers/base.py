@@ -13,10 +13,13 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 import pydantic
 from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound, IntegrityError
+from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
 import sqlmodel
 
 from ...common.validators import ValidationError, ValidationErrors
-from ..models import Session, User, UserORM, ResourceCreate
+from ..models import User, UserORM, ResourceCreate, SessionMaker
+from ..dependencies import sessionmaker
+from kiln_controller.service.models.validators import ValidatorMixinBase
 
 __all__ = []
 
@@ -24,15 +27,13 @@ __all__ = []
 logger = getLogger("resource/base.py")
 
 
-security = HTTPBasic()
-
-
 async def authenticate_user(
-    credentials: HTTPBasicCredentials = Depends(security),
+    credentials: HTTPBasicCredentials = Depends(HTTPBasic()),
+    sessionmaker: SessionMaker = sessionmaker,
 ) -> UserORM:
-    with Session() as session:
+    async with sessionmaker() as session:
         query = select(UserORM).filter_by(username=credentials.username)
-        user = session.execute(query).scalar_one_or_none()
+        user = (await session.execute(query)).scalar_one_or_none()
 
         if not user or user.password != credentials.password:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
@@ -54,11 +55,14 @@ def _apply_resource_type[**P, R](
     return dec
 
 
+class _ORMType(sqlmodel.SQLModel, ValidatorMixinBase): ...
+
+
 def create_router(
     url_path: str,
     resource_type: type[pydantic.BaseModel],
-    orm_type: type[sqlmodel.SQLModel],
-    url_prefix="",
+    orm_type: type[_ORMType],
+    url_prefix: str = "",
     resource_create_type: type[ResourceCreate] | None = None,
     resource_create_response_type: type[pydantic.BaseModel] | None = None,
     resource_update_type: type[pydantic.BaseModel] | None = None,
@@ -82,15 +86,18 @@ def create_router(
     @router.get("/", openapi_extra=openapi_extra, operation_id=f"list_{url_path}")
     @_apply_resource_type(resource_type=resource_type.__name__)
     async def _list(
-        request: Request, user: User = Depends(authenticate_user)
+        request: Request,
+        user: User = Depends(authenticate_user),
+        sessionmaker: SessionMaker = sessionmaker,
     ) -> list[resource_type]:
         """get the list of {resource_type}s"""
         query = select(orm_type)
         if request.path_params:  # schedule_id in '/schedule/{request_id}/phase
             query = query.filter_by(**request.path_params)
-        with Session() as session:
+        async with sessionmaker() as session:
             return [
-                orm.model_dump(mode="json") for orm in session.execute(query).scalars()
+                orm.model_dump(mode="json")
+                for orm in (await session.execute(query)).scalars()
             ]
 
     @router.get(
@@ -99,10 +106,14 @@ def create_router(
         operation_id=f"get_{url_path}",
     )
     @_apply_resource_type(resource_type=resource_type.__name__)
-    async def _get(id: int, user: User = Depends(authenticate_user)) -> resource_type:
+    async def _get(
+        id: int,
+        user: User = Depends(authenticate_user),
+        sessionmaker: SessionMaker = sessionmaker,
+    ) -> resource_type:
         """get a {resource_type}"""
-        with Session() as session:
-            orm = session.get(orm_type, id)
+        async with sessionmaker() as session:
+            orm = await session.get(orm_type, id)
         if not orm:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
@@ -120,17 +131,17 @@ def create_router(
         request: Request,
         resource: resource_create_type,
         user: User = Depends(authenticate_user),
+        sessionmaker: SessionMaker = sessionmaker,
     ) -> resource_create_response_type:
         """create a {resource_type}"""
         resource_dict = resource.model_dump()
         resource_dict.update(request.path_params)
         resource_dict.update(resource.extra_attrs(user))
         orm = orm_type.model_validate(resource_dict)
-        with (session := Session(expire_on_commit=False)), session.begin():
+        async with (session := sessionmaker(expire_on_commit=False)), session.begin():
             session.add(orm)
-            session.flush()
-            orm.validate_create_or_update()
-        # return resource_create_response_type.model_validate(orm.model_dump(mode="json"))
+            await session.flush()
+            await session.run_sync(lambda sync_session: orm.validate_create_or_update())
         return orm.model_dump(mode="json")
 
     @router.put(
@@ -143,6 +154,7 @@ def create_router(
         id: int,
         resource: resource_update_type,
         user: User = Depends(authenticate_user),
+        sessionmaker: SessionMaker = sessionmaker,
     ) -> resource_type:
         """Update the {resource_type}."""
         """
@@ -182,8 +194,8 @@ def create_router(
                clients will clobber existing entities.
         Create or update a resource by id.
         """
-        with (session := Session(expire_on_commit=False)), session.begin():
-            orm = session.get(orm_type, id)
+        async with (session := sessionmaker(expire_on_commit=False)), session.begin():
+            orm = await session.get(orm_type, id)
             if not orm:
                 resource_dict = resource.model_dump()
                 resource_dict["id"] = id
@@ -203,13 +215,14 @@ def create_router(
     @_apply_resource_type(resource_type=resource_type.__name__)
     async def _delete(
         id: int,
-        user=Depends(authenticate_user),
+        user: UserORM = Depends(authenticate_user),
+        sessionmaker: SessionMaker = sessionmaker,
     ) -> None:
         """delete a {resource_type}"""
-        with (session := Session()), session.begin():
-            orm = session.get(orm_type, id)
+        async with (session := sessionmaker()), session.begin():
+            orm = await session.get(orm_type, id)
             if orm is not None:
-                orm.validate_delete()
-                session.delete(orm)
+                await session.run_sync(lambda sync_session: orm.validate_delete())
+                await session.delete(orm)
 
     return router

@@ -15,8 +15,11 @@ from fastapi import (
     WebSocketDisconnect,
 )
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy.orm import selectinload
 
 from ...device.protocol import Telemetry, SetTimeCommand
+from ..dependencies import sessionmaker, metrics_server
+
 from ..metrics import MetricsServer
 from ..models import (
     Device,
@@ -24,9 +27,8 @@ from ..models import (
     DeviceCreateResponse,
     DeviceUpdate,
     DeviceORM,
-    Session,
     User,
-    Session,
+    SessionMaker,
 )
 from .base import create_router, authenticate_user
 
@@ -46,20 +48,22 @@ logger = logging.getLogger("kiln_controller.device")
 async def _authenticate_device_websocket(
     device_id: int,
     websocket: WebSocket,
+    sessionmaker: SessionMaker = sessionmaker,
 ) -> DeviceORM:
     auth_header = websocket.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
         auth_token = auth_header.split(" ")[1]
 
-        with Session(expire_on_commit=False) as session:
-            device_orm = session.get(DeviceORM, device_id)
+        async with sessionmaker(expire_on_commit=False) as session:
+            device_orm = await session.get(
+                DeviceORM, device_id, options=[selectinload(DeviceORM.user)]
+            )
             if not device_orm:
                 # todo - is it OK to expose this as 404 without auth passing to let
                 #        the device know it needs to re-register?
                 # todo - no test failed when this 401 was changed to 404, need test
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
             if device_orm.auth_token == auth_token:
-                device_orm.user  # pre-load it, it's going to need it
                 return device_orm
     raise HTTPException(
         # todo - don't send json auth errors
@@ -67,15 +71,12 @@ async def _authenticate_device_websocket(
     )
 
 
-def _metrics_server(websocket: WebSocket) -> MetricsServer:
-    return websocket.app.state.metrics_server
-
-
 @devices_router.websocket("/{device_id}/telemetry")
 async def telemetry(
     websocket: WebSocket,
     device_id: int,
-    metrics_server: MetricsServer = Depends(_metrics_server),
+    metrics_server: MetricsServer = metrics_server,
+    sessionmaker: SessionMaker = sessionmaker,
     device: DeviceORM = Depends(_authenticate_device_websocket),
 ) -> None:
 
@@ -92,7 +93,9 @@ async def telemetry(
             body = await websocket.receive_bytes()
 
             # todo? improve this logic to detect if the device has been deleted?
-            device = await _authenticate_device_websocket(device_id, websocket)
+            device = await _authenticate_device_websocket(
+                device_id, websocket, sessionmaker
+            )
             telemetry = Telemetry.unpack(body)
 
             await metrics_server.telemetry(telemetry, device)

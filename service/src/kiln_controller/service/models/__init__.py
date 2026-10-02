@@ -3,7 +3,7 @@ The server-side data models for the kiln_controller service.
 """
 
 from ._base import ResourceCreate
-from .db import Session
+from .db import get_sessionmaker, get_engine, SessionMaker
 from .user import *
 from .schedule import *
 from .device import *
@@ -21,7 +21,9 @@ DeviceORM.firing = FiringORM
 ### End FiringORM hack
 
 __all__ = (
-    "Session",
+    "get_sessionmaker",
+    "get_engine",
+    "SessionMaker",
     "ResourceCreate",
     "FiringORM",
     *db.__all__,

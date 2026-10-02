@@ -8,6 +8,8 @@ from abc import ABC, abstractmethod
 from ...device.protocol import Telemetry
 from ..models import DeviceORM
 
+__all__ = ("MetricsServer",)
+
 
 class MetricsServer(ABC):
     """

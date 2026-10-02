@@ -9,6 +9,7 @@ authors = [
 requires-python = ">=3.14"
 dependencies = [
     "aiofiles>=25.1.0",
+    "aiosqlite>=0.22.1",
     "fastapi[standard]>=0.141.1",
     "fixtures",
     "pydantic[email]>=2.13.4",
@@ -27,6 +28,7 @@ dev = [
     "mypy>=2.3.0",
     "pyright>=1.1.411",
     "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
 ]
 
 [tool.uv.sources]
@@ -35,3 +37,6 @@ fixtures = { path = "../../fixtures", editable = true }
 [tool.pyright]
 venvPath = "."
 venv = ".venv"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

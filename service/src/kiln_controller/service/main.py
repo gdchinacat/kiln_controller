@@ -5,7 +5,10 @@ Implements the resource model used by the UI and the devices.
 Serves the SPA interface for the service.
 """
 
+from collections.abc import Iterable, AsyncIterator
+from contextlib import asynccontextmanager
 import logging
+import os
 
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
@@ -13,10 +16,12 @@ from fastapi.staticfiles import StaticFiles
 import pydantic
 import sqlalchemy
 
+from .metrics.victoriametrics import VictoriaMetricsServer
 from .models import db  # initialize the database
 from .models.validators import ValidationError
 from .routers import users_router, devices_router, schedules_router, phases_router
-from .metrics.victoriametrics import VictoriaMetricsServer
+
+SQLALCHEMY_PERSISTENT_DATABASE_URL = "sqlite+aiosqlite:///kiln_controller.db"
 
 # debug
 # logging.basicConfig()
@@ -26,7 +31,20 @@ from .metrics.victoriametrics import VictoriaMetricsServer
 
 logger = logging.getLogger("kiln_controller.app")
 
-app = FastAPI(title="Kiln Controller")
+if os.environ.get("TEST_SERVICE", "false").upper() == "TRUE":
+    url = db.SQLALCHEMY_DEFAULT_DATABASE_URL
+else:
+    url = SQLALCHEMY_PERSISTENT_DATABASE_URL
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    app.state.db_engine = await db.get_engine(url)
+    app.state.db_sessionmaker = db.get_sessionmaker(app.state.db_engine)
+    yield
+
+
+app = FastAPI(title="Kiln Controller", lifespan=lifespan)
 
 app.frontend("/", directory="./static")
 app.mount("/static", StaticFiles(directory="static"), name="static")

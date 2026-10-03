@@ -2,7 +2,7 @@
 Device related Flask resources
 """
 
-from asyncio import Queue, get_running_loop, TaskGroup
+from asyncio import Queue, get_running_loop, TaskGroup, Task, create_task, gather
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
 import logging
@@ -21,7 +21,7 @@ from fastapi import (
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import selectinload
 
-from ...device.protocol import Telemetry, SetTimeCommand, Command
+from ...device.protocol import Telemetry, SetTimeCommand, Command, SampleAckCommand
 from ..dependencies import sessionmaker, metrics_server
 from ..metrics import MetricsServer
 from ..models import (
@@ -103,13 +103,30 @@ class _TelemetryIO:
                 device = await self.authenticator()
 
                 telemetry = Telemetry.unpack(body)
-                await self.metrics_server.telemetry(telemetry, device)
 
-                # todo - only send time sync command if time delta is too large
+                tasks: list[Task[Any]] = []
+
+                # If the time delta is "too great" send a SetTimeCommand.
                 now = int(time.time() * 1000)  # todo move this into writer?
                 delta = now - telemetry.timestamp_ms
                 if abs(delta) > 10_000:
-                    await self.queue.put(SetTimeCommand(now))
+                    tasks.append(create_task(self.queue.put(SetTimeCommand(now))))
+
+                # Pass the telemetry to the metric server.
+                telemetry_task = create_task(
+                    self.metrics_server.telemetry(telemetry, device)
+                )
+                tasks.append(telemetry_task)
+
+                # Create a SampleAck task for the result of the telemetry task.
+                async def _sample_ack() -> None:
+                    timestamp = await telemetry_task
+                    if timestamp:
+                        await self.queue.put(SampleAckCommand(timestamp))
+
+                tasks.append(create_task(_sample_ack()))
+
+                await gather(*tasks)
 
         except HTTPException as he:
             if he.status_code in (

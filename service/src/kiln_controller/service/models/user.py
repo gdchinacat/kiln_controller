@@ -8,7 +8,7 @@ import pydantic
 import sqlalchemy
 import sqlmodel
 
-from ._base import ResourceCreate
+from ._base import ResourceCreate, ORMType
 from .validators import UserValidator
 
 __all__ = ("User", "UserCreate", "UserUpdate", "UserORM")
@@ -48,7 +48,7 @@ class User(pydantic.BaseModel):
     phone_number: str | None = pydantic.Field(default=None, max_length=PHONE_LENGTH)
 
 
-class UserORM(UserValidator, sqlmodel.SQLModel, table=True):
+class UserORM(UserValidator, ORMType, table=True):
     __tablename__ = "users"
     __table_args__ = {"sqlite_autoincrement": True}
 

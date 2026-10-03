@@ -36,7 +36,7 @@ private:
 	 * is (typically) set to ensure oversampling to smooth out noise in
 	 * measurements like temperature.
 	 */
-	uint16_t sample_period;
+	uint16_t samplePeriod;
 
 	/**
 	 * @brief The scheduler that manages when to sample.
@@ -70,9 +70,12 @@ private:
 	 */
 	uint16_t _wrap(uint16_t index);
 
-	void _sampleMemory();
+	void _sampleMemory(protocol::Memory* memory);
 
-	uint32_t _bucketTimestamp(uint32_t now);
+	/**
+	 * @brief Calculate the bucket timestamp for the given timestamp.
+	 */
+	uint32_t _bucketTimestamp(uint64_t timestamp);
 
 public:
 	Sampler(uint16_t samplePeriod = SAMPLE_PERIOD);
@@ -109,8 +112,8 @@ public:
 	void getSamples(int index, SampleBuffer* sampleBuffer);
 
 	/**
-	 * @brief discard count samples (presumably because they have been sent).
+	 * @brief Discard samples with a timestamp up to and including `timestamp`.
 	 */
-	void discard(uint16_t count);
+	void discard(uint32_t timestamp);
 
 };

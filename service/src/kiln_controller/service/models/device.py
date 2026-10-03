@@ -3,12 +3,13 @@ Device model.
 """
 
 import secrets
+from typing import ClassVar
 
 import pydantic
 import sqlalchemy
 import sqlmodel
 
-from ._base import ResourceCreate
+from ._base import ResourceCreate, ORMType
 from .user import UserORM
 from .validators import DeviceValidator
 
@@ -69,10 +70,7 @@ class Device(pydantic.BaseModel):
     description: str | None = pydantic.Field(default=None)
 
 
-from typing import ClassVar  # hack
-
-
-class DeviceORM(DeviceValidator, sqlmodel.SQLModel, table=True):
+class DeviceORM(DeviceValidator, ORMType, table=True):
     __tablename__ = "devices"
     __table_args__ = {"sqlite_autoincrement": True}
 

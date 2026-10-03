@@ -10,6 +10,7 @@
 #include "protocol.h"
 #include "registrar.h"
 #include "registration.h"
+#include "sampler.h"
 #include "telemetry.h"
 #include "time_sync.h"
 
@@ -18,6 +19,7 @@ extern Firing firing;
 extern TimeSync timeSync;
 extern bool reboot;
 extern const char * caCert;
+extern Sampler sampler;
 
 enum class _UrlParseState {
 	PROTO,
@@ -148,14 +150,9 @@ bool Telemetry::send() {
 				(uint8_t*)buffer.buffer,
 				buffer.count * sizeof(protocol::Sample),
 				_sampleCount == 0);
-			if (success && _sampleCount == 0) {
-				// todo discard samples through command to confirm they were received.
-				//      maybe do it by timestamp rather than count.
-				sampler.discard(sampleCount);
-				log_v("sent %d samples", sampleCount);
-			}
 		}
 	}
+	log_v("sent %d samples", sampleCount);
 
 	return false;
 }
@@ -185,9 +182,10 @@ void Telemetry::dispatchCommand(uint8_t* payload, size_t length) {
 	protocol::Command* command = (protocol::Command*)payload;
 
 	switch (static_cast<protocol::CommandType>(command->type)) {
-		case protocol::CommandType::SET_TIME:
-			timeSync.setTime(static_cast<protocol::SetTimeCommand*>(command));
-			break;
+		case protocol::CommandType::SET_TIME: {
+			auto _command = static_cast<protocol::SetTimeCommand*>(command);
+			timeSync.setTime(_command);
+			break; }
 		case protocol::CommandType::START:
 			firing.start(static_cast<protocol::StartCommand*>(command));
 			break;
@@ -200,6 +198,10 @@ void Telemetry::dispatchCommand(uint8_t* payload, size_t length) {
 		case protocol::CommandType::RESUME:
 			firing.resume(static_cast<protocol::ResumeCommand*>(command));
 			break;
+		case protocol::CommandType::SAMPLE_ACK: {
+			protocol::SampleAckCommand* sampleAck = static_cast<protocol::SampleAckCommand*>(command);
+			sampler.discard(sampleAck->timestamp);
+			break; }
 		default:
 			log_d("received unimplemented command %d", command->type);
 			break;

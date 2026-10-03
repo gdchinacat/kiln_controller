@@ -29,9 +29,9 @@ from typing import override, Any
 from fastapi import status
 import httpx
 
-from .. import MetricsServer
-from ....device.protocol import Telemetry, Sample, Metrics
-from ...models import DeviceORM, UserORM, FiringORM
+from . import MetricsServer
+from ...device.protocol import Telemetry, Sample, Metrics
+from ..models import DeviceORM, UserORM, FiringORM
 
 logger = logging.getLogger("kiln_controller.victoriametrics")
 
@@ -39,15 +39,17 @@ JOB_NAME = "kiln_controller"
 
 
 def log_metrics[**P, R](func: Callable[P, R]) -> Callable[P, R]:
+    return func
+
     def wrap(*args: P.args, **kwargs: P.kwargs) -> R:
         metric = func(*args, **kwargs)
-        logger.debug(metric)
+        logger.error(metric)
         return metric
 
     return wrap
 
 
-# @log_metrics
+@log_metrics
 def metric(
     name: str, value: Any, timestamp: int, tags: dict[str, str]
 ) -> dict[str, Any]:
@@ -100,7 +102,7 @@ class VictoriaMetricsServer(MetricsServer):
     url: str
 
     @override
-    async def telemetry(self, telemetry: Telemetry, device: DeviceORM) -> None:
+    async def telemetry(self, telemetry: Telemetry, device: DeviceORM) -> int:
         # delta is significantly higher (~70ms) when calculated here relative
         # to when it was calculated in the websocket route. todo? The main us
         # will be to tell when a device has unreliable connectivity...and tens
@@ -134,11 +136,11 @@ class VictoriaMetricsServer(MetricsServer):
         async with httpx.AsyncClient() as client:  # todo - reuse the same httpx client
             response = await client.put(self.url, json=json)
             if response.status_code == status.HTTP_204_NO_CONTENT:
-                # todo send device the command to discard successful samples
                 logger.debug(
                     f"{len(json)} metrics sent successfully "
                     f"for {len(telemetry.samples)} samples "
                     f"for {', '.join(str(sample.timestamp) for sample in telemetry.samples)}."
                 )
+                return telemetry.samples[-1].timestamp if telemetry.samples else 0
             else:
                 logger.error(f"{response.status_code} {response.text=}")

@@ -18,7 +18,9 @@ class MetricsServer(ABC):
     """
 
     @abstractmethod
-    async def telemetry(self, telemetry: Telemetry, device: DeviceORM) -> None:
+    async def telemetry(self, telemetry: Telemetry, device: DeviceORM) -> int:
         """
         Add the samples from the device to the metric service.
+
+        Returns the last timestamp that was successfully stored.
         """

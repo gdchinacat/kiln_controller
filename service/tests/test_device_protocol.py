@@ -64,7 +64,7 @@ def sample(
 
 @pytest.fixture
 def sample_ack_command(
-        sample: Sample,
+    sample: Sample,
 ) -> SampleAckCommand:
     return SampleAckCommand(sample.timestamp)
 

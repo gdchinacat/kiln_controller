@@ -9,7 +9,7 @@ import sqlalchemy
 import sqlmodel
 
 from ...common.enums import PhaseType
-from ._base import ResourceCreate
+from ._base import ResourceCreate, ORMType
 from .user import UserORM
 from .validators import ScheduleValidator, PhaseValidator
 
@@ -43,7 +43,7 @@ class Schedule(ScheduleUpdate):
     user_id: int
 
 
-class ScheduleORM(ScheduleValidator, sqlmodel.SQLModel, table=True):
+class ScheduleORM(ScheduleValidator, ORMType, table=True):
 
     __tablename__ = "schedules"
     __table_args__ = {"sqlite_autoincrement": True}
@@ -142,7 +142,7 @@ class Phase(pydantic.BaseModel):
     schedule_id: int
 
 
-class PhaseORM(PhaseValidator, sqlmodel.SQLModel, table=True):
+class PhaseORM(PhaseValidator, ORMType, table=True):
     __tablename__ = "phases"
     __table_args__ = (
         sqlmodel.UniqueConstraint("schedule_id", "name"),

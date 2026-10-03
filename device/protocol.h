@@ -7,7 +7,7 @@ typedef enum class State : uint16_t;
 
 namespace protocol {
 
-
+#pragma pack(push, 1)
 
 /**
  * @enum CommandType
@@ -48,8 +48,6 @@ enum class CommandType : uint8_t {
 	 */
 	SAMPLE_ACK = 6,
 };
-
-#pragma pack(push, 1)
 
 /**
  * @struct Memory
@@ -185,6 +183,7 @@ struct Telemetry {
 class Command {
 public:
 	uint8_t type;
+	Command(CommandType _type): type(static_cast<uint8_t>(type)) {}
 };
 
 /**
@@ -192,6 +191,10 @@ public:
  */
 class SetTimeCommand : public Command {
 public:
+	SetTimeCommand(uint64_t _timestamp)
+	: Command(CommandType::SET_TIME),
+	  timestamp(_timestamp) {}
+
 	/**
 	 * @brief the time the server thinks it is (in milliseconds).
 	 */
@@ -204,17 +207,17 @@ public:
  */
 class StartCommand : public Command {
 public:
-    CommandType type = CommandType::START;
     // todo include the schedule/phases.
+	StartCommand(): Command(CommandType::START) {};
 };
 
 /**
  * @struct PauseCommand
- * @brief Command to cancel a firing.
+ * @brief Command to pause a firing.
  */
 class PauseCommand : public Command {
 public:
-    CommandType type = CommandType::PAUSE;
+	PauseCommand(): Command(CommandType::PAUSE) {};
 };
 
 /**
@@ -223,7 +226,7 @@ public:
  */
 class ResumeCommand : public Command {
 public:
-    CommandType type = CommandType::RESUME;
+	ResumeCommand(): Command(CommandType::RESUME) {};
 };
 
 /**
@@ -231,7 +234,7 @@ public:
  */
 class StopCommand : public Command {
 public:
-    CommandType type = CommandType::STOP;
+	StopCommand(): Command(CommandType::STOP) {};
 };
 
 /**
@@ -239,7 +242,9 @@ public:
  */
 class SampleAckCommand : public Command {
 public:
-    CommandType type = CommandType::SAMPLE_ACK;
+	SampleAckCommand(uint32_t _timestamp):
+		Command(CommandType::SAMPLE_ACK),
+		timestamp(_timestamp) { };
 
     /**
 	 * @brief The timestamp of the last sample received.

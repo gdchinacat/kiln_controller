@@ -18,7 +18,7 @@ import sqlmodel
 
 from ...common.validators import ValidationError, ValidationErrors
 from ..dependencies import sessionmaker
-from ..models import User, UserORM, ResourceCreate, SessionMaker
+from ..models import User, UserORM, ResourceCreate, SessionMaker, ORMType
 from ..models.validators import ValidatorMixinBase
 
 __all__ = []
@@ -55,13 +55,10 @@ def _apply_resource_type[**P, R](
     return dec
 
 
-class _ORMType(sqlmodel.SQLModel, ValidatorMixinBase): ...
-
-
 def create_router(
     url_path: str,
     resource_type: type[pydantic.BaseModel],
-    orm_type: type[_ORMType],
+    orm_type: type[ORMType],
     url_prefix: str = "",
     resource_create_type: type[ResourceCreate] | None = None,
     resource_create_response_type: type[pydantic.BaseModel] | None = None,

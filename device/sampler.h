@@ -103,11 +103,18 @@ public:
 	 * other values are invalid and INDEX_ERROR will be returned.
 	 *
 	 * TODO - locking...this essentially checks the samples out and they should
-	 * not be overwriten. This isn't an issue currently with the sampler and
+	 * not be overwritten. This isn't an issue currently with the sampler and
 	 * sender in the same task, but if they are ever made concurrent the case
 	 * where the sender "checks out" samples must take into account a concurrent
 	 * sampling that advances current into the samples that were checked out,
 	 * which could lead to partial reads of incomplete samples.
+	 *     - sample()/currentSample() - updates start, current, and any sample
+	 *       (for all practical purposes since it modifies current) from the
+	 *       Sampler::loop() thread.
+	 *     - discard - updates start from from Telemetry::loop() thread
+	 *     - getSamples() - doesn't update but inspects start, current, and
+	 *       hands out references to buffer samples that are expected to be
+	 *       constant until caller is done (whenever that is).
 	 */
 	void getSamples(int index, SampleBuffer* sampleBuffer);
 

@@ -94,11 +94,14 @@ bool Sampler::sample() {
 }
 
 #define min(A, B) (A > 0 && A < B ? A : B)
+#define max(A, B) (A > B ? A : B)
 void Sampler::_sampleMemory(protocol::Memory* memory) {
 	memory->size = min(memory->size, ESP.getHeapSize());
 	memory->heap_free = min(memory->heap_free, ESP.getFreeHeap());
 	memory->min_heap_free = min(memory->min_heap_free, ESP.getMinFreeHeap());
 	memory->largest_allocatable = min(memory->largest_allocatable, ESP.getMaxAllocHeap());
+	memory->sample_buffer_size = max(memory->sample_buffer_size,
+									 sizeof(protocol::Sample) * buffer_size);
 }
 
 
@@ -148,7 +151,7 @@ void Sampler::discard(uint32_t timestamp) {
 			count = buffered_samples;
 		}
 		start = (start + count) % buffer_size;
-		log_d("advanced %d samples to %d (%d)", count, start, buffer[start].timestamp);
+		//log_d("advanced %d samples to %d (%d)", count, start, buffer[start].timestamp);
 	} else {
 		log_e("ignoring sample discard request for timestamp %d with negative count=%d",
 				timestamp, count);

@@ -180,11 +180,12 @@ class Temperature(Metrics):
 
 @dataclass
 class Memory(Metrics):
-    struct: ClassVar[Struct] = Struct("<IIII")
+    struct: ClassVar[Struct] = Struct("<IIIII")
     size: int  # uint32_t
     heap_free: int  # uint32_t
     min_heap_free: int  # uint32_t
     largest_allocatable: int  # uint32_t
+    sample_buffer_size: int  # uint32_t
 
 
 @dataclass

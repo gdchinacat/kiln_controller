@@ -43,7 +43,7 @@ def state() -> State:
 
 @pytest.fixture
 def memory() -> Memory:
-    return Memory(1, 2, 3, 4)
+    return Memory(1, 2, 3, 4, 5)
 
 
 @pytest.fixture

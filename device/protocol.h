@@ -85,6 +85,11 @@ struct Memory {
 	 * over time can indicate memory fragmentation.
 	 */
 	uint32_t largest_allocatable;
+
+	/**
+	 * @brief The size of the sample buffer.
+	 */
+	uint32_t sample_buffer_size;
 };
 
 

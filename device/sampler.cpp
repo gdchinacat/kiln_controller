@@ -139,6 +139,7 @@ void Sampler::discard(uint32_t timestamp) {
 	timestamp = _bucketTimestamp(((uint64_t)timestamp) * 1000);
 	//log_d(" discard aligned timestamp: %d", timestamp);
 	int count = (((int64_t)timestamp - buffer[start].timestamp) * 1000) / samplePeriod;
+	count += 1;  // include the timestamp bucket itself
 	//log_d("                     count: %d", count);
 	if (count >= 0) {
 		int buffered_samples = ((current >= start) ? current : (current + buffer_size)) - start;
@@ -149,8 +150,7 @@ void Sampler::discard(uint32_t timestamp) {
 			count = buffered_samples;
 		}
 		start = (start + count) % buffer_size;
-		log_d("advanced %d samples to %d (nominally), buffer starts at %d (%d)",
-				count, timestamp, start, buffer[start].timestamp);
+		log_d("advanced %d samples to %d (%d)", count, start, buffer[start].timestamp);
 	} else {
 		log_e("ignoring sample discard request for timestamp %d with negative count=%d",
 				timestamp, count);

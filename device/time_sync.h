@@ -32,8 +32,9 @@ public:
 	void setTime(protocol::SetTimeCommand* command);
 
 	/**
-	 * @brief Get the current synced time in milliseconds.
+	 * @brief Get the current synced time in milliseconds, or 0 if time is not
+	 * synced.
 	 */
-	uint64_t now() { return offset + millis(); };
+	uint64_t now() { return offset == 0 ? 0 : offset + millis(); };
 
 };

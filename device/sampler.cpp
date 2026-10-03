@@ -17,31 +17,29 @@ uint32_t Sampler::_bucketTimestamp(uint64_t timestamp) {
 }
 
 /**
- * @brief get the current sample to update
+ * @brief Get the current sample to update.
  */
 protocol::Sample* const Sampler::currentSample() {
 	uint32_t bucketTimestamp = _bucketTimestamp(timeSync.now());
 	protocol::Sample* sample = &buffer[current];
-	if (bucketTimestamp > sample->timestamp) {
-		uint32_t last_timestamp = sample->timestamp;
 
-		// Advance the current sample, wrapping if necessary and advancing start
-		// if buffer is full.
-		current = _wrap(current + 1);
-		if (current == start) {
-			start = _wrap(start + 1);
+	if (bucketTimestamp > sample->timestamp) {
+
+		// Only advance the bucket if the current sample has a valid timestamp.
+		if (0 != sample->timestamp) {
+			current = _wrap(current + 1);
+			if (current == start) {
+				start = _wrap(start + 1);
+			}
 		}
 
-		// Initialize the new sample.
+		// Initialize the sample, even if it was not advanced.
 		sample = &buffer[current];
 		memset(sample, 0, sizeof(protocol::Sample));
 		sample->timestamp = bucketTimestamp;
 		sample->device_state = static_cast<uint16_t>(firing.currentState());
 
 		log_v("start sampling for %d[%d]", buffer[current].timestamp, current);
-		if (last_timestamp + (samplePeriod / 1000) != sample->timestamp) {
-			log_w("missed %d samples", (sample->timestamp - last_timestamp) / samplePeriod);
-		}
 	}
 
 	return sample;
@@ -51,11 +49,12 @@ Sampler::Sampler(uint16_t _samplePeriod):
 	samplePeriod(_samplePeriod),
 	buffer_size(SAMPLE_BUFFER_SIZE),
 	scheduler([this]() {return this->sample();}, SAMPLE_RATE),
-	buffer(new protocol::Sample[buffer_size]()) { }
+	buffer(new protocol::Sample[buffer_size]())
+{
+	buffer[0].timestamp = 0;
+}
 
 void Sampler::setup() {
-	// initialize the first sample time
-	buffer[0].timestamp = _bucketTimestamp(timeSync.now());
 }
 
 void Sampler::loop() {
@@ -151,7 +150,7 @@ void Sampler::discard(uint32_t timestamp) {
 			count = buffered_samples;
 		}
 		start = (start + count) % buffer_size;
-		//log_d("advanced %d samples to %d (%d)", count, start, buffer[start].timestamp);
+		log_v("advanced %d samples to %d (%d)", count, start, buffer[start].timestamp);
 	} else {
 		log_e("ignoring sample discard request for timestamp %d with negative count=%d",
 				timestamp, count);

@@ -56,25 +56,35 @@ enum class CommandType : uint8_t {
 struct Memory {
 	/**
 	 * @brief the total amount of memory on the heap.
+	 *
+	 * The minimum sampled value is reported.
 	 */
 	uint32_t size;
 
 	/**
-	 * @brief the amount of memory available for allocation.
-	 */
-	uint32_t free;
-
-	/**
-	 * @brief the minimum amount of memory free for allocations.
-	 */
-
-	uint32_t min;
-	/**
-	 * @brief The max size that can be allocated.
+	 * @brief The amount of heap memory available for allocation.
 	 *
-	 * A decrease in this value over time can indicate memory fragmentation.
+	 * The minimum sampled value during the sample period is reported.
 	 */
-	uint32_t max;
+	uint32_t heap_free;
+
+	/**
+	 * @brief the minimum amount of memory free for allocations since startup.
+	 *
+	 * Although this value should only ever decrease as the controller executes
+	 * it is oversampled and the minimum sampled value is reported.
+	 */
+
+	uint32_t min_heap_free;
+
+	/**
+	 * @brief The largest size that can be allocated.
+	 *
+	 * The minimum value in the sample period is reported because the use case
+	 * is identifying impending allocation failures. A decrease in this value
+	 * over time can indicate memory fragmentation.
+	 */
+	uint32_t largest_allocatable;
 };
 
 

@@ -95,12 +95,10 @@ bool Sampler::sample() {
 
 #define min(A, B) (A > 0 && A < B ? A : B)
 void Sampler::_sampleMemory(protocol::Memory* memory) {
-	// todo - I don't think these should all be min.
-	// todo - give these better names
 	memory->size = min(memory->size, ESP.getHeapSize());
-	memory->free = min(memory->free, ESP.getFreeHeap());
-	memory->min = min(memory->min, ESP.getMinFreeHeap());
-	memory->max = min(memory->max, ESP.getMaxAllocHeap());
+	memory->heap_free = min(memory->heap_free, ESP.getFreeHeap());
+	memory->min_heap_free = min(memory->min_heap_free, ESP.getMinFreeHeap());
+	memory->largest_allocatable = min(memory->largest_allocatable, ESP.getMaxAllocHeap());
 }
 
 

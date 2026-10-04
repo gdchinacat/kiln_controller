@@ -127,9 +127,10 @@ bool Telemetry::send() {
 		sampleCount += buffer->count;
 	}
 
+	int64_t uptime = TimeSync::uptime();
 	protocol::Telemetry _telemetry = {
-		.timestamp = timeSync.now(),
-		.uptime = millis(),
+		.timestamp = timeSync.now(uptime),
+		.uptime = (uint32_t)(uptime / 1000),
 		.state = firing.currentState(),
 		.sample_count = sampleCount
 	};

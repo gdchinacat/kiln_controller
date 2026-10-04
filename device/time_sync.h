@@ -1,7 +1,9 @@
 #pragma once
 
 #include <stdint.h>
+#include <esp_timer.h>
 #include "protocol.h"
+
 
 /**
  * @brief TimeSync tracks the time delta between the device and service.
@@ -9,17 +11,8 @@
 class TimeSync {
 private:
 	/**
-	 * @brief the adjustment to synchronize millis() based time with server
+	 * @brief the adjustment to synchronize uptime() based time with server
 	 *        epoch time.
-	 *
-	 * This is made more complicated by the fact that epoch time in milliseconds
-	 * requires more than 32 bits. Doing everything in seconds results in very
-	 * poor resolution and can lead to device being one second ahead or one
-	 * second behind actual unix time. A two second slop in a five second
-	 * sample period is "too much".
-	 *
-	 * todo? - is there a way that makes sense (not too convoluted) to use 32
-	 *         bit values to accomplish this?
 	 */
 	uint64_t offset = 0;
 
@@ -32,9 +25,14 @@ public:
 	void setTime(protocol::SetTimeCommand* command);
 
 	/**
+	 * @brief get the uptime in milliseconds.
+	 */
+	static inline int64_t uptime() { return esp_timer_get_time() / 1000ULL; }
+
+	/**
 	 * @brief Get the current synced time in milliseconds, or 0 if time is not
 	 * synced.
 	 */
-	uint64_t now() { return offset == 0 ? 0 : offset + millis(); };
+	inline uint64_t now(int64_t _uptime = uptime()) { return offset == 0 ? 0 : offset + _uptime; }
 
 };

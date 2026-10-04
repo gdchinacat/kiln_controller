@@ -4,16 +4,19 @@
 
 class Scheduler {
 private:
-	unsigned int lastCall = 0;
-	unsigned int defaultRate;
-	unsigned int maxRate;
+	uint64_t lastCall = 0;
+	uint32_t defaultRate;
+	uint32_t maxRate;
 
-	bool shouldCall(unsigned int now);
+	/**
+	 * @brief Should the callback be called given the current system ticks?
+	 */
+	bool shouldCall(int64_t ticks);
 
 	const std::function<bool()>callback;
 
 protected:
-	unsigned int rate;
+	uint32_t rate;
 
 	void backoff();
 	void resume();
@@ -21,8 +24,8 @@ protected:
 public:
 	Scheduler(
 			std::function<bool()> cb,
-			unsigned int _rate,
-			unsigned int _maxRate = 0):
+			uint32_t _rate,
+			uint32_t _maxRate = 0):
 		defaultRate(_rate),
 		maxRate(_maxRate ? _maxRate : _rate),
 		callback(std::move(cb)),

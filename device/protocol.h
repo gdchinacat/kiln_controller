@@ -171,7 +171,7 @@ struct Telemetry {
 	uint64_t timestamp;
 
 	/**
-	 * @brief system clock time to reflect uptime (~49 day overflow)
+	 * @brief system clock time to reflect uptime (seconds).
 	 */
 	uint32_t uptime;
 

@@ -12,8 +12,6 @@ TimeSync::TimeSync() {
  * @brief set the current time.
  */
 void TimeSync::setTime(protocol::SetTimeCommand* command) {
-	int64_t newOffset = command->timestamp - millis();
-	int64_t delta = newOffset - offset;
-	offset = newOffset;
+	offset = (int64_t)command->timestamp - uptime();
 	log_i("updated time sync offset to %lld", offset);
 }

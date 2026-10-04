@@ -155,7 +155,6 @@ class CommandType(Enum):
         command_type = CommandType(
             Command.struct.unpack(buffer[: Command.struct.size])[0]
         )
-        # todo? - move this switch into CommandType?
         match command_type:
             case CommandType.START:
                 return StartCommand.unpack(buffer)

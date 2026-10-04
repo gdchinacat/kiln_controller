@@ -149,17 +149,15 @@ def test_telemetry_auth_fails(
                 assert False, "should never execute"
 
 
-def more_commands(websocket: WebSocketTestSession) -> list[Command]:
+def remaining_commands(websocket: WebSocketTestSession) -> list[Command]:
     """
-    return whether or not a message exists on the websocket receive.
-    Usage: `assert not more_commands(websocket)`
+    Close the websocket and return the commands remaining.
 
     This works by closing the websocket and verifying it is closed without any
     bytes being read.
     """
 
-    # TODO - why is this not actually causing a WebSocketDisconnect?
-    websocket.close(reason="testing: no_message")
+    websocket.close(reason="test: remaining_commands")
     commands = []
     try:
         while True:
@@ -215,7 +213,7 @@ def test_telemetry_send_no_delta_no_set_time(
         assert telemetry == metrics_server.received_telemetry.get(timeout=0.1)
 
         # No messages from server in response to small time delta
-        assert not more_commands(websocket)
+        assert not remaining_commands(websocket)
 
 
 @pytest.mark.timeout(1)
@@ -251,4 +249,4 @@ def test_telemetry_large_delta_sets_time(
         assert (now - set_time.timestamp) == pytest.approx(0, abs=100)  # ms
 
         # Verify there are no more messages.
-        assert not more_commands(websocket)
+        assert not remaining_commands(websocket)

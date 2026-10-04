@@ -75,20 +75,19 @@ class Metrics(DataclassInstance):
         return cls(*cls.struct.unpack(buffer))
 
     def _value_to_pack(self, obj: Any) -> Any:
-        """Get the value to emit for the value of one of self's fields."""
+        """
+        Get the value to emit for the value of one of self's fields.
+        list() values result in zero bytes to allow sublcasses to put a zero
+        byte field in their format string and rely on this to provide the
+        value and only have to override pack().
+        """
         match obj:
             case Metrics():
                 return obj.pack()
-            case Iterable():
-                # The struct format strings specify these as zero bytes, so
-                # this emits them as zero bytes. It *could* emit the proper
-                # bytes, but the value is ignored by the format. Subclasses
-                # must override pack() for now to do their list field packing
-                # themselves. See Telemetry.pack(). todo? move this logic into
-                # Metrics.pack()?
-                return b""
             case Enum():
                 return obj.value
+            case list():
+                return b""
             case _:
                 return obj
 
@@ -103,7 +102,11 @@ class Metrics(DataclassInstance):
         yield from ((field.name, getattr(self, field.name)) for field in fields(self))
 
     def pack(self) -> bytes:
-        """return the byte packed representation."""
+        """
+        Return the byte packed representation.
+        Sublcases should override this as needed to replace placeholder (zero
+        byte) in the struct format with the proper bytes.
+        """
         pack_values = (self._value_to_pack(value) for _, value in self.field_values())
         return self.struct.pack(*pack_values)
 

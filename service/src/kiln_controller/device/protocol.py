@@ -202,8 +202,6 @@ class Sample(Metrics):
     memory: Memory
 
     def __post_init__(self) -> None:
-        # todo factor this out into the base class, implementations shouldn't
-        # have to do this..it defeats the purpose of the framework
         if isinstance(self.memory, bytes):
             self.memory = Memory.unpack(self.memory)
         if isinstance(self.temperature, bytes):
@@ -221,8 +219,6 @@ class Telemetry(Metrics):
     samples: list[Sample]
 
     def __post_init__(self) -> None:
-        # todo factor this out into the base class, implementations shouldn't
-        # have to do this..it defeats the purpose of the framework
         if isinstance(self.state, bytes):
             self.state = State.unpack(self.state)
 

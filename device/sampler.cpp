@@ -61,10 +61,11 @@ void Sampler::loop() {
 	scheduler.loop();
 }
 
-//todo? - avg implementation is not great due to integer math with division and
-//        recalculating total then dividing. Should samples be fixed up on the
-//        way out (taking resends into account)? Should the server calculate
-//        value based on sample_count? Which fields to apply this to?
+//todo - Define semantics of what the values mean and how to interpret them. For
+//       example is sample_count simply informative or are the metrics (or which
+//       ones) are sums of samples and need to be divided by sample_count? This
+//       is independent of whether this is the best way or place to average
+//       samples.
 #define avg(COUNT, A, B) ((A * COUNT + B) / (COUNT + 1))
 
 bool Sampler::sample() {
@@ -83,10 +84,7 @@ bool Sampler::sample() {
 
 	/*
 	log_v("updated sample 0x%08x %d [%d] sample_count: %d",
-			sample,
-			buffer[current].timestamp,
-			current,
-			sample->sample_count);
+			sample, buffer[current].timestamp, current, sample->sample_count);
 	*/
 
 	return true;

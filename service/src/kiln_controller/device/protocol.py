@@ -17,6 +17,7 @@ from dataclasses import dataclass, Field, fields, field, asdict
 from enum import Enum
 from itertools import pairwise
 from struct import pack, unpack, Struct
+import time
 from typing import Self, Protocol, ClassVar, Any, overload
 
 __all__ = (
@@ -259,7 +260,7 @@ class SetTimeCommand(Command):
     command_type: ClassVar[CommandType] = field(
         default=CommandType.SET_TIME, init=False
     )
-    timestamp: int
+    timestamp: int = field(default_factory=lambda: int(time.time() * 1000))
 
 
 @dataclass

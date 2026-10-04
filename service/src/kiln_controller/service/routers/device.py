@@ -167,7 +167,9 @@ async def telemetry(
                 websocket.send_bytes,
                 authenticator,
             )
+            await telemetry_io.queue.put(SetTimeCommand())
             task_group.create_task(telemetry_io._writer())
             task_group.create_task(telemetry_io._reader())
+
     except* WebSocketDisconnect as wsd:
         await websocket.close()

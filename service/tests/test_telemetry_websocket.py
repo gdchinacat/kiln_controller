@@ -171,6 +171,25 @@ def more_commands(websocket: WebSocketTestSession) -> list[Command]:
 
 
 @pytest.mark.timeout(1)
+def test_telemetry_set_time_on_connect(
+    client: TestClient,
+    device: AuthenticatedDevice,
+    user: AuthenticatedUser,
+    metrics_server: FakeMetricsServer,
+) -> None:
+    """Test that the server sends a SetTime when the connection is established."""
+    with client.websocket_connect(
+        f"/device/{device.id}/telemetry",
+        headers={"Authorization": f"Bearer {device.auth_token}"},
+    ) as websocket:
+        set_time = SetTimeCommand.unpack(websocket.receive_bytes())
+        assert isinstance(set_time, SetTimeCommand)
+
+        now = int(time.time() * 1000)
+        assert (now - set_time.timestamp) == pytest.approx(0, abs=100)  # ms
+
+
+@pytest.mark.timeout(1)
 def test_telemetry_send_no_delta_no_set_time(
     client: TestClient,
     device: AuthenticatedDevice,
@@ -189,6 +208,8 @@ def test_telemetry_send_no_delta_no_set_time(
             sample_count=0,
             samples=[],
         )
+        assert SetTimeCommand.unpack(websocket.receive_bytes())  # on connect
+
         # websocket passes telemetry to metrics server
         websocket.send_bytes(telemetry.pack())
         assert telemetry == metrics_server.received_telemetry.get(timeout=0.1)
@@ -216,6 +237,8 @@ def test_telemetry_large_delta_sets_time(
             sample_count=0,
             samples=[],
         )
+
+        assert SetTimeCommand.unpack(websocket.receive_bytes())  # on connect
 
         # Verify telemetry is passed to metrics server.
         websocket.send_bytes(telemetry.pack())

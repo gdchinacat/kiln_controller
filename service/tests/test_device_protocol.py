@@ -118,7 +118,9 @@ def test_sample_roundtrip(sample: Sample) -> None:
 
 
 def test_telemetry_roundtrip(telemetry: Telemetry) -> None:
-    assert telemetry == Telemetry.unpack(telemetry.pack())
+    _telemetry = Telemetry.unpack(telemetry.pack())
+    assert telemetry == _telemetry
+    assert telemetry.samples == _telemetry.samples
 
 
 def test_set_time_command_roundtrip(set_time_command: SetTimeCommand) -> None:

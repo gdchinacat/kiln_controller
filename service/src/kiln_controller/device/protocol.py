@@ -13,7 +13,7 @@ metrics service adapter?
 
 from abc import ABC
 from collections.abc import Iterable, Callable
-from dataclasses import dataclass, Field, fields, field, asdict
+from dataclasses import dataclass, Field, fields, field, asdict, InitVar
 from enum import Enum
 from itertools import pairwise
 from struct import pack, unpack, Struct
@@ -214,15 +214,37 @@ class Telemetry(Metrics):
 
     timestamp_ms: int
     uptime: int
-    state: State
+    state: State | bytes
     sample_count: int
-    samples: list[Sample]
+    samples: list[Sample] | bytes
 
-    def __post_init__(self) -> None:
-        # todo factor this out into the base class, implementations shouldn't
-        # have to do this..it defeats the purpose of the framework
-        if isinstance(self.state, bytes):
-            self.state = State.unpack(self.state)
+    @property
+    def state(self) -> State:
+        return self._state
+
+    @state.setter
+    def state(self, state: State | int) -> None:
+        assert False, "test"
+        match state:
+            case State():
+                self._state = state
+            case _:
+                self._state = State(state)
+
+    @property
+    def samples(self) -> Iterable[Sample]:
+        return self._samples
+
+    @samples.setter
+    def samples(self, samples: Iterable[Sample] | bytes) -> None:
+        match samples:
+            case bytes():
+                self._samples = list(samples)
+                self.sample_count = len(self._samples)
+            case Iterable():
+                self.state = State.unpack(self.state)
+            case _:
+                raise ValueError
 
     @classmethod
     def unpack(cls, buffer: bytes) -> Self:

@@ -112,10 +112,7 @@ void Telemetry::setupWebSocket() {
 
 bool Telemetry::send() {
 
-	// todo - check the status of wifi and don't even try to send if wifi isn't
-	//        connected.
-
-	// Get the sample buffers to send
+	// Collect the sample buffers to send.
 	uint16_t sampleCount = 0;
 	SampleBuffer sampleBuffers[2]{};
 	for (int i = 0; i < 2; i++) {

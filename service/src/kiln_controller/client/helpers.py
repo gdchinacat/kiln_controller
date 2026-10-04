@@ -3,18 +3,26 @@ helpers for the client
 Contains things like logging, trace decorators, etc.
 """
 
+from collections.abc import Callable
 from functools import wraps
 import logging
+from typing import Any, Concatenate, Protocol
 
 logger = logging.getLogger("kiln_controller.client")
 trace_logger = logging.getLogger("kiln_controller.client")
 
 
-def noop(*_, **__):
-    """function that accepts all args, kwargs and does nothing"""
+class _Response(Protocol):
+    status_code: int
+    text: str
 
 
-def trace(func=None, /, *, log_func=trace_logger.error):
+def trace[**P, R: _Response](
+    func: Callable[P, R],
+    /,
+    *,
+    log_func: Callable[..., Any] = trace_logger.error,
+) -> Callable[P, R]:
     """
     decorator to trace method call, return, raise
     Can be applied directly to the function or accept these kw_only arguments:
@@ -22,7 +30,7 @@ def trace(func=None, /, *, log_func=trace_logger.error):
     """
 
     @wraps(func)
-    def trace_(*args, **kwargs):
+    def trace_(*args: P.args, **kwargs: P.kwargs) -> R:
         log_func("%s(%s, %s)", func.__name__, args, kwargs)
         try:
             ret = func(*args, **kwargs)
@@ -41,7 +49,7 @@ def trace(func=None, /, *, log_func=trace_logger.error):
     if func is not None:
         return trace_
 
-    def _wrap(_func):
+    def _wrap(_func: Callable[P, R]) -> Callable[P, R]:
         nonlocal func
         func = _func
         return trace_
@@ -49,7 +57,7 @@ def trace(func=None, /, *, log_func=trace_logger.error):
     return _wrap
 
 
-def validate_url(url):
+def validate_url(url: str) -> str:
     if not isinstance(url, str):
         raise TypeError("url must be a str")
 
@@ -69,17 +77,24 @@ def validate_url(url):
     return url
 
 
-def detect_bad_url(func):
+type _UrlCallable[SelfT, **P, R] = Callable[Concatenate[SelfT, str, P], R]
+
+
+def detect_bad_url[SelfT, **P, R](
+    func: _UrlCallable[SelfT, P, R],
+) -> _UrlCallable[SelfT, P, R]:
     """
-    decorator that raises a ValueError when the url argument
-    is 'invalid'.
+    Decorator that raises a TypeError or ValueError when the url argument is
+    invalid.
     This is intended to prevent the client from making bad requests
     to clarify where the error originates from and keep it from
     reaching the server.
     """
 
     @wraps(func)
-    def bad_url_filter(self, url, *args, **kwargs):
+    def bad_url_filter(
+        self: SelfT, url: str, /, *args: P.args, **kwargs: P.kwargs
+    ) -> R:
         validate_url(url)
         return func(self, url, *args, **kwargs)
 

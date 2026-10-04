@@ -37,14 +37,17 @@ class MockServiceTest(TestCase):
         self.assertRaises(NotFound, service.walk, "/parent/2")
         self.assertRaises(NotFound, service.walk, "/nonexistent")
 
-    def test_default_service(self):
+    def test_default_service(self) -> None:
         service = MockService(live_service=False)
 
-        self.assertEqual([], _obj(service.get("/user")))
+        self.assertEqual(
+            [{"name": "admin user", "username": "admin", "password": "admin", "id": 1}],
+            _obj(service.get("/user")),
+        )
         self.assertEqual([], _obj(service.get("/device")))
         self.assertEqual([], _obj(service.get("/schedule")))
 
-    def test_post(self):
+    def test_post(self) -> None:
         service = MockService(live_service=False)
 
         user = asdict(User("name", "username"))

@@ -131,19 +131,25 @@ class MockService(Resource):
     calls: List[Call]
 
     def __init__(
-        self, sub_resources: Dict[str, Resource] = None, live_service: bool = None
+        self,
+        sub_resources: Dict[str, Resource] | None = None,
+        live_service: bool = None,
     ):
         assert (
             live_service is None or live_service is False
         ), "tests are not permitted to force live_service=True"
 
         super().__init__()
-        self["sub_resources"] = sub_resources or {
+        self["sub_resources"] = (sub_resources or {}) | {
             _type: Resource() for _type in ("user", "device", "schedule")
         }
         self.ids = count()
         self.calls = []
         self.live_service = LIVE_SERVICE if live_service is None else live_service
+
+        self["sub_resources"]["user"]["sub_resources"][1] = Resource(
+            id=1, name="admin user", username="admin", password="admin"
+        )
 
     @staticmethod
     def track_call(func):

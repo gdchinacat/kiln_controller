@@ -23,6 +23,7 @@ from kiln_controller.client._base import DEFAULT_TIMEOUT, ClientException
 from kiln_controller.common.enums import PhaseType
 
 from ._fixtures import (
+    admin_user_fixture,
     mock_service_fixture,
     MockService,
     client_fixture,
@@ -33,10 +34,6 @@ from ._fixtures import (
     unique_username,
 )
 from .mock_service import Call
-
-# throwaway ids to make arg lists readable
-# todo - get rid of USER_ID, use actual resources
-USER_ID = 1
 
 PORT = int(os.getenv("SERVICE_PORT", "5000"))
 
@@ -109,7 +106,7 @@ class ClientTest(unittest.TestCase):
 
     @ kwargs["mock_service"] << mock_service_fixture()
     def test_append_user_to_list(self, **_):
-        return self._test_list_add(
+        self._test_list_add(
             (User, lambda client: client.users), "name", unique_username(), "password"
         )
 
@@ -123,19 +120,21 @@ class ClientTest(unittest.TestCase):
             iadd=True,
         )
 
-    def test_add_device_to_list(self):
-        return self._test_list_add(
+    @ kwargs["user"] << admin_user_fixture()
+    def test_add_device_to_list(self, user: User) -> None:
+        self._test_list_add(
             (Device, lambda client: client.devices),
             "name",
-            USER_ID,
+            user.id,
             iadd=True,
         )
 
-    def test_append_device_to_list(self):
-        return self._test_list_add(
+    @ kwargs["user"] << admin_user_fixture()
+    def test_append_device_to_list(self, user: User) -> None:
+        self._test_list_add(
             (Device, lambda client: client.devices),
             "name",
-            USER_ID,
+            user.id,
         )
 
     def test_add_schedule_to_list(self) -> None:
@@ -147,7 +146,7 @@ class ClientTest(unittest.TestCase):
         )
 
     def test_append_schedule_to_list(self):
-        return self._test_list_add(
+        self._test_list_add(
             (Schedule, lambda client: client.schedules),
             "name",
             1,

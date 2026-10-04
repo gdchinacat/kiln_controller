@@ -16,7 +16,7 @@ from random import randint
 from unittest import TestCase
 
 import inspect
-from typing import Callable
+from typing import Callable, Any
 
 
 import kiln_controller.client as _client
@@ -28,6 +28,7 @@ __all__ = [
     "mock_service_fixture",
     "MockService",
     "client_fixture",
+    "admin_user_fixture",
     "user_fixture",
     "schedule_fixture",
     "phase_fixture",
@@ -78,7 +79,7 @@ def client_fixture(
     mock_service: MockService,
     username: str = "admin",
     password: str = "admin",
-    user: User = None,
+    user: _client.User = None,
     **_,
 ) -> _client.Client:
     """fixture that provides a Client"""
@@ -87,6 +88,19 @@ def client_fixture(
         password = user.password
     with mock_service.patch():
         return _client.Client(username, password, port=PORT)
+
+
+@kwargs.factory
+@ kwargs["mock_service"] << mock_service_fixture()
+def admin_user_fixture(mock_service: MockService, **_: dict[str, Any]) -> _client.User:
+    """Get the admin user, which is assumed to the the first user."""
+
+    @ kwargs["client"] << client_fixture()
+    def _client(client: _client.Client, **_: Any) -> _client.Client:
+        return client
+
+    with mock_service.patch():
+        return _client(mock_service=mock_service).users[0]
 
 
 def unique_username(_user_count=count(randint(0, 9999) * 1000)) -> str:
@@ -107,7 +121,7 @@ def user_fixture(
     client: Client | None = None,
     _user_count: int = count(randint(0, 9999) * 1000),
     **kwargs: dict[str, Any],
-):
+) -> _client.User:
     """
     Create a user.
 

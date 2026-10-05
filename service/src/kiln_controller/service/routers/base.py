@@ -131,15 +131,14 @@ def create_router(
         sessionmaker: SessionMaker = sessionmaker,
     ) -> resource_create_response_type:
         """create a {resource_type}"""
-        resource_dict = resource.model_dump()
-        resource_dict.update(request.path_params)
-        resource_dict.update(resource.extra_attrs(user))
+        orm_extra, ret_extra = resource.extra_attrs(user)
+        resource_dict = resource.model_dump() | request.path_params | orm_extra
         orm = orm_type.model_validate(resource_dict)
         async with (session := sessionmaker(expire_on_commit=False)), session.begin():
             session.add(orm)
             await session.flush()
             await session.run_sync(lambda sync_session: orm.validate_create_or_update())
-        return orm.model_dump(mode="json")
+        return orm.model_dump(mode="json") | ret_extra
 
     @router.put(
         "/{id}",

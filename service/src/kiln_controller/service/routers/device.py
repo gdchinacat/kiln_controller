@@ -66,7 +66,7 @@ async def _authenticate_device_websocket(
                 #        the device know it needs to re-register?
                 # todo - no test failed when this 401 was changed to 404, need test
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-            if device_orm.auth_token == auth_token:
+            if device_orm.validate_auth_token(auth_token):
                 return device_orm
     raise HTTPException(
         # todo - don't send json auth errors

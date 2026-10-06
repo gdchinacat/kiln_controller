@@ -16,11 +16,18 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 import pydantic
 import sqlalchemy
+from starlette.middleware.sessions import SessionMiddleware
 
 from .metrics.victoriametrics import VictoriaMetricsServer
 from .models import db  # initialize the database
 from .models.validators import ValidationError
-from .routers import users_router, devices_router, schedules_router, phases_router
+from .routers import (
+    auth_router,
+    users_router,
+    devices_router,
+    schedules_router,
+    phases_router,
+)
 
 # debug
 # logging.basicConfig()
@@ -46,10 +53,20 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(title="Kiln Controller", lifespan=lifespan)
 
-app.frontend("/", directory="./static")
-app.mount("/static", StaticFiles(directory="static"), name="static")
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.environ.get("SESSION_SECRET", "session secret"),
+    https_only=True,
+    same_site="lax",
+)
+
 app.state.metrics_server = VictoriaMetricsServer("http://localhost:4242/api/put")
 
+app.frontend("/", directory="./static")
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(devices_router)
 app.include_router(schedules_router)

@@ -9,7 +9,6 @@ from logging import getLogger
 from typing import Callable, Any
 
 from fastapi import Depends, Request, Response, status, HTTPException, APIRouter
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
 import pydantic
 from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound, IntegrityError
@@ -17,7 +16,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
 import sqlmodel
 
 from ...common.validators import ValidationError, ValidationErrors
-from ..dependencies import sessionmaker
+from ..dependencies import sessionmaker, current_user
 from ..models import User, UserORM, ResourceCreate, SessionMaker, ORMType
 from ..models.validators import ValidatorMixinBase
 
@@ -25,20 +24,6 @@ __all__ = []
 
 
 logger = getLogger("resource/base.py")
-
-
-async def authenticate_user(
-    credentials: HTTPBasicCredentials = Depends(HTTPBasic()),
-    sessionmaker: SessionMaker = sessionmaker,
-) -> UserORM:
-    async with sessionmaker() as session:
-        query = select(UserORM).filter_by(username=credentials.username)
-        user = (await session.execute(query)).scalar_one_or_none()
-
-        if not user or user.password != credentials.password:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
-
-        return user
 
 
 def _apply_resource_type[**P, R](
@@ -84,7 +69,7 @@ def create_router(
     @_apply_resource_type(resource_type=resource_type.__name__)
     async def _list(
         request: Request,
-        user: User = Depends(authenticate_user),
+        user: User = current_user,
         sessionmaker: SessionMaker = sessionmaker,
     ) -> list[resource_type]:
         """get the list of {resource_type}s"""
@@ -105,7 +90,7 @@ def create_router(
     @_apply_resource_type(resource_type=resource_type.__name__)
     async def _get(
         id: int,
-        user: User = Depends(authenticate_user),
+        user: User = current_user,
         sessionmaker: SessionMaker = sessionmaker,
     ) -> resource_type:
         """get a {resource_type}"""
@@ -127,7 +112,7 @@ def create_router(
     async def _create(
         request: Request,
         resource: resource_create_type,
-        user: User = Depends(authenticate_user),
+        user: User = current_user,
         sessionmaker: SessionMaker = sessionmaker,
     ) -> resource_create_response_type:
         """create a {resource_type}"""
@@ -151,7 +136,7 @@ def create_router(
     async def _update(
         id: int,
         resource: resource_update_type,
-        user: User = Depends(authenticate_user),
+        user: User = current_user,
         sessionmaker: SessionMaker = sessionmaker,
     ) -> resource_type:
         """Update the {resource_type}."""
@@ -213,7 +198,7 @@ def create_router(
     @_apply_resource_type(resource_type=resource_type.__name__)
     async def _delete(
         id: int,
-        user: UserORM = Depends(authenticate_user),
+        user: UserORM = current_user,
         sessionmaker: SessionMaker = sessionmaker,
     ) -> None:
         """delete a {resource_type}"""

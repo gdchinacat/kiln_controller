@@ -29,6 +29,9 @@ from kiln_controller.service.models import (
     Device,
     DeviceCreate,
     DeviceORM,
+    LoginRequest,
+    SessionMaker,
+    get_engine,
 )
 from kiln_controller.service.models.db import SessionMaker
 
@@ -76,17 +79,24 @@ def test_app(metrics_server: FakeMetricsServer) -> Generator[FastAPI]:
 
 
 @pytest.fixture
-def client(test_app: FastAPI, sessionmaker: SessionMaker) -> Generator[TestClient]:
+def client(
+    test_app: FastAPI, sessionmaker: SessionMaker
+) -> Generator[TestClient]:
     _sessionmaker = test_app.state.db_sessionmaker
-    try:
+    try: 
         test_app.state.db_sessionmaker = sessionmaker
-        yield TestClient(app)
+        client = TestClient(app, base_url="https://testserver")
+        client.post(
+            "/auth/login",
+            json=LoginRequest(
+                username="admin",
+                password="admin",  # todo proper auth
+            ).model_dump(),
+        )
+        client.get("/user").raise_for_status()  # todo remove - here for testing fixture
+        yield client
     finally:
         test_app.state.db_sessionmaker = _sessionmaker
-
-
-class AuthenticatedUser(User):
-    auth: tuple[str, str]
 
 
 @pytest.fixture
@@ -96,13 +106,13 @@ def user(
     name: str = "name",
     username: str = "username",
     password: str = "password",
-) -> AuthenticatedUser:
+) -> User:
     create = UserCreate(name=name, username=username, password=password)
-    response = client.post("/user", json=dict(create), auth=admin_auth)
+    response = client.post("/user", json=dict(create))
     response.raise_for_status()
     json = response.json()
     json["auth"] = (username, password)
-    return AuthenticatedUser.model_validate(json)
+    return User.model_validate(json)
 
 
 class AuthenticatedDevice(Device):
@@ -110,41 +120,40 @@ class AuthenticatedDevice(Device):
 
 
 @pytest.fixture
-def device(
-    client: TestClient, user: AuthenticatedUser, name: str = "kiln"
-) -> AuthenticatedDevice:
+def device(client: TestClient, user: User, name: str = "kiln") -> AuthenticatedDevice:
     create = DeviceCreate(name=name)
-    response = client.post("/device", json=dict(create), auth=user.auth)
+    response = client.post("/device", json=dict(create))
     response.raise_for_status()
     return AuthenticatedDevice.model_validate(response.json())
 
 
 def test_get_device_401(client: TestClient) -> None:
-    response = client.get("/device/", auth=("", ""))
+    client.cookies.clear()
+    response = client.get("/device/")
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
-def test_register_device(client: TestClient, user: AuthenticatedUser) -> None:
-    response = client.post("/device/", json={"name": "device name"}, auth=user.auth)
+def test_register_device(client: TestClient, user: User) -> None:
+    response = client.post("/device/", json={"name": "device name"})
     response.raise_for_status()
     device_json = response.json()
     assert device_json.get("auth_token")
 
 
-def test_get_device_200(
-    client: TestClient, device: Device, user: AuthenticatedUser
-) -> None:
-    response = client.get(f"/device/{device.id}", auth=user.auth)
+def test_get_device_200(client: TestClient, device: Device, user: User) -> None:
+    response = client.get(f"/device/{device.id}")
     response.raise_for_status()
 
 
-def test_telemetry_auth_fails(
-    client: TestClient, device: Device, user: AuthenticatedUser
-) -> None:
-    for auth in (None, ("", ""), user.auth):  # no auth  # bad auth  # user auth
+def test_telemetry_auth_fails(client: TestClient, device: Device, user: User) -> None:
+    for auth in (
+        None,  # no auth
+        ("", ""),  # bad auth
+        ("admin", "admin"),  # user auth
+    ):
         with pytest.raises(WebSocketDenialResponse):
             with client.websocket_connect(
-                f"/device/{device.id}/telemetry", auth=auth
+                f"/device/{device.id}/telemetry",
             ) as websocket:
                 assert False, "should never execute"
 
@@ -172,7 +181,7 @@ def remaining_commands(websocket: WebSocketTestSession) -> list[Command]:
 def test_telemetry_set_time_on_connect(
     client: TestClient,
     device: AuthenticatedDevice,
-    user: AuthenticatedUser,
+    user: User,
     metrics_server: FakeMetricsServer,
 ) -> None:
     """Test that the server sends a SetTime when the connection is established."""
@@ -191,7 +200,7 @@ def test_telemetry_set_time_on_connect(
 def test_telemetry_send_no_delta_no_set_time(
     client: TestClient,
     device: AuthenticatedDevice,
-    user: AuthenticatedUser,
+    user: User,
     metrics_server: FakeMetricsServer,
 ) -> None:
     """Test that a telemetry can be sent. Does not verify any commands are received."""
@@ -220,7 +229,7 @@ def test_telemetry_send_no_delta_no_set_time(
 def test_telemetry_large_delta_sets_time(
     client: TestClient,
     device: AuthenticatedDevice,
-    user: AuthenticatedUser,
+    user: User,
     metrics_server: FakeMetricsServer,
 ) -> None:
     """Test that the server sends a SetTime when delta is too great."""

@@ -24,6 +24,7 @@ from kiln_controller.client import Client, User, Device, Schedule, Phase, PhaseT
 
 from .conftest import admin_client, Service
 
+
 __all__ = [
     "assert_http_status_error",
     "user_fixture",

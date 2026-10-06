@@ -33,7 +33,7 @@ from ..models import (
     User,
     SessionMaker,
 )
-from .base import create_router, authenticate_user
+from .base import create_router
 
 devices_router = create_router(
     "device",
@@ -154,7 +154,6 @@ async def telemetry(
     sessionmaker: SessionMaker = sessionmaker,
     device: DeviceORM = Depends(_authenticate_device_websocket),
 ) -> None:
-
     async def authenticator() -> DeviceORM:
         return await _authenticate_device_websocket(device_id, websocket, sessionmaker)
 

@@ -1,18 +1,17 @@
-from collections.abc import Generator
+from collections.abc import Generator, Iterable
 import itertools
 
 import fastapi
 import httpx2
 import pydantic
 import pytest
-from typing import Any
+from typing import Any, Self, ClassVar
 
-from rest_client import Resource
+from rest_client import Resource, ResourceList, RestClient
 
 from ..conftest import ServiceFactory
 
 type TestApp = fastapi.FastAPI
-type TestClient = httpx2.Client
 
 
 class _RootCreate(pydantic.BaseModel):
@@ -28,7 +27,7 @@ class _RootModel(pydantic.BaseModel):
 
 
 class Root(Resource):
-    _URL = "/root"
+    _URL: ClassVar[str] = "/root"
 
     a: int
 
@@ -45,6 +44,10 @@ def test_app() -> TestApp:
         root = _RootModel.model_validate(create.model_dump() | {"id": next(ids)})
         roots[root.id] = root
         return roots[root.id]
+
+    @app.get(Root._URL)
+    async def _list_roots() -> Iterable[_RootModel]:
+        return roots.values()
 
     @app.get(Root._URL + "/{_id}")
     async def _get_root(_id: int) -> _RootModel:
@@ -69,12 +72,25 @@ def test_app() -> TestApp:
     return app
 
 
+class TestClient(RestClient):
+    __test__ = False
+    roots: ResourceList[Root, None]
+
+    def __init__(self, client: httpx2.Client):
+        super().__init__(client)
+        self.roots = ResourceList[Root, None](Root, self)
+
+    def expire(self) -> Self:
+        self.roots.expire()
+        return self
+
+
 @pytest.fixture
 def client(
     service_factory: ServiceFactory, test_app: fastapi.FastAPI
-) -> Generator[httpx2.Client]:
+) -> Generator[TestClient]:
     with service_factory(test_app) as service:
         with httpx2.Client(
             base_url=service.url, verify=service.client_ssl_context
         ) as client:
-            yield client
+            yield TestClient(client)

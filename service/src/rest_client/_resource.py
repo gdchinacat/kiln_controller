@@ -5,17 +5,19 @@ REST client framework.
 from abc import ABC
 from collections.abc import Callable
 from functools import wraps
+import functools
 import logging
 from typing import Any, ClassVar, Self
 
 import httpx2
 import pydantic
-import functools
+
+from ._client import RestClient
 
 logger = logging.getLogger("client.rest_client")
 
 
-class Resource[PT: Resource[Any, Any], **P](pydantic.BaseModel, ABC):
+class Resource[PT: Resource[Any] | None](pydantic.BaseModel, ABC):
     """
     Resource is the base class for REST resources.
 
@@ -25,6 +27,8 @@ class Resource[PT: Resource[Any, Any], **P](pydantic.BaseModel, ABC):
 
     All resources have an ID which may be None when the resource has not yet
     been created.
+
+    Generic on PT (Parent Type).
     """
 
     model_config = pydantic.ConfigDict(validate_assignment=True)
@@ -32,7 +36,7 @@ class Resource[PT: Resource[Any, Any], **P](pydantic.BaseModel, ABC):
     _URL: ClassVar[str]
     """Format string for the URL path for this resource."""
 
-    _client: httpx2.Client | None = pydantic.PrivateAttr()
+    _client: RestClient | None = pydantic.PrivateAttr()
     """
     The client to use to communicate with the service.
     May be none for resources that have not yet been attached to a client.
@@ -44,9 +48,9 @@ class Resource[PT: Resource[Any, Any], **P](pydantic.BaseModel, ABC):
     def __init__(
         self,
         parent: PT | None = None,
-        client: httpx2.Client | None = None,
-        *args: P.args,
-        **kwargs: P.kwargs,
+        client: RestClient | None = None,
+        *args: Any,
+        **kwargs: Any,
     ):
         super().__init__(*args, **kwargs)
         self._parent = parent
@@ -66,34 +70,34 @@ class Resource[PT: Resource[Any, Any], **P](pydantic.BaseModel, ABC):
         for k, v in response.json().items():
             setattr(self, k, v)
 
-    def get(self, client: httpx2.Client | None = None) -> Self:
+    def get(self, client: RestClient | None = None) -> Self:
         self._client = client or self._client
         assert self._client  # LBYL to make type checker happy
-        self._update(self._client.get(self._url))
+        self._update(self._client._client.get(self._url))
         return self
 
     refresh = get
 
-    def delete(self, client: httpx2.Client | None = None) -> Self:
+    def delete(self, client: RestClient | None = None) -> Self:
         self._client = client or self._client
         assert self._client  # LBYL to make type checker happy
-        self._client.delete(self._url).raise_for_status()
+        self._client._client.delete(self._url).raise_for_status()
         self.id = None
         return self
 
-    def put(self, client: httpx2.Client | None = None) -> Self:
+    def put(self, client: RestClient | None = None) -> Self:
         self._client = client or self._client
         assert self._client  # LBYL to make type checker happy
-        self._update(self._client.put(self._url, json=self.model_dump()))
+        self._update(self._client._client.put(self._url, json=self.model_dump()))
         return self
 
-    def post(self, client: httpx2.Client | None = None) -> Self:
+    def post(self, client: RestClient | None = None) -> Self:
         if self.id is not None:
             raise AttributeError("refusing to POST resource with id (use put()?)")
         self._client = client or self._client
         assert self._client  # LBYL to make type checker happy
         self._update(
-            self._client.post(
+            self._client._client.post(
                 f"{self._parent._URL if self._parent else ''}{self._URL}",
                 json=self.model_dump(),
             )

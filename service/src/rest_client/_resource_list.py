@@ -1,63 +1,86 @@
 """
-REST client framework.
+ResoureList et. al. to provide list-like semantics for rest resources.
 """
 
-from abc import ABC
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Sequence, Iterable
 from dataclasses import dataclass, field, asdict
 from functools import wraps
 from http import HTTPStatus
-import httpx2
 import logging
-from typing import SupportsIndex, Dict, Any, ClassVar, Self
+from typing import (
+    SupportsIndex,
+    Dict,
+    Any,
+    ClassVar,
+    Self,
+    override,
+    Concatenate,
+    Protocol,
+    Never,
+)
 
+import httpx2
 import pydantic
-import requests
 
-from ..common.validators import ValidationError, ValidationErrors
-from .helpers import detect_bad_url, trace
+from ._client import RestClient
+from ._resource import Resource
 
-logger = logging.getLogger("client")
-DEFAULT_TIMEOUT = None
+logger = logging.getLogger("rest_client")
 
 
-class ResourceList[T](list[T]):
+class ResourceList[T: Resource[Any], PT: Resource[Any] | None](list[T]):
     """
     List implementation for model elements backing REST resource collections.
     Access is deferred via lazy-refresh upon access (`_unexpire`).
+
+    Generic on T: type of contained resources, PT: parent type
     """
 
-    def __init__(self, type_, client, url, parent=None, iterable=tuple()):
+    def __init__(
+        self,
+        type_: type[T],
+        client: RestClient,
+        parent: PT | None = None,
+    ):
         self._type = type_
         self._client = client
-        self._url = url
         self._parent = parent
         self._expired = True
-        super().__init__(iterable)
+        super().__init__()
 
-    def expire(self) -> "ResourceList[A]":
+    @property
+    def _url(self) -> str:
+        return self._type._URL
+
+    def expire(self) -> Self:
         """Expire the list, causing it to refresh upon next access."""
         self._expired = True
         super().clear()
         return self
 
-    def refresh(self) -> "ResourceList[A]":
+    def refresh(self) -> Self:
         """Populate the list from the remote endpoint."""
         super().clear()
-        for data in self._client.get(self._url):
-            resource = self._type(parent=self._parent, **data)
-            resource._set_client(self._client)
+        for _resource in self._client._client.get(self._url).raise_for_status().json():
+            resource = self._type.model_validate(_resource)
+            resource._parent = self._parent
+            resource._client = self._client
             super().append(resource)
         self._expired = False
         return self
 
-    def clear(self):
+    @override
+    def clear(self) -> None:
         self.expire()
 
     @staticmethod
-    def _expire(func):
+    def _expire[**P, R](
+        func: Callable[Concatenate[ResourceList[T, PT], P], R],
+    ) -> Callable[Concatenate[ResourceList[T, PT], P], R]:
         @wraps(func)
-        def expire_after_call(self, *args, **kwargs):
+        def expire_after_call(
+            self: ResourceList[T, PT], *args: P.args, **kwargs: P.kwargs
+        ) -> R:
             try:
                 return func(self, *args, **kwargs)
             finally:
@@ -66,47 +89,61 @@ class ResourceList[T](list[T]):
         return expire_after_call
 
     @staticmethod
-    def _unexpire(func):
+    def _unexpire[**P, R](
+        func: Callable[Concatenate[ResourceList[T, PT], P], R],
+    ) -> Callable[Concatenate[ResourceList[T, PT], P], R]:
+        """
+        Decorate a function so that if the ResourceList it is called on is
+        expired the list is refreshed before calling the decorated function.
+        """
+
         @wraps(func)
-        def _unexpire(self, *args, **kwargs):
+        def _unexpire(
+            self: ResourceList[T, PT], *args: P.args, **kwargs: P.kwargs
+        ) -> R:
             if self._expired:
                 self.refresh()
+
             return func(self, *args, **kwargs)
 
         return _unexpire
 
-    sort = _unexpire(list.sort)
-    index = _unexpire(list.index)
-    reverse = _unexpire(list.reverse)
-    __contains__ = _unexpire(list.__contains__)
-    __eq__ = _unexpire(list.__eq__)
-    __getitem__ = _unexpire(list.__getitem__)
-    __iter__ = _unexpire(list.__iter__)
-    __len__ = _unexpire(list.__len__)
+    # The 'type: ignore[bad-override-mutable-attribute]' are used because type
+    # checkers (inconsistently) fail to infer the types properly and complain
+    # that this override is incompatible with the base class definitions.
+    sort = _unexpire(list.sort)  # type: ignore[bad-override-mutable-attribute]
+    index = _unexpire(list.index)  # type: ignore[bad-override-mutable-attribute]
+    reverse = _unexpire(list.reverse)  # type: ignore[bad-override-mutable-attribute]
+    __contains__ = _unexpire(list.__contains__)  # type: ignore[bad-override-mutable-attribute]
+    __eq__ = _unexpire(list.__eq__)  # type: ignore[bad-override-mutable-attribute]
+    __getitem__ = _unexpire(list.__getitem__)  # type: ignore[bad-override-mutable-attribute]
+    __iter__ = _unexpire(list.__iter__)  # type: ignore[bad-override-mutable-attribute]
+    __len__ = _unexpire(list.__len__)  # type: ignore[bad-override-mutable-attribute]
 
-    def _not_implemented(self, *args, **kwargs):
+    def _not_implemented(self, *args: Any, **kwargs: Any) -> Callable[..., Never]:
         raise NotImplementedError()
 
-    copy = _not_implemented
-    count = _not_implemented
-    extend = _not_implemented
-    insert = _not_implemented
-    pop = _not_implemented
-    remove = _not_implemented
+    copy = _not_implemented  # type: ignore[bad-override-mutable-attribute]
+    count = _not_implemented  # type: ignore[bad-override-mutable-attribute]
+    extend = _not_implemented  # type: ignore[bad-override-mutable-attribute]
+    insert = _not_implemented  # type: ignore[bad-override-mutable-attribute]
+    pop = _not_implemented  # type: ignore[bad-override-mutable-attribute]
+    remove = _not_implemented  # type: ignore[bad-override-mutable-attribute]
 
     @_expire
-    def __iadd__(self, obj: A) -> "ResourceList[A]":
-        assert isinstance(
-            obj, self._type
-        ), f"{type(obj)} is not an instance of {self._type}"
+    def __iadd__(self, value: Iterable[T]) -> Self:
+        assert all(
+            isinstance(obj, self._type) for obj in value
+        ), f"all elements in value must be an instance of {self._type}"
 
-        resp = self._client.post(self._url, obj)
-        obj.__init__(parent=self._parent, **resp)
-        obj._set_client(self._client)
+        for obj in value:
+            resp = self._client._client.post(self._url, json=obj.model_dump())
+            resp.raise_for_status()
+            obj._update(resp.json())
         return self
 
-    def append(self, obj: A):
-        self += obj
+    def append(self, obj: T) -> None:
+        self += (obj,)
 
     @_expire
     def __delitem__(self, key: SupportsIndex | slice) -> None:
@@ -116,13 +153,6 @@ class ResourceList[T](list[T]):
         else:
             resource = self[key]
             resource.delete()
-
-    @classmethod
-    def factory(cls, _type, url):
-        def _create_resource_list(client):
-            return cls(_type, client, url)
-
-        return _create_resource_list
 
 
 class ResourceListDescriptor:

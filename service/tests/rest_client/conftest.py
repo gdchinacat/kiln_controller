@@ -14,20 +14,20 @@ from ..conftest import ServiceFactory
 type TestApp = fastapi.FastAPI
 
 
-class _RootCreate(pydantic.BaseModel):
+class _ParentCreate(pydantic.BaseModel):
     a: int
 
 
-class _RootPut(_RootCreate): ...
+class _ParentPut(_ParentCreate): ...
 
 
-class _RootModel(pydantic.BaseModel):
+class _ParentModel(pydantic.BaseModel):
     id: int
     a: int
 
 
-class Root(Resource):
-    _URL: ClassVar[str] = "/root"
+class Parent(Resource):
+    _URL: ClassVar[str] = "/parent"
 
     a: int
 
@@ -37,36 +37,36 @@ def test_app() -> TestApp:
     app = fastapi.FastAPI()
 
     ids = itertools.count()
-    roots: dict[int, _RootModel] = {}
+    parents: dict[int, _ParentModel] = {}
 
-    @app.post(Root._URL)
-    async def _create_root(create: _RootCreate) -> _RootModel:
-        root = _RootModel.model_validate(create.model_dump() | {"id": next(ids)})
-        roots[root.id] = root
-        return roots[root.id]
+    @app.post(Parent._URL)
+    async def _create_parent(create: _ParentCreate) -> _ParentModel:
+        parent = _ParentModel.model_validate(create.model_dump() | {"id": next(ids)})
+        parents[parent.id] = parent
+        return parents[parent.id]
 
-    @app.get(Root._URL)
-    async def _list_roots() -> Iterable[_RootModel]:
-        return roots.values()
+    @app.get(Parent._URL)
+    async def _list_parents() -> Iterable[_ParentModel]:
+        return parents.values()
 
-    @app.get(Root._URL + "/{_id}")
-    async def _get_root(_id: int) -> _RootModel:
-        if _id not in roots:
+    @app.get(Parent._URL + "/{_id}")
+    async def _get_parent(_id: int) -> _ParentModel:
+        if _id not in parents:
             raise fastapi.HTTPException(status_code=fastapi.status.HTTP_404_NOT_FOUND)
-        return roots[_id]
+        return parents[_id]
 
-    @app.put(Root._URL + "/{_id}")
-    async def _put_root(_id: int, put: _RootPut) -> _RootModel:
-        if _id not in roots:
+    @app.put(Parent._URL + "/{_id}")
+    async def _put_parent(_id: int, put: _ParentPut) -> _ParentModel:
+        if _id not in parents:
             raise fastapi.HTTPException(status_code=fastapi.status.HTTP_404_NOT_FOUND)
-        root = roots[_id]
+        parent = parents[_id]
         for k, v in put.model_dump().items():
-            setattr(root, k, v)
-        return roots[_id]
+            setattr(parent, k, v)
+        return parents[_id]
 
-    @app.delete(Root._URL + "/{_id}")
-    async def _delete_root(_id: int) -> dict[str, str]:
-        del roots[_id]
+    @app.delete(Parent._URL + "/{_id}")
+    async def _delete_parent(_id: int) -> dict[str, str]:
+        del parents[_id]
         return {}
 
     return app
@@ -74,14 +74,14 @@ def test_app() -> TestApp:
 
 class TestClient(RestClient):
     __test__ = False
-    roots: ResourceList[Root, None]
+    parents: ResourceList[Parent, None]
 
     def __init__(self, client: httpx2.Client):
         super().__init__(client)
-        self.roots = ResourceList[Root, None](Root, self)
+        self.parents = ResourceList[Parent, None](Parent, self)
 
     def expire(self) -> Self:
-        self.roots.expire()
+        self.parents.expire()
         return self
 
 

@@ -10,19 +10,18 @@ resource lists should be refreshed on next access.
 """
 
 from functools import wraps
+import inspect
 from itertools import count
 import os
 from random import randint
+from typing import Callable, Any
 from unittest import TestCase
 
-import inspect
-from typing import Callable, Any
-
-
-import kiln_controller.client as _client
-from .mock_service import MockService
-from kiln_controller.common.enums import PhaseType
 from fixtures import kwargs
+import kiln_controller.client as _client
+from kiln_controller.common.enums import PhaseType
+
+from .mock_service import MockService
 
 __all__ = [
     "mock_service_fixture",

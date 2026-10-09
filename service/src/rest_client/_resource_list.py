@@ -14,21 +14,26 @@ from typing import (
     ClassVar,
     Self,
     override,
+    overload,
     Concatenate,
     Protocol,
     Never,
+    cast,
+    TYPE_CHECKING,
 )
 
 import httpx2
 import pydantic
 
-from ._client import RestClient
-from ._resource import Resource
+from ._resource import Resource, RootResource
+
+if TYPE_CHECKING:
+    from ._client import RestClient
 
 logger = logging.getLogger("rest_client")
 
 
-class ResourceList[T: Resource[Any], PT: Resource[Any] | None](list[T]):
+class ResourceList[T: Resource[Any], PT: Resource[Any]](list[T]):
     """
     List implementation for model elements backing REST resource collections.
     Access is deferred via lazy-refresh upon access (`_unexpire`).
@@ -36,21 +41,15 @@ class ResourceList[T: Resource[Any], PT: Resource[Any] | None](list[T]):
     Generic on T: type of contained resources, PT: parent type
     """
 
-    def __init__(
-        self,
-        type_: type[T],
-        client: RestClient,
-        parent: PT | None = None,
-    ):
+    def __init__(self, type_: type[T], parent: PT):
         self._type = type_
-        self._client = client
         self._parent = parent
         self._expired = True
         super().__init__()
 
     @property
     def _url(self) -> str:
-        return self._type._URL
+        return f"{self._parent._url}{self._type._URL}"
 
     def expire(self) -> Self:
         """Expire the list, causing it to refresh upon next access."""
@@ -60,11 +59,13 @@ class ResourceList[T: Resource[Any], PT: Resource[Any] | None](list[T]):
 
     def refresh(self) -> Self:
         """Populate the list from the remote endpoint."""
+        assert self._parent._client
         super().clear()
-        for _resource in self._client._client.get(self._url).raise_for_status().json():
+        for _resource in (
+            self._parent._client._http_client.get(self._url).raise_for_status().json()
+        ):
             resource = self._type.model_validate(_resource)
             resource._parent = self._parent
-            resource._client = self._client
             super().append(resource)
         self._expired = False
         return self
@@ -137,9 +138,10 @@ class ResourceList[T: Resource[Any], PT: Resource[Any] | None](list[T]):
         ), f"all elements in value must be an instance of {self._type}"
 
         for obj in value:
-            resp = self._client._client.post(self._url, json=obj.model_dump())
-            resp.raise_for_status()
-            obj._update(resp.json())
+            resp = self._parent._client._http_client.post(
+                self._url, json=obj.model_dump()
+            )
+            obj._update(resp, self._parent)
         return self
 
     def append(self, obj: T) -> None:
@@ -155,14 +157,27 @@ class ResourceList[T: Resource[Any], PT: Resource[Any] | None](list[T]):
             resource.delete()
 
 
-class ResourceListDescriptor:
+class RootResourceList[T: Resource[Any]](ResourceList[T, RootResource]):
+    """
+    A resource root resrouce lists can use as parent.
+    """
+
+    def __init__(self, _type: type[T], client: RestClient):
+        super().__init__(_type, parent=RootResource(client))
+
+    @property
+    def _url(self) -> str:
+        return self._type._URL
+
+
+class ResourceListDescriptor[T: Resource[Any], PT: Resource[Any]]:
     """Descriptor class for dynamic nested resource attributes."""
 
-    type_: DataclassBase = None
-    name: str = None
-    attr: str = None
+    type_: type[T]
+    name: str
+    attr: str
 
-    def __init__(self, type_: DataclassBase):
+    def __init__(self, type_: type[T]):
         self.type_ = type_
 
     def __set_name__(self, owner, name):
@@ -172,26 +187,24 @@ class ResourceListDescriptor:
     def __set__(self, obj, value):
         setattr(obj, self.attr, value)
 
-    def __get__(self, parent, parent_type=None):
+    @overload
+    def __get__(
+        self, parent: PT, parent_type: type[PT] | None = None
+    ) -> ResourceList[T, PT]: ...
+
+    @overload
+    def __get__(self, parent: None, parent_type: type[PT]) -> Self: ...
+
+    def __get__(
+        self, parent: PT | None, parent_type: type[PT] | None = None
+    ) -> ResourceList[T, PT] | Self:
         if parent is None:
-            return None
-
-        if not parent._url:
-            raise ValueError(
-                "subresources require parent to have url (has it been created yet?)"
-            )
-
-        resource_list = getattr(parent, self.attr, None)
+            return self
+        resource_list = cast(ResourceList[T, PT], getattr(parent, self.attr, None))
         if resource_list is None:
-            if not parent._client:
-                logger.error(f"unable to __get__ {parent=} {self.type_=}")
-                return None
             resource_list = ResourceList(
-                self.type_.concrete_type,
-                parent._client._client,
-                f"{parent._url}/{self.name[:-1]}" if parent._url else None,
+                self.type_,
                 parent,
-                (),
             )
             setattr(parent, self.attr, resource_list)
         return resource_list

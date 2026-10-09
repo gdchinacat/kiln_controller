@@ -137,11 +137,8 @@ class ResourceList[T: Resource[Any], PT: Resource[Any]](list[T]):
             isinstance(obj, self._type) for obj in value
         ), f"all elements in value must be an instance of {self._type}"
 
-        for obj in value:
-            resp = self._parent._client._http_client.post(
-                self._url, json=obj.model_dump()
-            )
-            obj._update(resp, self._parent)
+        for resource in value:
+            resource.post(self._parent)
         return self
 
     def append(self, obj: T) -> None:

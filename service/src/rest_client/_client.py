@@ -39,7 +39,6 @@ class RestClient(RootResource, ABC):
             self.parents = RootResourceList(Parent, self)
 
         def expire(self) -> Self:
-            super().expire()
             self.parents.expire()
             return self
     """

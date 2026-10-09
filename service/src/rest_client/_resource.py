@@ -156,7 +156,9 @@ class Resource[PT: "Resource[Any]"](pydantic.BaseModel, ABC):
         if parent:
             self._parent = parent
         assert self._client  # LBYL to make type checker happy
-        self._update(self._client._http_client.put(self._url, json=self.model_dump()))
+        self._update(
+            self._client._http_client.put(self._url, json=self.model_dump(mode="json"))
+        )
         return self
 
     def post(self, parent: PT | None = None) -> Self:
@@ -169,7 +171,7 @@ class Resource[PT: "Resource[Any]"](pydantic.BaseModel, ABC):
         self._update(
             self._client._http_client.post(
                 f"{self._parent._url}{self._URL}",
-                json=self.model_dump(),
+                json=self.model_dump(mode="json"),
             )
         )
         return self

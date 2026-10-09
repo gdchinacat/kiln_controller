@@ -80,7 +80,7 @@ def create_router(
     resource_update_type = resource_update_type or resource_type
     router = APIRouter(prefix=f"{url_prefix}/{url_path}", tags=[resource_type.__name__])
 
-    @router.get("/", openapi_extra=openapi_extra, operation_id=f"list_{url_path}")
+    @router.get("", openapi_extra=openapi_extra, operation_id=f"list_{url_path}")
     @_apply_resource_type(resource_type=resource_type.__name__)
     async def _list(
         request: Request,
@@ -117,7 +117,7 @@ def create_router(
         return orm.model_dump(mode="json")
 
     @router.post(
-        "/",
+        "",
         status_code=HTTPStatus.CREATED,
         response_model=resource_create_response_type,
         openapi_extra=openapi_extra,
@@ -136,6 +136,8 @@ def create_router(
         orm = orm_type.model_validate(resource_dict)
         async with (session := sessionmaker(expire_on_commit=False)), session.begin():
             session.add(orm)
+            # todo - trying to post an existing user causes an integrity error
+            #        on the flush...properly handle it.
             await session.flush()
             await session.run_sync(lambda sync_session: orm.validate_create_or_update())
         return orm.model_dump(mode="json") | ret_extra

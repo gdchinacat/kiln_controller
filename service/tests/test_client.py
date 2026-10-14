@@ -2,477 +2,319 @@
 Test the kiln_controller python client library.
 """
 
+from collections.abc import Callable
 from contextlib import contextmanager
-import random
+import datetime
 import os
+import random
 from typing import Any
 import unittest
 
+import httpx2
 import pytest
 
 from fixtures import kwargs
 from kiln_controller.client import (
+    Resource,
     Client,
     User,
     Device,
     Schedule,
     Phase,
-    NotFoundException,
+    PhaseType,
 )
-from kiln_controller.client._base import DEFAULT_TIMEOUT, ClientException
-from kiln_controller.common.enums import PhaseType
+from rest_client import ResourceList
 
 from ._fixtures import (
-    admin_user_fixture,
-    mock_service_fixture,
-    MockService,
-    client_fixture,
-    device_fixture,
     user_fixture,
+    user_client,
+    device_fixture,
     schedule_fixture,
     phase_fixture,
-    unique_username,
+    assert_http_status_error,
 )
-from .mock_service import Call
 
-PORT = int(os.getenv("SERVICE_PORT", "5000"))
-
-
-class AsDict:
-    def __init__(self, d):
-        self._dict = d
-
-    def asdict(self):
-        return self._dict
+type KilnControllerResource = User | Device | Schedule | Phase
 
 
-class ClientTest(unittest.TestCase):
+def _test_list_add[T: KilnControllerResource](
+    resource: T,
+    resource_list: ResourceList[T, Any],
+    iadd: bool = False,
+) -> None:
     """
-    Test the kiln_controller Client
-
-    This test supports a LIVE_SERVICE=true environment variable to allow the
-    tests to be executed against a live service rather than mocks.
+    helper to add an object to a resource list.
+    iadd: bool: use += rather than .append()
     """
+    # add it to the list
+    if iadd:
+        resource_list += (resource,)
+    else:
+        resource_list.append(resource)
 
-    # maxDiff = None  # I really do want to see the error
+    # Make sure the obj exists in the resource list when refreshed.
+    resource_list.expire()
 
-    @ kwargs["mock_service"] << mock_service_fixture()
-    def test_client_init(self, mock_service):
-        with mock_service.patch():
-            client = Client("username", "password")
-        self.assertIsNotNone(client)
-
-    @ kwargs["mock_service"] << mock_service_fixture()
-    @ kwargs["client"] << client_fixture()
-    def _test_list_add(
-        self,
-        _type_list_getter,
-        *args: object,
-        iadd=False,
-        mock_service: MockService,
-        client: Client,
-    ) -> None:
-        """
-        helper to add an object.
-        _type_list_getter: (_type, list_getter)
-
-        list_getter: func(client) -> ResourceList
-        iadd: bool: use += as opposed to .append?
-        """
-        # unpack the arg telling us what to add and where to add it
-        _type, list_getter = _type_list_getter
-
-        # create the resource
-        obj = _type(*args)
-
-        with mock_service.patch():
-            _list = list_getter(client)
-
-            # add it to the list
-            if iadd:
-                _list += obj
-            else:
-                _list.append(obj)
-
-            # make sure the obj exists in the resource list
-            self.assertTrue(obj in _list, f"{obj} not in {_list}")
-
-        # get a new client, make sure it exists there as well
-        with mock_service.patch():
-            client = Client(*client._client.auth, port=PORT)
-            _list = list_getter(client)
-
-            self.assertTrue(obj in _list)
-
-    @ kwargs["mock_service"] << mock_service_fixture()
-    def test_append_user_to_list(self, **_):
-        self._test_list_add(
-            (User, lambda client: client.users), "name", unique_username(), "password"
-        )
-
-    @ kwargs["mock_service"] << mock_service_fixture()
-    def test_add_user_to_list(self, **_):
-        self._test_list_add(
-            (User, lambda client: client.users),
-            "name",
-            unique_username(),
-            "password",
-            iadd=True,
-        )
-
-    @ kwargs["user"] << admin_user_fixture()
-    def test_add_device_to_list(self, user: User) -> None:
-        self._test_list_add(
-            (Device, lambda client: client.devices),
-            "name",
-            user.id,
-            iadd=True,
-        )
-
-    @ kwargs["user"] << admin_user_fixture()
-    def test_append_device_to_list(self, user: User) -> None:
-        self._test_list_add(
-            (Device, lambda client: client.devices),
-            "name",
-            user.id,
-        )
-
-    def test_add_schedule_to_list(self) -> None:
-        self._test_list_add(
-            (Schedule, lambda client: client.schedules),
-            "name",
-            1,
-            iadd=True,
-        )
-
-    def test_append_schedule_to_list(self):
-        self._test_list_add(
-            (Schedule, lambda client: client.schedules),
-            "name",
-            1,
-        )
-
-    @ kwargs["mock_service"] << mock_service_fixture()
-    @ kwargs["client"] << client_fixture()
-    def _test_post(self, resource, mock_service, client):
-        """
-        test that resources of type _type can be created using
-        Resource.post(client)
-        """
-        self.assertIsNone(resource.id)  # precondition check
-
-        with mock_service.patch():
-            # test post success
-            resource.post(client)
-
-            self.assertIsNotNone(resource.id, "post failed to assign id to resource")
-
-            # test post with resource.id fails
-            self.assertRaises(AttributeError, resource.post, client)
-
-            resource.refresh()
-
-    @ kwargs["mock_service"] << mock_service_fixture()
-    @ kwargs["user"] << user_fixture(skip_create=True)
-    def test_post_user(self, user, **_):
-        return self._test_post(user)
-
-    @ kwargs["mock_service"] << mock_service_fixture()
-    @ kwargs["client"] << client_fixture()
-    @ kwargs["user"] << user_fixture()
-    @ kwargs["device"] << device_fixture(skip_create=True)
-    def test_post_device(self, device, **kwargs):
-        return self._test_post(device)
-
-    @ kwargs["mock_service"] << mock_service_fixture()
-    @ kwargs["client"] << client_fixture()
-    @ kwargs["user"] << user_fixture()
-    @ kwargs["schedule"] << schedule_fixture(skip_create=True)
-    def test_post_schedule(self, user, schedule, **_):
-        return self._test_post(schedule)
-
-    @ kwargs["mock_service"] << mock_service_fixture()
-    @ kwargs["client"] << client_fixture()
-    def _test_put(self, resource, mock_service, client, skip_put_create: bool = False):
-        """
-        test that resources of type _type can be created and updated using
-        Resource.put(client)
-        """
-        with mock_service.patch():
-            if not skip_put_create:
-                # test put create success
-                # good chance this won't collide...right?
-                resource.id = int(random.random() * 1000000)
-                resource.put(client)
-                self.assertIsNotNone(resource.id, "put failed to assign id to resource")
-
-            # Test put without resource.id succeeds and doesn't create a new
-            # resource.
-            resource_dict = resource.asdict()
-            url = resource._url
-            del resource_dict["id"]
-            resp = client._client.put(url, AsDict(resource_dict))
-            assert resp["id"] == resource.id
-
-            # test put with resource.id succeeds, attribute changes
-            name = resource.name * 2
-            resource.name = name
-            resource.put(client)
-
-            # Verify name is updated by creating a new bare Resource with only
-            # id and getting it with the client.
-            resource2 = type(resource).__new__(type(resource))
-            resource2.id = resource.id
-            resource2.get(client)
-
-            self.assertEqual(name, resource2.name, "name not updated in put")
-
-    @ kwargs["mock_service"] << mock_service_fixture()
-    @ kwargs["client"] << client_fixture()
-    @ kwargs["user"] << user_fixture(skip_create=True)
-    def test_put_user(self, user, **_):
-        return self._test_put(user)
-
-    @ kwargs["mock_service"] << mock_service_fixture()
-    @ kwargs["client"] << client_fixture()
-    @ kwargs["user"] << user_fixture()
-    @ kwargs["device"] << device_fixture()
-    def test_put_device(self, device, **_):
-        return self._test_put(device, skip_put_create=True)
-
-    @ kwargs["mock_service"] << mock_service_fixture()
-    @ kwargs["client"] << client_fixture()
-    @ kwargs["user"] << user_fixture()
-    @ kwargs["schedule"] << schedule_fixture(skip_create=True)
-    def test_put_schedule(self, schedule, **_):
-        return self._test_put(schedule)
-
-    @contextmanager
-    def _mock_client_requests(self):
-        """context manager that replaces client.requests with a mock"""
-        mock = None
-        try:
-            yield mock
-        finally:
-            pass
-
-    def _test_delete_resource(self, resource, client, mock_service):
-        """test that Resource.delete() functions"""
-        self.assertIsNotNone(resource.id)
-
-        resource_url = f"{resource._client._client.url}{resource._url}/"
-        resource.delete()
-
-        self.assertEqual(
-            [
-                Call(
-                    mock_service.delete.__name__,
-                    (resource_url,),
-                    {
-                        "auth": client._client.auth,
-                        "timeout": DEFAULT_TIMEOUT,
-                        "verify": False,
-                    },
-                    return_=None,
-                )
-            ],
-            mock_service.calls,
-        )
-        self.assertIsNone(resource.id)
-
-    @ kwargs["mock_service"] << mock_service_fixture()
-    @ kwargs["client"] << client_fixture()
-    @ kwargs["user"] << user_fixture(skip_cleanup=True)
-    def test_delete_user_resource(self, mock_service, client, user, **kwargs):
-        with mock_service.patch():
-            return self._test_delete_resource(
-                resource=user, client=client, mock_service=mock_service
-            )
-
-    @ kwargs["mock_service"] << mock_service_fixture()
-    @ kwargs["client"] << client_fixture()
-    @ kwargs["user"] << user_fixture()
-    @ kwargs["client"] << client_fixture()
-    @ kwargs["device"] << device_fixture(skip_cleanup=True)
-    def test_delete_device_resource(self, client, device, mock_service, **kwargs):
-        with mock_service.patch():
-            return self._test_delete_resource(
-                resource=device, client=client, mock_service=mock_service
-            )
-
-    @ kwargs["mock_service"] << mock_service_fixture()
-    @ kwargs["client"] << client_fixture()
-    @ kwargs["user"] << user_fixture()
-    @ kwargs["schedule"] << schedule_fixture(skip_cleanup=True)
-    def test_delete_schedule_resource(self, client, schedule, mock_service, **kwargs):
-        with mock_service.patch():
-            return self._test_delete_resource(
-                resource=schedule, client=client, mock_service=mock_service
-            )
-
-    def _test_delete_resource_by_list(
-        self, resource_list, resource, client, mock_service
-    ):
-        """test that Resource.delete() functions"""
-
-        with mock_service.patch():
-            resource_list.expire()  # ensure the view is in sync with resource
-
-            self.assertTrue(resource in resource_list)
-
-        resource_url = f"{resource._client._client.url}{resource._url}/"
-        with mock_service.patch():
-            idx = resource_list.index(resource)
-            del resource_list[idx]
-
-        self.assertEqual(
-            [
-                Call(
-                    mock_service.delete.__name__,
-                    (resource_url,),
-                    {
-                        "auth": client._client.auth,
-                        "timeout": DEFAULT_TIMEOUT,
-                        "verify": False,
-                    },
-                    return_=None,
-                )
-            ],
-            mock_service.calls,
-        )
-
-        with mock_service.patch():
-            self.assertFalse(resource in resource_list)
-
-        self.assertEqual(
-            [
-                Call(
-                    mock_service.get.__name__,
-                    (f"{resource._client._client.url}{resource._URL}/",),
-                    {
-                        "auth": client._client.auth,
-                        "timeout": DEFAULT_TIMEOUT,
-                        "verify": False,
-                    },
-                    return_=Any,
-                )
-            ],
-            mock_service.calls,
-        )
-
-    @ kwargs["mock_service"] << mock_service_fixture()
-    @ kwargs["client"] << client_fixture()
-    @ kwargs["user"] << user_fixture()
-    def test_delete_user_resource_by_list(self, client, user, mock_service, **kwargs):
-        with mock_service.patch():
-            user.refresh()  # fixtures leave user.password set, refresh to clear it
-        return self._test_delete_resource_by_list(
-            client.users, user, client=client, mock_service=mock_service
-        )
-
-    @ kwargs["mock_service"] << mock_service_fixture()
-    @ kwargs["client"] << client_fixture()
-    @ kwargs["user"] << user_fixture()
-    @ kwargs["device"] << device_fixture()
-    def test_delete_device_resource_by_list(
-        self, client, device, mock_service, **kwargs
-    ):
-        return self._test_delete_resource_by_list(
-            client.devices, device, client=client, mock_service=mock_service
-        )
-
-    @ kwargs["mock_service"] << mock_service_fixture()
-    @ kwargs["client"] << client_fixture()
-    @ kwargs["user"] << user_fixture()
-    @ kwargs["schedule"] << schedule_fixture()
-    def test_delete_schedule_resource_by_list(
-        self, client, schedule, mock_service, **kwargs
-    ):
-        return self._test_delete_resource_by_list(
-            client.schedules, schedule, client=client, mock_service=mock_service
-        )
-
-    @ kwargs["mock_service"] << mock_service_fixture()
-    @ kwargs["client"] << client_fixture()
-    @ kwargs["user"] << user_fixture()
-    @ kwargs["schedule"] << schedule_fixture()
-    def test_basic_schedule_phases_resource_list(
-        self, schedule, mock_service, **kwargs
-    ):
-        """basic test that schedule.phases ResourceList works"""
-        with mock_service.patch():
-            self.assertEqual([], schedule.phases)
-
-        phase = Phase("name", 1, PhaseType.RAMP, None, 5, parent=schedule)
-        self.assertEqual(f"{schedule._url}/phase", phase._url)
-        with mock_service.patch():
-            schedule.phases += phase
-            self.assertEqual([phase], schedule.phases)
-        self.assertEqual(f"{schedule._url}/phase/{phase.id}", phase._url)
-        self.assertEqual(
-            f"{schedule._url}/phase/{phase.id}",
-            schedule.phases[0]._url,
-            "resource list element has url",
-        )
-
-        with mock_service.patch():
-            del schedule.phases[0]
-            self.assertEqual([], schedule.phases)
-
-    @ kwargs["mock_service"] << mock_service_fixture()
-    @ kwargs["client"] << client_fixture()
-    @ kwargs["user"] << user_fixture()
-    @ kwargs["schedule"] << schedule_fixture()
-    @ kwargs["phase"] << phase_fixture()
-    def test_schedule_phases_resource_list_clear_get(
-        self, schedule, phase, client, mock_service, **kwargs
-    ):
-        """basic test that schedule.phases ResourceList works"""
-
-        with mock_service.patch():
-            # clear the phases to force a reload
-            self.assertEqual([], mock_service.calls)
-            schedule.phases.clear()
-            self.assertEqual([], mock_service.calls)
-
-            # Access the resource list twice, only the first should generate a
-            # call.
-            phases = list(schedule.phases)
-            _ = list(schedule.phases)
-
-        self.assertEqual([phase], phases)
-
-        self.assertEqual(
-            [
-                Call(
-                    mock_service.get.__name__,
-                    (f"{client._client.url}{schedule._url}/phase/",),
-                    {
-                        "auth": client._client.auth,
-                        "timeout": DEFAULT_TIMEOUT,
-                        "verify": False,
-                    },
-                    return_=[phase.asdict()],
-                )
-            ],
-            mock_service.calls,
-        )
-
-    @ kwargs["mock_service"] << mock_service_fixture()
-    @ kwargs["client"] << client_fixture()
-    @ kwargs["user"] << user_fixture()
-    @ kwargs["schedule"] << schedule_fixture(skip_cleanup=True)
-    @ kwargs["phase"] << phase_fixture(skip_cleanup=True)
-    def test_schedule_delete_deletes_phases(
-        self, client, schedule, phase, mock_service, **kwargs
-    ):
-        """basic test that deleting a schedule deletes its phases"""
-        with mock_service.patch():
-            schedule.delete()
-
-            with self.assertRaises(NotFoundException):
-                phase.get()
+    # Resource may have write only fields (User.password, Device.auth_token)
+    # that mismatch between resource and what the server has, look by id.
+    assert next(r for r in resource_list if r.id == resource.id)
 
 
-if __name__ == "__main__":
-    pytest.main()
+# todo - add test_---_user_to_list methods
+
+
+@pytest.mark.parametrize("iadd", (True, False))
+@ kwargs["user"] << user_fixture()
+@ kwargs["client"] << user_client()
+@ kwargs["device"] << device_fixture(skip_create=True)
+def test_add_device_to_list(
+    iadd: bool, device: Device, client: Client, **_: object
+) -> None:
+    _test_list_add(device, client.devices, iadd=True)
+
+
+@pytest.mark.parametrize("iadd", (True, False))
+@ kwargs["user"] << user_fixture()
+@ kwargs["client"] << user_client()
+@ kwargs["schedule"] << schedule_fixture(skip_create=True)
+def test_add_schedule_to_list(
+    iadd: bool, schedule: Schedule, client: Client, **_: Any
+) -> None:
+    _test_list_add(schedule, client.schedules, iadd=True)
+
+
+def _test_post(client: Client, resource: KilnControllerResource) -> None:
+    """
+    test that resources of type _type can be created using
+    Resource.post(client)
+    """
+    assert (
+        resource.id is None
+    ), f"{resource} appears to have already been created"  # precondition check
+
+    # test post success
+    resource.post(client)
+
+    assert resource.id is not None, "post failed to assign id to resource"
+
+    # test post with resource.id fails
+    with pytest.raises(AttributeError):
+        resource.post()
+
+    resource.refresh()
+
+
+@ kwargs["user"] << user_fixture(skip_create=True)
+def test_post_user(admin_client, user: User, **_):
+    return _test_post(admin_client, user)
+
+
+@ kwargs["user"] << user_fixture()
+@ kwargs["client"] << user_client()
+@ kwargs["device"] << device_fixture(skip_create=True)
+def test_post_device(client: Client, device: Device, **_: Any) -> None:
+    return _test_post(client, device)
+
+
+@ kwargs["user"] << user_fixture()
+@ kwargs["client"] << user_client()
+@ kwargs["schedule"] << schedule_fixture(skip_create=True)
+def test_post_schedule(client: Client, schedule: Schedule, **_: Any) -> None:
+    return _test_post(client, schedule)
+
+
+def _test_put(
+    resource: KilnControllerResource, client: Client, skip_put_create: bool = False
+) -> None:
+    """
+    test that resources of type _type can be created and updated using
+    Resource.put(client)
+    """
+    if not skip_put_create:
+        # test put create success
+        # good chance this won't collide...right?
+        resource.id = int(random.random() * 1000000)
+        resource.put(client)
+        assert resource.id is not None, "put failed to assign id to resource"
+
+    # Test put without resource.id succeeds and doesn't create a new
+    # resource.
+    resource_dict = resource.model_dump(mode="json")
+    url = resource._url
+    del resource_dict["id"]
+    resp = client._http_client.put(url, json=resource_dict).raise_for_status()
+    assert resp.json()["id"] == resource.id
+
+    # test put with resource.id succeeds, attribute changes
+    name = resource.name * 2
+    resource.name = name
+    resource.put(client)
+
+    # Verify name is updated by creating a new bare Resource with only
+    # id and getting it with the client.
+    resource2 = resource._testing_shadow()
+    resource2.name = ""
+    resource2.get(client)
+
+    assert name == resource2.name, "name not updated in put"
+
+
+@ kwargs["user"] << user_fixture(skip_create=True)
+def test_put_user(user: User, admin_client: Client, **_):
+    return _test_put(user, admin_client)
+
+
+@ kwargs["user"] << user_fixture()
+@ kwargs["client"] << user_client()
+@ kwargs["device"] << device_fixture()
+def test_put_device(device: Device, client: Client, **_):
+    return _test_put(device, client, skip_put_create=True)
+
+
+@ kwargs["user"] << user_fixture()
+@ kwargs["client"] << user_client()
+@ kwargs["schedule"] << schedule_fixture(skip_create=True)
+def test_put_schedule(schedule: Schedule, client: Client, **_):
+    return _test_put(schedule, client)
+
+
+@contextmanager
+def _mock_client_requests():
+    """context manager that replaces client.requests with a mock"""
+    mock = None
+    try:
+        yield mock
+    finally:
+        pass
+
+
+def _test_delete_resource(resource: KilnControllerResource) -> None:
+    """test that Resource.delete() functions"""
+    assert resource.id is not None
+    resource_id = resource.id
+
+    resource.delete()
+
+    assert resource.id is None
+    resource.id = resource_id
+    with assert_http_status_error(httpx2.codes.NOT_FOUND):
+        resource.get()
+
+
+@ kwargs["user"] << user_fixture(skip_delete=True)
+def test_delete_user_resource(user: User, **_: Any):
+    return _test_delete_resource(resource=user)
+
+
+@ kwargs["user"] << user_fixture()
+@ kwargs["client"] << user_client()
+@ kwargs["device"] << device_fixture(skip_delete=True)
+def test_delete_device_resource(client, device, **kwargs):
+    return _test_delete_resource(
+        resource=device,
+    )
+
+
+@ kwargs["user"] << user_fixture()
+@ kwargs["client"] << user_client()
+@ kwargs["schedule"] << schedule_fixture(skip_delete=True)
+def test_delete_schedule_resource(client, schedule, **kwargs):
+    return _test_delete_resource(
+        resource=schedule,
+    )
+
+
+def _test_delete_resource_by_list[T: KilnControllerResource](
+    resource_list: ResourceList[T, Any], resource: T
+) -> None:
+    """test that Resource.delete() functions"""
+    resource_id = resource.id
+    _resource = resource._testing_shadow()
+
+    # resource_list.expire()  # ensure the view is in sync with resource
+
+    # Find the index of the resource by id because the resources may have write
+    # only fields (user.password) that are on the fixture that created the
+    # resource but not on the instances in the resource list.
+    idx = next(i for (i, r) in enumerate(resource_list) if r.id == resource.id)
+
+    del resource_list[idx]
+
+    with assert_http_status_error(httpx2.codes.NOT_FOUND):
+        _resource.get()  # getting the shadow fails because it's been deleted
+
+
+@ kwargs["user"] << user_fixture(skip_delete=True)
+@ kwargs["client"] << user_client()
+def test_delete_user_resource_by_list(user: User, client: Client, **_: Any) -> None:
+    return _test_delete_resource_by_list(client.users, user)
+
+
+@ kwargs["user"] << user_fixture()
+@ kwargs["client"] << user_client()
+@ kwargs["device"] << device_fixture()
+def test_delete_device_resource_by_list(
+    client: Client, device: Device, **kwargs
+) -> None:
+    return _test_delete_resource_by_list(
+        client.devices,
+        device,
+    )
+
+
+@ kwargs["user"] << user_fixture()
+@ kwargs["client"] << user_client()
+@ kwargs["schedule"] << schedule_fixture()
+def test_delete_schedule_resource_by_list(
+    client: Client, schedule: Schedule, **_: Any
+) -> None:
+    return _test_delete_resource_by_list(
+        client.schedules,
+        schedule,
+    )
+
+
+@ kwargs["user"] << user_fixture()
+@ kwargs["client"] << user_client()
+@ kwargs["schedule"] << schedule_fixture()
+@ kwargs["phase"] << phase_fixture(skip_create=True, skip_delete=True)
+def test_basic_schedule_phases_resource_list(
+    phase: Phase, schedule: Schedule, **_: Any
+) -> None:
+    """basic test that schedule.phases ResourceList works"""
+    assert [] == schedule.phases
+
+    """
+    phase = Phase(
+        name="name",
+        ordinal=1,
+        phase_type=PhaseType.RAMP,
+        temperature=None,
+        duration=datetime.time(minute=5),
+        parent=schedule,
+    )
+"""
+    schedule.phases += (phase,)
+    assert [phase] == schedule.phases
+
+    del schedule.phases[0]
+    assert [] == schedule.phases
+
+
+@ kwargs["user"] << user_fixture()
+@ kwargs["client"] << user_client()
+@ kwargs["schedule"] << schedule_fixture(skip_delete=True)
+@ kwargs["phase"] << phase_fixture(skip_delete=True)
+def test_schedule_delete_deletes_phases(client, schedule, phase, **kwargs):
+    """basic test that deleting a schedule deletes its phases"""
+    _phase = phase._testing_shadow()
+    schedule.delete()
+
+    # phase get can't be made because its parent has been deleted
+    with pytest.raises(AssertionError) as ae:
+        phase.get()
+    assert Resource.IDReason.HAS_BEEN_DELETED.value in ae.value.args[0]
+
+    # shaddow request is made but phase has been deleted
+    with assert_http_status_error(httpx2.codes.NOT_FOUND):
+        _phase.get()

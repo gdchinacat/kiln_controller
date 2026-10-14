@@ -6,7 +6,7 @@ client wrapper interfaces.
 """
 
 from abc import ABC, abstractmethod
-from typing import Self, ClassVar, Any
+from typing import Self, ClassVar, Any, override
 
 import httpx2
 
@@ -72,10 +72,12 @@ class RestClient(RootResource, ABC):
         """Expire the resource lists exposed by the client."""
         # todo? - use metaclass, __set_name__, etc to do this automatically?
 
+    @override
     @property
     def _url(self) -> str:
         return RestClient._URL
 
+    @override
     @property
     def _client(self) -> RestClient:
         return self
@@ -83,3 +85,7 @@ class RestClient(RootResource, ABC):
     @property
     def _http_client(self) -> httpx2.Client:
         return self.__client
+
+    @override
+    def _testing_shadow(self) -> Self:
+        return self

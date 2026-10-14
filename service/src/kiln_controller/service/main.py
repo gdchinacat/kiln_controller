@@ -9,6 +9,7 @@ from collections.abc import Iterable, AsyncIterator
 from contextlib import asynccontextmanager
 import logging
 import os
+import os
 
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
@@ -21,25 +22,24 @@ from .models import db  # initialize the database
 from .models.validators import ValidationError
 from .routers import users_router, devices_router, schedules_router, phases_router
 
-SQLALCHEMY_PERSISTENT_DATABASE_URL = "sqlite+aiosqlite:///kiln_controller.db"
-
 # debug
 # logging.basicConfig()
 # logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
 # logging.getLogger("kiln_controller.client").setLevel(logging.INFO)
 # end debug
-
 logger = logging.getLogger("kiln_controller.app")
 
-if os.environ.get("TEST_SERVICE", "false").upper() == "TRUE":
-    url = db.SQLALCHEMY_DEFAULT_DATABASE_URL
-else:
-    url = SQLALCHEMY_PERSISTENT_DATABASE_URL
+# By default an in memory non-persistent database is used so that tests and
+# utilities don't accidentally modify the local database. The app must
+# explicitly request the persistent database by setting the DB_URL envoronment
+# variable when started.
+SQLALCHEMY_DEFAULT_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+DB_URL = os.environ.get("DB_URL", SQLALCHEMY_DEFAULT_DATABASE_URL)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    app.state.db_engine = await db.get_engine(url)
+    app.state.db_engine = await db.get_engine(DB_URL)
     app.state.db_sessionmaker = db.get_sessionmaker(app.state.db_engine)
     yield
 
@@ -49,7 +49,6 @@ app = FastAPI(title="Kiln Controller", lifespan=lifespan)
 app.frontend("/", directory="./static")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.state.metrics_server = VictoriaMetricsServer("http://localhost:4242/api/put")
-
 
 app.include_router(users_router)
 app.include_router(devices_router)

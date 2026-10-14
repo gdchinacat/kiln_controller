@@ -7,3 +7,4 @@ class Device(Resource):
     name: str
     user_id: int
     description: str | None = None
+    auth_token: str | None = None  # only exists on responses to POST

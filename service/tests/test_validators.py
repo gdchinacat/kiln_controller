@@ -1,10 +1,12 @@
+from collections.abc import Callable, Generator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
-from functools import partial
-from typing import List
-from unittest import TestCase
+from functools import partial, wraps
+from typing import Concatenate, Self
 
 import pytest
 
+from fixtures import kwargs
 from kiln_controller.service.models.validators import (
     ValidationError,
     ValidationErrors,
@@ -12,11 +14,37 @@ from kiln_controller.service.models.validators import (
     UserValidator,
     ScheduleValidator,
     DeviceValidator,
+    ValidatorMixinBase,
 )
-from .helpers import SortedList
-from fixtures import kwargs
 
-__all__ = []
+
+class SortedList[T](list):
+    """list subclass that sorts on insert"""
+
+    key: Callable[[T], int] | None = None
+
+    def __init__(self, *args, key=None):
+        super().__init__(*args)
+        self.key = key
+
+    @staticmethod
+    def _sort[**P, R](
+        func: Callable[Concatenate[SortedList[T], P], R],
+    ) -> Callable[Concatenate[SortedList[T], P], R]:
+        """decorator to sort the list after calling wrapped function"""
+
+        @wraps(func)
+        def _wrap(self: SortedList[T], *args: P.args, **kwargs: P.kwargs) -> R:
+            try:
+                return func(self, *args, **kwargs)
+            finally:
+                self.sort(key=self.key)
+
+        return _wrap
+
+    __add__ = _sort(list.__add__)
+    __delitem__ = _sort(list.__delitem__)
+    __setitem__ = _sort(list.__setitem__)
 
 
 @kwargs.factory
@@ -25,8 +53,8 @@ class _User(UserValidator):
     """User @fixture"""
 
     name = "name"
-    schedules: List["_Schedule"] = field(default_factory=list)
-    devices: List["_Device"] = field(default_factory=list)
+    schedules: list["_Schedule"] = field(default_factory=list)
+    devices: list["_Device"] = field(default_factory=list)
 
 
 @kwargs.factory
@@ -34,7 +62,7 @@ class _User(UserValidator):
 class _Device(DeviceValidator):
     """Device @fixture"""
 
-    user: "_User"
+    user: _User
 
     def __post_init__(self):
         if self.user:
@@ -46,8 +74,8 @@ class _Device(DeviceValidator):
 class _Schedule(ScheduleValidator):
     """Schedule @fixture"""
 
-    user: _User = None
-    phases: List["_Phase"] = field(
+    user: _User = None  # type: ignore  # kwargs doesn't allow proper typing of this use-case
+    phases: list["_Phase"] = field(
         default_factory=partial(SortedList, key=lambda phase: phase.ordinal)
     )
 
@@ -97,66 +125,61 @@ class _Phase:
         )
 
 
-class _ValidatorTestCase(TestCase):
-    """
-    Base TestCase class for test validator test cases.
-
-    Provides methods for encapsulating common assertion patterns.
-    """
-
-    def assertInvalid(self, resource, error: ValidationErrors, **kwargs):
-        """
-        assert resource.validate() raises ValidationError with type error.
-        """
-        with self.assertRaises(ValidationError) as ve:
-            resource.validate_create_or_update()
-        self.assertEqual(error, ve.exception.error)
+@contextmanager
+def _assert_validation_error(
+    error: ValidationErrors,
+) -> Generator[pytest.ExceptionInfo[ValidationError]]:
+    with pytest.raises(ValidationError) as ve:
+        yield ve
+    assert error == ve.value.error
 
 
-class TestScheduleValidator(_ValidatorTestCase):
-    """Test the schedule validator"""
-
-    @ kwargs["schedule"] << _Schedule()
-    @ kwargs["phase"] << _Phase.constant()
-    def test_first_phase_must_be_ramp(self, schedule, **_):
-        self.assertInvalid(schedule, ValidationErrors.FIRST_PHASE_NOT_RAMP)
-
-    @ kwargs["schedule"] << _Schedule()
-    @ kwargs["phase"] << _Phase.ramp(temperature=1000)
-    @ kwargs["phase"] << _Phase.constant(temperature=1500)
-    def test_temperature_must_be_continous(self, schedule, **_):
-        self.assertInvalid(schedule, ValidationErrors.TEMPERATURE_NOT_CONTINUOUS)
-
-    @ kwargs["schedule"] << _Schedule()
-    @ kwargs["phase"] << _Phase.ramp()
-    @ kwargs["phase"] << _Phase.constant()
-    @ kwargs["phase"] << _Phase.constant()
-    def test_no_sequential_constant_phases(self, schedule, **_):
-        self.assertInvalid(schedule, ValidationErrors.SEQUENTIAL_CONSTANT_PHASES)
-
-    @ kwargs["schedule"] << _Schedule()
-    @ kwargs["phase"] << _Phase.ramp()
-    @ kwargs["phase"] << _Phase.ramp()
-    def test_no_dupliate_ramp_temperatures(self, schedule, **_):
-        self.assertInvalid(schedule, ValidationErrors.DUPLICATE_RAMP_TEMPERATURES)
+@ kwargs["schedule"] << _Schedule()
+@ kwargs["phase"] << _Phase.constant()
+def test_first_phase_must_be_ramp(schedule, **_):
+    with _assert_validation_error(ValidationErrors.FIRST_PHASE_NOT_RAMP):
+        schedule.validate_create_or_update()
 
 
-class TestUserValidator(_ValidatorTestCase):
+@ kwargs["schedule"] << _Schedule()
+@ kwargs["phase"] << _Phase.ramp(temperature=1000)
+@ kwargs["phase"] << _Phase.constant(temperature=1500)
+def test_temperature_must_be_continous(schedule, **_):
+    with _assert_validation_error(ValidationErrors.TEMPERATURE_NOT_CONTINUOUS):
+        schedule.validate_create_or_update()
 
-    @ kwargs["user"] << _User()
-    def test_user_delete_no_schedule_no_device(self, user):
+
+@ kwargs["schedule"] << _Schedule()
+@ kwargs["phase"] << _Phase.ramp()
+@ kwargs["phase"] << _Phase.constant()
+@ kwargs["phase"] << _Phase.constant()
+def test_no_sequential_constant_phases(schedule, **_):
+    with _assert_validation_error(ValidationErrors.SEQUENTIAL_CONSTANT_PHASES):
+        schedule.validate_create_or_update()
+
+
+@ kwargs["schedule"] << _Schedule()
+@ kwargs["phase"] << _Phase.ramp()
+@ kwargs["phase"] << _Phase.ramp()
+def test_no_dupliate_ramp_temperatures(schedule, **_):
+    with _assert_validation_error(ValidationErrors.DUPLICATE_RAMP_TEMPERATURES):
+        schedule.validate_create_or_update()
+
+
+@ kwargs["user"] << _User()
+def test_user_delete_no_schedule_no_device(user):
+    user.validate_delete()
+
+
+@ kwargs["user"] << _User()
+@ kwargs["shedule"] << _Schedule()
+def test_user_delete_with_schedule_error(user, **_):
+    with _assert_validation_error(ValidationErrors.USER_HAS_SCHEDULES):
         user.validate_delete()
 
-    @ kwargs["user"] << _User()
-    @ kwargs["shedule"] << _Schedule()
-    def test_user_delete_with_schedule_error(self, user, **_):
-        with self.assertRaises(ValidationError) as ve:
-            user.validate_delete()
-        self.assertEqual(ValidationErrors.USER_HAS_SCHEDULES, ve.exception.error)
 
-    @ kwargs["user"] << _User()
-    @ kwargs["device"] << _Device()
-    def test_user_delete_with_device_error(self, user, **_):
-        with self.assertRaises(ValidationError) as ve:
-            user.validate_delete()
-        self.assertEqual(ValidationErrors.USER_MANAGES_DEVICES, ve.exception.error)
+@ kwargs["user"] << _User()
+@ kwargs["device"] << _Device()  # type: ignore  # kwargs doesn't allow proper typing of this use-case
+def test_user_delete_with_device_error(user, **_):
+    with _assert_validation_error(ValidationErrors.USER_MANAGES_DEVICES):
+        user.validate_delete()

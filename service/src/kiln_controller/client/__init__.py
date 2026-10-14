@@ -2,6 +2,7 @@
 This package exposes the python SDK (client) for the kiln_controller service.
 """
 
+from rest_client import Resource
 from ._client import Client
 from ._user import User
 from ._device import Device
@@ -14,4 +15,5 @@ __all__ = [
     "Schedule",
     "Phase",
     "PhaseType",
+    "Resource",  # re-export base class of resources for convenience
 ]

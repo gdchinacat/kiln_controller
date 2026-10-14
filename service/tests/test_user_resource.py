@@ -2,82 +2,58 @@
 Test the kiln_controller user resource behavior.
 """
 
-import logging
-import os
-import unittest
-
+import httpx2
 import pytest
 
 from fixtures import kwargs
-from kiln_controller.client import ClientException, ValidationErrors, NotFoundException
+from kiln_controller.client import Client
 
 from ._fixtures import (
-    mock_service_fixture,
-    client_fixture,
+    assert_http_status_error,
+    device_fixture,
+    user_client,
     user_fixture,
     schedule_fixture,
-    device_fixture,
 )
-from .mock_service import LIVE_SERVICE
-
-if os.getenv("DEBUG_LOGGING", "false").upper() == "TRUE":
-    logging.basicConfig(level=logging.DEBUG, force=True)
 
 
-class UserTest(unittest.TestCase):
+@ kwargs["user"] << user_fixture()
+@ kwargs["client"] << user_client()
+@ kwargs["schedule"] << schedule_fixture()
+def test_user_delete_fails_with_schedule(client: Client, user, **_):
     """
-    Test phase resources.
+    Verify an error occurs if a user delete is attempted while the user has
+    schedules.
     """
+    with assert_http_status_error(httpx2.codes.UNPROCESSABLE_CONTENT) as hse:
+        user.delete()
+    assert hse.value.response.json()["detail"][0]["type"] == "USER_HAS_SCHEDULES"
 
-    @pytest.mark.skipif(not LIVE_SERVICE, reason="mocks do not perform validation")
-    @ kwargs["mock_service"] << mock_service_fixture()
-    @ kwargs["client"] << client_fixture()
-    @ kwargs["user"] << user_fixture()
-    @ kwargs["schedule"] << schedule_fixture()
-    def test_user_delete_fails_with_schedule(self, user, mock_service, **_):
-        """
-        Verify an error occurs if a user delete is attempted while the user has
-        schedules.
-        """
-        with mock_service.patch():
-            with self.assertRaises(ClientException) as ce:
-                user.delete()
 
-        self.assertEqual(ValidationErrors.USER_HAS_SCHEDULES.name, ce.exception.type)
+@ kwargs["user"] << user_fixture()
+@ kwargs["client"] << user_client()
+@ kwargs["device"] << device_fixture()
+def test_user_delete_fails_with_device(user, device, **_):
+    """
+    Verify an error occurs if a user delete is attempted while the user has
+    schedules.
+    """
+    with assert_http_status_error(httpx2.codes.UNPROCESSABLE_CONTENT) as hse:
+        user.delete()
+    assert hse.value.response.json()["detail"][0]["type"] == "USER_MANAGES_DEVICES"
 
-    @pytest.mark.skipif(not LIVE_SERVICE, reason="mocks do not perform validation")
-    @ kwargs["mock_service"] << mock_service_fixture()
-    @ kwargs["client"] << client_fixture()
-    @ kwargs["user"] << user_fixture()
-    @ kwargs["client"] << client_fixture()
-    @ kwargs["device"] << device_fixture()
-    def test_user_delete_fails_with_devices(self, user, mock_service, device, **_):
-        """
-        Verify an error occurs if a user delete is attempted while the user has
-        schedules.
-        """
-        with mock_service.patch():
-            with self.assertRaises(ClientException) as ce:
-                user.delete()
 
-        self.assertEqual(ValidationErrors.USER_MANAGES_DEVICES.name, ce.exception.type)
+@ kwargs["user"] << user_fixture()
+def test_user_get_has_no_password(user, **_):
+    user.password = None  # clear the password cached by fixtures
+    user.get()
+    assert not user.password
 
-    @pytest.mark.skipif(not LIVE_SERVICE, reason="mocks do not perform validation")
-    @ kwargs["mock_service"] << mock_service_fixture()
-    @ kwargs["client"] << client_fixture()
-    @ kwargs["user"] << user_fixture()
-    def test_user_get_has_no_password(self, user, mock_service, **_):
-        with mock_service.patch():
-            user.get()
-            assert not user.password
 
-    @ kwargs["mock_service"] << mock_service_fixture()
-    @ kwargs["client"] << client_fixture()
-    @ kwargs["user"] << user_fixture()
-    def test_user_not_found(self, user, mock_service, **_):
-        with mock_service.patch():
-            user_id = user.id
-            user.delete()
-            user.id = user_id
-            with self.assertRaises(NotFoundException):
-                user.get()
+@ kwargs["user"] << user_fixture()
+def test_user_not_found(user, **_):
+    user_id = user.id
+    user.delete()
+    user.id = user_id
+    with assert_http_status_error(httpx2.codes.NOT_FOUND):
+        user.get()

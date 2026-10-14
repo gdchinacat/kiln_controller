@@ -3,7 +3,8 @@ REST client framework.
 """
 
 from abc import ABC
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
+from enum import Enum
 from functools import wraps
 import functools
 import logging
@@ -14,8 +15,13 @@ import pydantic
 
 if TYPE_CHECKING:
     from ._client import RestClient
+    from ._resource_list import ResourceList
 
 logger = logging.getLogger("client.rest_client")
+
+
+class _ResourceListDescriptor[T: Resource[Any], PT: Resource[Any]]:
+    def __set__(self, obj: Any, value: ResourceList[T, PT]): ...
 
 
 class Resource[PT: "Resource[Any]"](pydantic.BaseModel, ABC):
@@ -34,6 +40,7 @@ class Resource[PT: "Resource[Any]"](pydantic.BaseModel, ABC):
 
     model_config = pydantic.ConfigDict(
         validate_assignment=True,
+        ignored_types=(_ResourceListDescriptor,),
     )
 
     _URL: ClassVar[str]
@@ -55,6 +62,13 @@ class Resource[PT: "Resource[Any]"](pydantic.BaseModel, ABC):
     """The ID of the resource. Can be None when the resource is pending or
     deleted."""
 
+    class IDReason(str, Enum):
+        NOT_YET_CREATED = "has not yet been created"
+        DOES_HAVE_AN_ID = "does have an id"
+        HAS_BEEN_DELETED = "has been deleted"
+
+    _id_reason: IDReason = pydantic.PrivateAttr(IDReason.NOT_YET_CREATED)
+
     def __init__(
         self,
         parent: PT | None = None,
@@ -68,6 +82,15 @@ class Resource[PT: "Resource[Any]"](pydantic.BaseModel, ABC):
         """
         super().__init__(*args, **kwargs)
         self._parent = parent
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        """work around pydantic descriptor issues (allow += on ResourceListDescriptor"""
+        descriptor = getattr(type(self), name, None)
+
+        if isinstance(descriptor, _ResourceListDescriptor):
+            descriptor.__set__(self, value)
+        else:
+            super().__setattr__(name, value)
 
     @property
     def _client(self) -> "RestClient":
@@ -102,7 +125,7 @@ class Resource[PT: "Resource[Any]"](pydantic.BaseModel, ABC):
         assert (
             self._client is not None
         ), "resources that have no client do not have a url"
-        assert self.id is not None, "resources that have no ID do not have a url"
+        assert self.id is not None, f"{self!r} has no id, it {self._id_reason.value}"
 
         return f"{self._parent._url}{self._URL}/{self.id}"
 
@@ -110,6 +133,7 @@ class Resource[PT: "Resource[Any]"](pydantic.BaseModel, ABC):
     def from_response(cls, response: httpx2.Response, parent: PT) -> Self:
         """Create a resource from an response and parent resource."""
         resource = cls.model_validate(response.raise_for_status().json())
+        resource._id_reason = cls.IDReason.DOES_HAVE_AN_ID
         resource._parent = parent
         return resource
 
@@ -134,6 +158,8 @@ class Resource[PT: "Resource[Any]"](pydantic.BaseModel, ABC):
             self._parent = parent
         for k, v in response.json().items():
             setattr(self, k, v)
+            if k == "id" and v is not None:
+                self._id_reason = self.IDReason.DOES_HAVE_AN_ID
 
     def get(self, parent: PT | None = None) -> Self:
         if parent:
@@ -150,6 +176,7 @@ class Resource[PT: "Resource[Any]"](pydantic.BaseModel, ABC):
         assert self._client  # LBYL to make type checker happy
         self._client._http_client.delete(self._url).raise_for_status()
         self.id = None
+        self._id_reason = self.IDReason.HAS_BEEN_DELETED
         return self
 
     def put(self, parent: PT | None = None) -> Self:
@@ -175,6 +202,12 @@ class Resource[PT: "Resource[Any]"](pydantic.BaseModel, ABC):
             )
         )
         return self
+
+    def _testing_shadow(self) -> Self:
+        assert self._parent
+        _parent = self._parent._testing_shadow()
+        clone = type(self).model_validate(self.model_dump())
+        return clone.get(_parent)
 
 
 class RootResource(Resource["RestClient"]):

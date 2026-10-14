@@ -1,5 +1,6 @@
 from collections.abc import Generator, Callable, Iterator
 from contextlib import contextmanager, AbstractContextManager
+from dataclasses import dataclass
 import os
 import shutil
 import ssl
@@ -16,7 +17,14 @@ import uvicorn
 
 from kiln_controller.service.main import app
 from kiln_controller.service.models import get_engine, get_sessionmaker, SessionMaker
-from dataclasses import dataclass
+from kiln_controller.client import Client
+
+"""
+Pytest fixtures. These are mostly relatively static fixtures that are not
+parameterized (in the 'has parameters' sense, not the pytest.parametrize
+sense). Test specific/parameterized fixtures used with fixtures.kwargs are
+located in _fixtures.
+"""
 
 
 @dataclass
@@ -75,25 +83,43 @@ def service_factory() -> ServiceFactory:
             yield Service(f"https://127.0.0.1:{assigned_port}", ca)
         finally:
             server.should_exit = True
-            server_thread.join()  # if this hangs make sure clients are being closed
+            # TODO TODO TODO restore this join and figure out what errors were
+            # causing the user_client fixture to not be exited
+            # server_thread.join()  # if this hangs make sure clients are being closed
 
     return _factory
 
 
 @pytest.fixture
-def client(service_factory: ServiceFactory) -> Generator[httpx2.Client]:
+def service(service_factory: ServiceFactory) -> Generator[Service]:
+    # TODO - this service uses the global app defined in main which will cause
+    #        all sorts of problems with any tests that use global app state
+    #        (such as app.state.metrics_server).
+    # TODO - replace app state service references such as sessionmaker and
+    #        metrics_server.
     with service_factory(app) as service:
-        with httpx2.Client(
-            base_url=service.url, verify=service.client_ssl_context
-        ) as client:
-            yield client
+        yield service
+
+
+@pytest.fixture(scope="function")
+def admin_client(
+    service: Service, username="admin", password="admin"
+) -> Generator[Client]:
+    with httpx2.Client(
+        base_url=service.url,
+        verify=service.client_ssl_context,
+        auth=(username, password),
+    ) as http_client:
+        client = Client(http_client)
+        yield client
+        http_client.close()
 
 
 @pytest.fixture
-async def engine() -> AsyncEngine:
-    return await get_engine("sqlite+aiosqlite://")
+async def _engine() -> AsyncEngine:
+    return await get_engine("sqlite+aiosqlite:///:memory:")
 
 
 @pytest.fixture
-def sessionmaker(engine: AsyncEngine) -> SessionMaker:
-    return get_sessionmaker(engine)
+def sessionmaker(_engine: AsyncEngine) -> SessionMaker:
+    return get_sessionmaker(_engine)

@@ -1,5 +1,5 @@
 """
-Common fixtures for tests.
+Common fixtures.kwargs fixtures for tests.
 
 Fixture implementations are encouraged to use Resource.post(client) rather than
 creating them through resource lists. This is to avoid unnecessary requests
@@ -9,118 +9,63 @@ resources becoming stale. ResourceList.expire() should be used to indicate the
 resource lists should be refreshed on next access.
 """
 
-from functools import wraps
-import inspect
+from collections.abc import Generator, Iterator, Callable
+from contextlib import contextmanager
+import datetime
 from itertools import count
 import os
-from random import randint
-from typing import Callable, Any
-from unittest import TestCase
+from typing import Any
+
+import httpx2
+import pytest
 
 from fixtures import kwargs
 import kiln_controller.client as _client
-from kiln_controller.common.enums import PhaseType
 
-from .mock_service import MockService
+from .conftest import admin_client, Service
 
 __all__ = [
-    "mock_service_fixture",
-    "MockService",
-    "client_fixture",
-    "admin_user_fixture",
+    "assert_http_status_error",
     "user_fixture",
+    "user_client",
+    "device_fixture",
     "schedule_fixture",
     "phase_fixture",
 ]
 
-SKIP_CLEANUP = os.getenv("SKIP_CLEANUP", "false").upper() == "TRUE"
-PORT = int(os.getenv("SERVICE_PORT", "5000"))
 
-
-def cleanup(func):
+@contextmanager
+def assert_http_status_error(
+    code: int,
+    detail_type: str | None = None,
+) -> Generator[pytest.ExceptionInfo[httpx2.HTTPStatusError]]:
     """
-    Fixture to cleanup the return value of the decorated fixture function.
-
-    Fixture functions decorated with this accept a skip_cleanup kwarg that is
-    intercepted by this fixture. If skip_cleanup is true-ish no cleanup will
-    be performed by the fixture for the resource. This is useful for tests that
-    delete a resource provided by a fixture.
+    Assert the managed block raises httpx2.HTTPStatusError.
+    The exception is the context manager value so the response can be validated
+    as well:
+        with assert_http_status_error(httpx2.codes.UNPROCESSABLE_CONTENT) as hse:
+            user.delete()
+        assert hse.value.response.json()["detail"][0]["type"] == "USER_HAS_SCHEDULES"
     """
-
-    @wraps(func)
-    def _cleanable_fixture(*, mock_service, skip_cleanup=None, **kwargs):
-        """wrapper to call func and register its return for cleanup"""
-        resource = func(mock_service=mock_service, **kwargs)
-
-        def _tearDown(*args, **kwargs):
-            with mock_service.patch():
-                resource.delete()
-
-        def tearDown(*args, **kwargs):  # fixtures/kwargs cleanup callback
-            if not (skip_cleanup or SKIP_CLEANUP):
-                _tearDown(*args, **kwargs)
-
-        resource.tearDown = tearDown
-        resource._tearDown = _tearDown
-        return resource
-
-    return _cleanable_fixture
+    with pytest.raises(httpx2.HTTPStatusError) as hse:
+        yield hse
+    assert hse.value.response.status_code == code
+    if detail_type:
+        assert hse.value.response.json()["detail"][0]["type"] == detail_type
 
 
 @kwargs.factory
-def mock_service_fixture(**_) -> MockService:
-    """fixture that provices a MockService"""
-    return MockService()
-
-
-@kwargs.factory
-def client_fixture(
-    mock_service: MockService,
-    username: str = "admin",
-    password: str = "admin",
-    user: _client.User = None,
-    **_,
-) -> _client.Client:
-    """fixture that provides a Client"""
-    if user is not None:
-        username = user.username
-        password = user.password
-    with mock_service.patch():
-        return _client.Client(username, password, port=PORT)
-
-
-@kwargs.factory
-@ kwargs["mock_service"] << mock_service_fixture()
-def admin_user_fixture(mock_service: MockService, **_: dict[str, Any]) -> _client.User:
-    """Get the admin user, which is assumed to the the first user."""
-
-    @ kwargs["client"] << client_fixture()
-    def _client(client: _client.Client, **_: Any) -> _client.Client:
-        return client
-
-    with mock_service.patch():
-        return _client(mock_service=mock_service).users[0]
-
-
-def unique_username(_user_count=count(randint(0, 9999) * 1000)) -> str:
-    # todo - fix this janky way to create unique usernames. It is used to "make
-    #        sure" tests don't use a username another test has leaked (should
-    #        SKIP_CLEANUP be removed?).
-    return f"username{next(_user_count)}"
-
-
-@kwargs.factory
-@cleanup
 def user_fixture(
+    *,
+    admin_client: _client.Client,
     name: str = "name",
     username: str | None = None,
     password: str | None = "password",
     skip_create: bool = False,
-    mock_service: MockService | None = None,
-    client: Client | None = None,
-    _user_count: int = count(randint(0, 9999) * 1000),
+    skip_delete: bool = False,
+    _user_count: Iterator[int] = count(),
     **kwargs: dict[str, Any],
-) -> _client.User:
+) -> Generator[_client.User]:
     """
     Create a user.
 
@@ -131,79 +76,112 @@ def user_fixture(
     skip_create causes the user to not be inserted (useful for when you need
     a user with a uniqueish username that hasn't been created on the server).
     """
-    username = username or unique_username()
-    user = _client.User(name, username, password)
+    username = username or f"username{next(_user_count)}"
+    user = _client.User(name=name, username=username, password=password)
     if not skip_create:
-        with mock_service.patch():
-            user.post(client)
-    user.password = password  # client_fixture needs this
-    return user
+        user.post(admin_client)
+    user.password = password  # user_client_fixture needs this
+    yield user
+    if not skip_delete:
+        user.delete()
 
 
 @kwargs.factory
-@cleanup
+def user_client(
+    *,
+    service: Service,
+    admin_client: _client.Client,
+    user: _client.User,
+    **_: object,
+) -> Generator[_client.Client]:
+    """Get a user that is authorized with the user."""
+    assert user.password is not None
+    with httpx2.Client(
+        base_url=admin_client._http_client.base_url,
+        verify=service.client_ssl_context,
+        auth=(user.username, user.password),
+    ) as http_client:
+        client = _client.Client(http_client)
+        # todo I think it makes sense to assign the client for the user to the
+        # client  for that user since most often (devices, schedules) you want
+        # them associated to the client for the user. related todo in
+        # device_fixture but schedule needs it as well. This sort of duplicates
+        # Resource._parent (which is why this mmakes sense, but these fixtures
+        # all need a parent (user or schedule). Not fully thought out, so it's
+        # a todo.
+        yield client
+        http_client.close()
+
+
+@kwargs.factory
 def device_fixture(
-    mock_service,
-    client,
-    user,
+    *,
+    client: _client.Client,  # todo remove because this is redundant user that has a client
+    user: _client.User,
     skip_create: bool = False,
-    name="name",
-    **kwargs,
-):
-    device = _client.Device(name, user.id)
+    skip_delete: bool = False,
+    name: str = "name",
+    **kwargs: object,
+) -> Generator[_client.Device]:
+    assert user.id is not None
+    device = _client.Device(name=name, user_id=user.id)
     if not skip_create:
-        with mock_service.patch():
-            device.post(client)
-    return device
+        device.post(client)
+    yield device
+    if not skip_delete:
+        device.delete()
 
 
 @kwargs.factory
-@cleanup
 def schedule_fixture(
-    mock_service,
-    client,
-    user,
+    *,
+    client: _client.Client,
+    user: _client.User,
     skip_create: bool = False,
-    name="name",
-    **kwargs,
-):
+    skip_delete: bool = False,
+    name: str = "name",
+    **kwargs: object,
+) -> Generator[_client.Schedule]:
+    assert user.id is not None
     schedule = _client.Schedule(name=name, user_id=user.id)
     if not skip_create:
-        with mock_service.patch():
-            schedule.post(client)
-    return schedule
+        schedule.post(client)
+    yield schedule
+    if not skip_delete:
+        schedule.delete()
 
 
 @kwargs.factory
 def phase_fixture(
-    mock_service,
-    client,
-    schedule,
-    name="name",
-    ordinal=0,
-    phase_type=PhaseType.RAMP,
-    duration=None,
-    temperature=1000,
-    rate=100,
-    **kwargs,
-):
+    *,
+    schedule: _client.Schedule,
+    name: str = "name",
+    ordinal: int = 0,
+    phase_type: _client.PhaseType = _client.PhaseType.RAMP,
+    duration: datetime.time | None = None,
+    temperature: int | None = 1000,
+    rate: int | None = 100,
+    skip_create: bool = False,
+    skip_delete: bool = False,
+    **kwargs: object,
+) -> Generator[_client.Phase]:
     """
     Fixture to create a phase.
 
     By default, the phase is a 1 hour long 1000C constant phase with ordinal 0.
-
-    Cleanup is managed by the schedule, phases from this fixture are not
-    scheduled for cleanup.
     """
 
+    assert schedule.id is not None
     phase = _client.Phase(
         name=name,
         ordinal=ordinal,
         phase_type=phase_type,
         temperature=temperature,
         rate=rate,
-        parent=schedule,
+        schedule_id=schedule.id,
     )
-    with mock_service.patch():
-        phase.post(client)
-    return phase
+    if not skip_create:
+        phase.post(schedule)
+    yield phase
+    if not skip_delete:
+        phase.delete()

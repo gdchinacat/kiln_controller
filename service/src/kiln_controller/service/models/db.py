@@ -28,16 +28,10 @@ ADMIN_NAME = "Admin User"
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "admin"
 
-# By default an in memory non-persistent database is used so that tests and
-# utilities don't accidentally modify the local database. The app must
-# explicitly request the persistent database.
-SQLALCHEMY_DEFAULT_DATABASE_URL = "sqlite+aiosqlite://"
-
-
 type SessionMaker = async_sessionmaker[AsyncSession]
 
 
-async def get_engine(uri: str = SQLALCHEMY_DEFAULT_DATABASE_URL) -> AsyncEngine:
+async def get_engine(uri: str) -> AsyncEngine:
     """Engine factory."""
     engine = create_async_engine(uri)
 

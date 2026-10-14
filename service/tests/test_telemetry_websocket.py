@@ -1,5 +1,5 @@
 import asyncio
-from collections.abc import Iterable, AsyncGenerator
+from collections.abc import Iterable, AsyncGenerator, Generator
 from dataclasses import dataclass, field
 import os
 from queue import Queue, Empty
@@ -30,7 +30,7 @@ from kiln_controller.service.models import (
     DeviceCreate,
     DeviceORM,
 )
-from kiln_controller.service.models.db import SessionMaker, get_engine
+from kiln_controller.service.models.db import SessionMaker
 
 os.environ["NON_PERSISTENT"] = "TRUE"
 
@@ -55,8 +55,9 @@ class FakeMetricsServer(MetricsServer):
     received_telemetry: Queue[Telemetry] = field(default_factory=Queue[Telemetry])
 
     @override
-    async def telemetry(self, telemetry: Telemetry, device: DeviceORM) -> None:
+    async def telemetry(self, telemetry: Telemetry, device: DeviceORM) -> int:
         self.received_telemetry.put(telemetry)
+        return telemetry.sample_count
 
 
 @pytest.fixture
@@ -65,24 +66,23 @@ def metrics_server() -> FakeMetricsServer:
 
 
 @pytest.fixture
-def test_app(metrics_server: FakeMetricsServer) -> FastAPI:
-    app.state.metrics_server = metrics_server
-    return app
+def test_app(metrics_server: FakeMetricsServer) -> Generator[FastAPI]:
+    _metrics_server = app.state.metrics_server
+    try:
+        app.state.metrics_server = metrics_server
+        yield app
+    finally:
+        app.state.metrics_server = _metrics_server
 
 
 @pytest.fixture
-async def engine() -> AsyncGenerator[Any, AsyncEngine]:
-    app.state.db_engine = await get_engine()
-    yield app.state.db_engine
-    await app.state.db_engine.dispose(close=True)
-
-
-@pytest.fixture
-def client(
-    engine: AsyncEngine, test_app: FastAPI, sessionmaker: SessionMaker
-) -> TestClient:
-    test_app.state.db_sessionmaker = sessionmaker
-    return TestClient(app)
+def client(test_app: FastAPI, sessionmaker: SessionMaker) -> Generator[TestClient]:
+    _sessionmaker = test_app.state.db_sessionmaker
+    try:
+        test_app.state.db_sessionmaker = sessionmaker
+        yield TestClient(app)
+    finally:
+        test_app.state.db_sessionmaker = _sessionmaker
 
 
 class AuthenticatedUser(User):

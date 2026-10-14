@@ -25,7 +25,7 @@ from typing import (
 import httpx2
 import pydantic
 
-from ._resource import Resource, RootResource
+from ._resource import Resource, RootResource, _ResourceListDescriptor
 
 if TYPE_CHECKING:
     from ._client import RestClient
@@ -66,6 +66,7 @@ class ResourceList[T: Resource[Any], PT: Resource[Any]](list[T]):
         ):
             resource = self._type.model_validate(_resource)
             resource._parent = self._parent
+            resource._id_reason = Resource.IDReason.DOES_HAVE_AN_ID
             super().append(resource)
         self._expired = False
         return self
@@ -133,9 +134,10 @@ class ResourceList[T: Resource[Any], PT: Resource[Any]](list[T]):
 
     @_expire
     def __iadd__(self, value: Iterable[T]) -> Self:
-        assert all(
-            isinstance(obj, self._type) for obj in value
-        ), f"all elements in value must be an instance of {self._type}"
+        assert all(isinstance(obj, self._type) for obj in value), (
+            f"all elements in value must be an instance of {self._type}"
+            f": {set(type(obj) for obj in value)}"
+        )
 
         for resource in value:
             resource.post(self._parent)
@@ -167,7 +169,9 @@ class RootResourceList[T: Resource[Any]](ResourceList[T, RootResource]):
         return self._type._URL
 
 
-class ResourceListDescriptor[T: Resource[Any], PT: Resource[Any]]:
+class ResourceListDescriptor[T: Resource[Any], PT: Resource[Any]](
+    _ResourceListDescriptor[T, PT]
+):
     """Descriptor class for dynamic nested resource attributes."""
 
     type_: type[T]
@@ -181,7 +185,7 @@ class ResourceListDescriptor[T: Resource[Any], PT: Resource[Any]]:
         self.name = name
         self.attr = f"_{name}"
 
-    def __set__(self, obj, value):
+    def __set__(self, obj: Any, value: ResourceList[T, PT]) -> None:
         setattr(obj, self.attr, value)
 
     @overload

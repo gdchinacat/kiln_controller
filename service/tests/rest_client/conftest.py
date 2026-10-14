@@ -57,9 +57,7 @@ class Parent(Resource):
     _URL: ClassVar[str] = "/parent"
 
     a: int
-    children: ClassVar[ResourceListDescriptor[Child, Parent]] = ResourceListDescriptor(
-        Child
-    )
+    children = ResourceListDescriptor(Child)
 
 
 @pytest.fixture

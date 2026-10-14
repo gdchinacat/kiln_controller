@@ -20,7 +20,7 @@ import httpx2
 import pytest
 
 from fixtures import kwargs
-import kiln_controller.client as _client
+from kiln_controller.client import Client, User, Device, Schedule, Phase, PhaseType
 
 from .conftest import admin_client, Service
 
@@ -57,7 +57,7 @@ def assert_http_status_error(
 @kwargs.factory
 def user_fixture(
     *,
-    admin_client: _client.Client,
+    admin_client: Client,
     name: str = "name",
     username: str | None = None,
     password: str | None = "password",
@@ -65,7 +65,7 @@ def user_fixture(
     skip_delete: bool = False,
     _user_count: Iterator[int] = count(),
     **kwargs: dict[str, Any],
-) -> Generator[_client.User]:
+) -> Generator[User]:
     """
     Create a user.
 
@@ -77,7 +77,7 @@ def user_fixture(
     a user with a uniqueish username that hasn't been created on the server).
     """
     username = username or f"username{next(_user_count)}"
-    user = _client.User(name=name, username=username, password=password)
+    user = User(name=name, username=username, password=password)
     if not skip_create:
         user.post(admin_client)
     user.password = password  # user_client_fixture needs this
@@ -90,9 +90,9 @@ def user_fixture(
 def user_client(
     *,
     service: Service,
-    user: _client.User,
+    user: User,
     **_: object,
-) -> Generator[_client.Client]:
+) -> Generator[Client]:
     """Get a user that is authorized with the user."""
     assert user.password is not None
     with httpx2.Client(
@@ -100,7 +100,7 @@ def user_client(
         verify=service.client_ssl_context,
         auth=(user.username, user.password),
     ) as http_client:
-        client = _client.Client(http_client)
+        client = Client(http_client)
         # todo I think it makes sense to assign the client for the user to the
         # client  for that user since most often (devices, schedules) you want
         # them associated to the client for the user. related todo in
@@ -115,15 +115,15 @@ def user_client(
 @kwargs.factory
 def device_fixture(
     *,
-    client: _client.Client,  # todo remove because this is redundant user that has a client
-    user: _client.User,
+    client: Client,  # todo remove because this is redundant user that has a client
+    user: User,
     skip_create: bool = False,
     skip_delete: bool = False,
     name: str = "name",
     **kwargs: object,
-) -> Generator[_client.Device]:
+) -> Generator[Device]:
     assert user.id is not None
-    device = _client.Device(name=name, user_id=user.id)
+    device = Device(name=name, user_id=user.id)
     if not skip_create:
         device.post(client)
     yield device
@@ -134,15 +134,15 @@ def device_fixture(
 @kwargs.factory
 def schedule_fixture(
     *,
-    client: _client.Client,
-    user: _client.User,
+    client: Client,
+    user: User,
     skip_create: bool = False,
     skip_delete: bool = False,
     name: str = "name",
     **kwargs: object,
-) -> Generator[_client.Schedule]:
+) -> Generator[Schedule]:
     assert user.id is not None
-    schedule = _client.Schedule(name=name, user_id=user.id)
+    schedule = Schedule(name=name, user_id=user.id)
     if not skip_create:
         schedule.post(client)
     yield schedule
@@ -153,17 +153,17 @@ def schedule_fixture(
 @kwargs.factory
 def phase_fixture(
     *,
-    schedule: _client.Schedule,
+    schedule: Schedule,
     name: str = "name",
     ordinal: int = 0,
-    phase_type: _client.PhaseType = _client.PhaseType.RAMP,
+    phase_type: PhaseType = PhaseType.RAMP,
     duration: datetime.time | None = None,
     temperature: int | None = 1000,
     rate: int | None = 100,
     skip_create: bool = False,
     skip_delete: bool = False,
     **kwargs: object,
-) -> Generator[_client.Phase]:
+) -> Generator[Phase]:
     """
     Fixture to create a phase.
 
@@ -171,7 +171,7 @@ def phase_fixture(
     """
 
     assert schedule.id is not None
-    phase = _client.Phase(
+    phase = Phase(
         name=name,
         ordinal=ordinal,
         phase_type=phase_type,

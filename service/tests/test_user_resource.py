@@ -38,6 +38,7 @@ def test_user_delete_fails_with_device(user, device, **_):
     Verify an error occurs if a user delete is attempted while the user has
     schedules.
     """
+    assert device.user_id == user.id
     with assert_http_status_error(httpx2.codes.UNPROCESSABLE_CONTENT) as hse:
         user.delete()
     assert hse.value.response.json()["detail"][0]["type"] == "USER_MANAGES_DEVICES"

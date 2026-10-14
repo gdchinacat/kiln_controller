@@ -69,20 +69,19 @@ class DeviceCreate(ResourceCreate):
     """
 
     name: str = pydantic.Field(max_length=NAME_LENGTH)
+    user_id: int | None = None
 
     def extra_attrs(
         self, user: UserORM
     ) -> tuple[dict[str, str | int], dict[str, str | int]]:
         """provide the auth_token"""
-        assert user.id is not None
-
-        # Associate device with the user that created it.
         ret = super().extra_attrs(user)
-        ret[0]["user_id"] = user.id
+
+        if self.user_id is None:
+            self.user_id = user.id
 
         # Return the plaintext auth token to the device (ret[1]), but store the
         # hashed auth token in the database (ret[0]).
-
         ret[1]["auth_token"], ret[0]["auth_token"] = _DeviceAuth.generate()
 
         return ret

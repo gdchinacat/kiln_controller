@@ -115,7 +115,6 @@ def user_client(
 @kwargs.factory
 def device_fixture(
     *,
-    client: Client,  # todo remove because this is redundant user that has a client
     user: User,
     skip_create: bool = False,
     skip_delete: bool = False,
@@ -125,7 +124,7 @@ def device_fixture(
     assert user.id is not None
     device = Device(name=name, user_id=user.id)
     if not skip_create:
-        device.post(client)
+        device.post(user._client)
     yield device
     if not skip_delete:
         device.delete()

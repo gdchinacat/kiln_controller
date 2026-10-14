@@ -90,14 +90,13 @@ def user_fixture(
 def user_client(
     *,
     service: Service,
-    admin_client: _client.Client,
     user: _client.User,
     **_: object,
 ) -> Generator[_client.Client]:
     """Get a user that is authorized with the user."""
     assert user.password is not None
     with httpx2.Client(
-        base_url=admin_client._http_client.base_url,
+        base_url=user._client._http_client.base_url,
         verify=service.client_ssl_context,
         auth=(user.username, user.password),
     ) as http_client:

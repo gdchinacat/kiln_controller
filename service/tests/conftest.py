@@ -83,9 +83,7 @@ def service_factory() -> ServiceFactory:
             yield Service(f"https://127.0.0.1:{assigned_port}", ca)
         finally:
             server.should_exit = True
-            # TODO TODO TODO restore this join and figure out what errors were
-            # causing the user_client fixture to not be exited
-            # server_thread.join()  # if this hangs make sure clients are being closed
+            server_thread.join()  # if this hangs make sure clients are being closed
 
     return _factory
 

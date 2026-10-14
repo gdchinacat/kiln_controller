@@ -35,5 +35,5 @@ stop_service:
 
 .PHONY: test
 test:
-	uv run pytest .
+	uv run pytest -s -n 4 .
 

@@ -60,7 +60,12 @@ def _test_list_add[T: KilnControllerResource](
     assert next(r for r in resource_list if r.id == resource.id)
 
 
-# todo - add test_---_user_to_list methods
+@pytest.mark.parametrize("iadd", (True, False))
+@ kwargs["user"] << user_fixture(skip_create=True)
+def test_add_user_to_list(
+    iadd: bool, user: User, admin_client: Client, **_: object
+) -> None:
+    _test_list_add(user, admin_client.users, iadd=iadd)
 
 
 @pytest.mark.parametrize("iadd", (True, False))
@@ -70,7 +75,7 @@ def _test_list_add[T: KilnControllerResource](
 def test_add_device_to_list(
     iadd: bool, device: Device, client: Client, **_: object
 ) -> None:
-    _test_list_add(device, client.devices, iadd=True)
+    _test_list_add(device, client.devices, iadd=iadd)
 
 
 @pytest.mark.parametrize("iadd", (True, False))
@@ -80,7 +85,7 @@ def test_add_device_to_list(
 def test_add_schedule_to_list(
     iadd: bool, schedule: Schedule, client: Client, **_: Any
 ) -> None:
-    _test_list_add(schedule, client.schedules, iadd=True)
+    _test_list_add(schedule, client.schedules, iadd=iadd)
 
 
 def _test_post(client: Client, resource: KilnControllerResource) -> None:

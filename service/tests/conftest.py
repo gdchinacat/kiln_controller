@@ -62,6 +62,11 @@ def service_factory() -> ServiceFactory:
 
             return context
 
+        # TODO - this service uses the global app defined in main which will cause
+        #        all sorts of problems with any tests that use global app state
+        #        (such as app.state.metrics_server).
+        # TODO - replace app state service references such as sessionmaker and
+        #        metrics_server.
         config = uvicorn.Config(
             app=app,
             host="127.0.0.1",
@@ -90,11 +95,6 @@ def service_factory() -> ServiceFactory:
 
 @pytest.fixture
 def service(service_factory: ServiceFactory) -> Generator[Service]:
-    # TODO - this service uses the global app defined in main which will cause
-    #        all sorts of problems with any tests that use global app state
-    #        (such as app.state.metrics_server).
-    # TODO - replace app state service references such as sessionmaker and
-    #        metrics_server.
     with service_factory(app) as service:
         yield service
 

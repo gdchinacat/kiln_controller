@@ -245,7 +245,11 @@ def _test_delete_resource_by_list[T: KilnControllerResource](
 
     del resource_list[idx]
 
-    with assert_http_status_error(httpx2.codes.NOT_FOUND):
+    with assert_http_status_error(
+        httpx2.codes.UNAUTHORIZED
+        if isinstance(resource, User)
+        else httpx2.codes.NOT_FOUND
+    ):
         _resource.get()  # getting the shadow fails because it's been deleted
 
 

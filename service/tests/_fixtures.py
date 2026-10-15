@@ -24,7 +24,6 @@ from kiln_controller.client import Client, User, Device, Schedule, Phase, PhaseT
 
 from .conftest import admin_client, Service
 
-
 __all__ = [
     "assert_http_status_error",
     "user_fixture",
@@ -81,7 +80,6 @@ def user_fixture(
     user = User(name=name, username=username, password=password)
     if not skip_create:
         user.post(admin_client)
-    user.password = password  # user_client_fixture needs this
     yield user
     if not skip_delete:
         user.delete()
@@ -94,30 +92,26 @@ def user_client(
     user: User,
     **_: object,
 ) -> Generator[Client]:
-    """Get a user that is authorized with the user."""
+    """Get a client using users authorization."""
     assert user.password is not None
     with httpx2.Client(
         base_url=user._client._http_client.base_url,
         verify=service.client_ssl_context,
-        auth=(user.username, user.password),
     ) as http_client:
         client = Client(http_client)
-        # parent = user._parent
-        # user._parent = client
-        # todo I think it makes sense to assign the client for the user to the
-        # client  for that user since most often (devices, schedules) you want
-        # them associated to the client for the user. related todo in
-        # device_fixture but schedule needs it as well. This sort of duplicates
-        # Resource._parent (which is why this mmakes sense, but these fixtures
-        # all need a parent (user or schedule). Not fully thought out, so it's
-        # a todo. Started working on this, the original user client needs to
-        # be restored so it is used when the user cleanup/delete occurs. An
-        # auth error happens, but I plan on redoing auth in a bit so just
-        # noting it here and not working throught that as it will be wasted
-        # effort to do now.
-        yield client
-        # user._parent = parent
-        http_client.close()
+        client.login(user.username, user.password)
+
+        # Update the user to use its own client.
+        parent = user._parent
+        user._parent = client
+        try:
+            yield client
+        finally:
+            # user_client is created from a user so when the fixtures unwind
+            # during cleanup this client is closed before the user is deleted
+            # so restore the original client so the user.delete can succeed.
+            user._parent = parent
+            http_client.close()
 
 
 @kwargs.factory

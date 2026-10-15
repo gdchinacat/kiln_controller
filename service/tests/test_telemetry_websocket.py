@@ -43,16 +43,6 @@ class _Auth(NamedTuple):
     password: str
 
 
-@pytest.fixture
-def auth(username: str = "username", password: str = "password") -> _Auth:
-    return _Auth(username, password)
-
-
-@pytest.fixture
-def admin_auth() -> _Auth:
-    return _Auth("admin", "admin")
-
-
 @dataclass
 class FakeMetricsServer(MetricsServer):
     received_telemetry: Queue[Telemetry] = field(default_factory=Queue[Telemetry])
@@ -79,11 +69,9 @@ def test_app(metrics_server: FakeMetricsServer) -> Generator[FastAPI]:
 
 
 @pytest.fixture
-def client(
-    test_app: FastAPI, sessionmaker: SessionMaker
-) -> Generator[TestClient]:
+def client(test_app: FastAPI, sessionmaker: SessionMaker) -> Generator[TestClient]:
     _sessionmaker = test_app.state.db_sessionmaker
-    try: 
+    try:
         test_app.state.db_sessionmaker = sessionmaker
         client = TestClient(app, base_url="https://testserver")
         client.post(
@@ -93,7 +81,6 @@ def client(
                 password="admin",  # todo proper auth
             ).model_dump(),
         )
-        client.get("/user").raise_for_status()  # todo remove - here for testing fixture
         yield client
     finally:
         test_app.state.db_sessionmaker = _sessionmaker
@@ -102,7 +89,6 @@ def client(
 @pytest.fixture
 def user(
     client: TestClient,
-    admin_auth: _Auth,  # to create the user
     name: str = "name",
     username: str = "username",
     password: str = "password",
@@ -111,7 +97,6 @@ def user(
     response = client.post("/user", json=dict(create))
     response.raise_for_status()
     json = response.json()
-    json["auth"] = (username, password)
     return User.model_validate(json)
 
 

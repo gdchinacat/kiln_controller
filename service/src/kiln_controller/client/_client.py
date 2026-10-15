@@ -4,6 +4,7 @@ import httpx2
 
 from rest_client import RestClient, RootResourceList
 
+from ._auth import LoginInfo
 from ._user import User
 from ._device import Device
 from ._schedule import Schedule, Phase
@@ -27,3 +28,12 @@ class Client(RestClient):
         self.devices.expire()
         self.schedules.expire()
         return self
+
+    def login(self, username: str, password: str) -> None:
+        self._http_client.post(
+            "/auth/login",
+            json=LoginInfo(
+                username=username,
+                password=password,
+            ).model_dump(),
+        ).raise_for_status()

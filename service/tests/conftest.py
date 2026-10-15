@@ -106,9 +106,9 @@ def admin_client(
     with httpx2.Client(
         base_url=service.url,
         verify=service.client_ssl_context,
-        auth=(username, password),
     ) as http_client:
         client = Client(http_client)
+        client.login(username, password)
         yield client
         http_client.close()
 

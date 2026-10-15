@@ -101,14 +101,21 @@ def user_client(
         auth=(user.username, user.password),
     ) as http_client:
         client = Client(http_client)
+        # parent = user._parent
+        # user._parent = client
         # todo I think it makes sense to assign the client for the user to the
         # client  for that user since most often (devices, schedules) you want
         # them associated to the client for the user. related todo in
         # device_fixture but schedule needs it as well. This sort of duplicates
         # Resource._parent (which is why this mmakes sense, but these fixtures
         # all need a parent (user or schedule). Not fully thought out, so it's
-        # a todo.
+        # a todo. Started working on this, the original user client needs to
+        # be restored so it is used when the user cleanup/delete occurs. An
+        # auth error happens, but I plan on redoing auth in a bit so just
+        # noting it here and not working throught that as it will be wasted
+        # effort to do now.
         yield client
+        # user._parent = parent
         http_client.close()
 
 

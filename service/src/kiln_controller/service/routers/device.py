@@ -5,6 +5,7 @@ Device related Flask resources
 from asyncio import Queue, get_running_loop, TaskGroup, Task, create_task, gather
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
+from functools import partial
 import logging
 import time
 from typing import Any
@@ -21,7 +22,14 @@ from fastapi import (
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import selectinload
 
-from ...device.protocol import Telemetry, SetTimeCommand, Command, SampleAckCommand
+
+from ...device.protocol import (
+    Telemetry,
+    SetTimeCommand,
+    Command,
+    SampleAckCommand,
+    CommandType,
+)
 from ..dependencies import sessionmaker, metrics_server
 from ..metrics import MetricsServer
 from ..models import (
@@ -87,10 +95,6 @@ class _TelemetryIO:
 
     queue: Queue[Command] = field(default_factory=Queue, init=False)
 
-    # todo - send a time sync on connection
-
-    # todo - change from request/response model to full bidirectional mode
-    # todo - create a task for sending commands
     # todo? - create a metric request command
     # todo? - create a metric throttle command
 
@@ -102,31 +106,39 @@ class _TelemetryIO:
                 # todo? improve this logic to detect if the device has been deleted?
                 device = await self.authenticator()
 
-                telemetry = Telemetry.unpack(body)
+                # todo read full commands not just telemetry (add CommandType to Metrics)
+                # command = CommandType.unpack(body)
+                command = Telemetry.unpack(body)
+                match (command):
+                    case Telemetry():
+                        telemetry = command
 
-                tasks: list[Task[Any]] = []
+                        tasks: list[Task[Any]] = []
 
-                # If the time delta is "too great" send a SetTimeCommand.
-                now = int(time.time() * 1000)  # todo move this into writer?
-                delta = now - telemetry.timestamp_ms
-                if abs(delta) > 10_000:
-                    tasks.append(create_task(self.queue.put(SetTimeCommand(now))))
+                        # If the time delta is "too great" send a SetTimeCommand.
+                        now = int(time.time() * 1000)  # todo move this into writer?
+                        delta = now - telemetry.timestamp_ms
+                        if abs(delta) > 10_000:
+                            tasks.append(
+                                create_task(self.queue.put(SetTimeCommand(now)))
+                            )
 
-                # Pass the telemetry to the metric server.
-                telemetry_task = create_task(
-                    self.metrics_server.telemetry(telemetry, device)
-                )
-                tasks.append(telemetry_task)
+                        telemetry_task = create_task(
+                            self.metrics_server.telemetry(telemetry, device)
+                        )
+                        tasks.append(telemetry_task)
 
-                # Create a SampleAck task for the result of the telemetry task.
-                async def _sample_ack() -> None:
-                    timestamp = await telemetry_task
-                    if timestamp:
-                        await self.queue.put(SampleAckCommand(timestamp))
+                        # Create a SampleAck task for the result of the telemetry task.
+                        async def _sample_ack() -> None:
+                            timestamp = await telemetry_task
+                            if timestamp:
+                                await self.queue.put(SampleAckCommand(timestamp))
 
-                tasks.append(create_task(_sample_ack()))
+                        tasks.append(create_task(_sample_ack()))
 
-                await gather(*tasks)
+                        await gather(*tasks)
+                    case _:
+                        raise ValueError(f"device sent invalid command: {command}")
 
         except HTTPException as he:
             if he.status_code in (
@@ -154,8 +166,6 @@ async def telemetry(
     sessionmaker: SessionMaker = sessionmaker,
     device: DeviceORM = Depends(_authenticate_device_websocket),
 ) -> None:
-    async def authenticator() -> DeviceORM:
-        return await _authenticate_device_websocket(device_id, websocket, sessionmaker)
 
     await websocket.accept()
     try:
@@ -164,7 +174,9 @@ async def telemetry(
                 metrics_server,
                 websocket.receive_bytes,
                 websocket.send_bytes,
-                authenticator,
+                partial(
+                    _authenticate_device_websocket, device_id, websocket, sessionmaker
+                ),
             )
             await telemetry_io.queue.put(SetTimeCommand())
             task_group.create_task(telemetry_io._writer())

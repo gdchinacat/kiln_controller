@@ -21,8 +21,8 @@ import time
 from typing import Self, Protocol, ClassVar, Any, overload
 
 __all__ = (
-    "Command",
-    "CommandType",
+    "Message",
+    "MessageType",
     "Memory",
     "Temperature",
     "Sample",
@@ -34,7 +34,7 @@ __all__ = (
     "PauseCommand",
     "ResumeCommand",
     "SetTimeCommand",
-    "SampleAckCommand",
+    "SampleAckMessage",
 )
 
 
@@ -96,8 +96,8 @@ class Metrics(DataclassInstance):
         Get the field values that will be packed.
 
         Subclasses can override this to inject fields that aren't user settable
-        and aren't in the dataclass fields. For example, Command uses this to
-        insert the automatically managed command_type.
+        and aren't in the dataclass fields. For example, Message uses this to
+        insert the automatically managed message_type.
         """
         yield from ((field.name, getattr(self, field.name)) for field in fields(self))
 
@@ -141,35 +141,38 @@ class State(Metrics):
         self.state = StateEnum(self.state)
 
 
-class CommandType(Enum):
+class MessageType(Enum):
     START = 1
     PAUSE = 2
     RESUME = 3
     STOP = 4
     SET_TIME = 5
     SAMPLE_ACK = 6
+    TELEMETRY = 7
 
     @classmethod
-    def unpack(cls, buffer: bytes) -> Command:
+    def unpack(cls, buffer: bytes) -> Message:
         """unpack a command which has a type that is not known ahead of time"""
-        command_type = CommandType(
-            Command.struct.unpack(buffer[: Command.struct.size])[0]
+        message_type = MessageType(
+            Message.struct.unpack(buffer[: Message.struct.size])[0]
         )
-        match command_type:
-            case CommandType.START:
+        match message_type:
+            case MessageType.START:
                 return StartCommand.unpack(buffer)
-            case CommandType.PAUSE:
+            case MessageType.PAUSE:
                 return PauseCommand.unpack(buffer)
-            case CommandType.RESUME:
+            case MessageType.RESUME:
                 return ResumeCommand.unpack(buffer)
-            case CommandType.STOP:
+            case MessageType.STOP:
                 return StopCommand.unpack(buffer)
-            case CommandType.SET_TIME:
+            case MessageType.SET_TIME:
                 return SetTimeCommand.unpack(buffer)
-            case CommandType.SAMPLE_ACK:
-                return SampleAckCommand.unpack(buffer)
+            case MessageType.SAMPLE_ACK:
+                return SampleAckMessage.unpack(buffer)
+            case MessageType.TELEMETRY:
+                return Telemetry.unpack(buffer)
             case _:
-                raise ValueError(f"command type {command_type} is unknown {buffer=}")
+                raise ValueError(f"command type {message_type} is unknown {buffer=}")
 
 
 @dataclass
@@ -209,8 +212,36 @@ class Sample(Metrics):
 
 
 @dataclass
-class Telemetry(Metrics):
-    struct: ClassVar[Struct] = Struct(f"<QI{State.format}H0s")
+class Message(Metrics, ABC):
+    struct: ClassVar[Struct] = Struct("<B")
+    message_type: ClassVar[MessageType]
+
+    def field_values(self) -> Iterable[tuple[str, Any]]:
+        # insert command type into fields to pack
+        yield from (("message_type", self.message_type), *super().field_values())
+
+    @classmethod
+    def unpack(cls, buffer: bytes) -> Self:
+        args = cls.struct.unpack(buffer)
+        if args[0] != cls.message_type.value:
+            raise ValueError(
+                f"received {MessageType(args[0])} when expecting {cls.message_type}"
+            )
+        return cls(*args[1:])
+
+
+@dataclass
+class Command(Message): ...
+
+
+@dataclass
+class ClientMessage(Message): ...
+
+
+@dataclass
+class Telemetry(ClientMessage):
+    struct: ClassVar[Struct] = Struct(f"{Message.struct.format}QI{State.format}H0s")
+    message_type = MessageType.TELEMETRY
 
     timestamp_ms: int
     uptime: int
@@ -236,55 +267,38 @@ class Telemetry(Metrics):
 
 
 @dataclass
-class Command(Metrics, ABC):
-    struct: ClassVar[Struct] = Struct("<B")
-    command_type: ClassVar[CommandType]
-
-    def field_values(self) -> Iterable[tuple[str, Any]]:
-        # insert command type into fields to pack
-        yield from (("command_type", self.command_type), *super().field_values())
-
-    @classmethod
-    def unpack(cls, buffer: bytes) -> Self:
-        args = cls.struct.unpack(buffer)
-        if args[0] != cls.command_type.value:
-            raise TypeError
-        return cls(*args[1:])
-
-
-@dataclass
 class SetTimeCommand(Command):
-    struct: ClassVar[Struct] = Struct(Command.struct.format + "Q")
-    command_type: ClassVar[CommandType] = field(
-        default=CommandType.SET_TIME, init=False
+    struct: ClassVar[Struct] = Struct(Message.struct.format + "Q")
+    message_type: ClassVar[MessageType] = field(
+        default=MessageType.SET_TIME, init=False
     )
     timestamp: int = field(default_factory=lambda: int(time.time() * 1000))
 
 
 @dataclass
 class StartCommand(Command):
-    struct: ClassVar[Struct] = Struct(Command.struct.format + "")
-    command_type = CommandType.START
+    message_type = MessageType.START
     # todo include the schedule/phases.
 
 
 @dataclass
 class PauseCommand(Command):
-    command_type = CommandType.PAUSE
+    message_type = MessageType.PAUSE
 
 
 @dataclass
 class ResumeCommand(Command):
-    command_type = CommandType.RESUME
+    message_type = MessageType.RESUME
 
 
 @dataclass
 class StopCommand(Command):
-    command_type = CommandType.STOP
+    message_type = MessageType.STOP
 
 
 @dataclass
-class SampleAckCommand(Command):
-    command_type = CommandType.SAMPLE_ACK
-    struct: ClassVar[Struct] = Struct(Command.struct.format + "I")
+class SampleAckMessage(ClientMessage):
+    struct: ClassVar[Struct] = Struct(Message.struct.format + "I")
+    message_type = MessageType.SAMPLE_ACK
+
     timestamp: int

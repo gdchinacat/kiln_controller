@@ -18,8 +18,8 @@ from kiln_controller.device.protocol import (
     State,
     StateEnum,
     SetTimeCommand,
-    Command,
-    CommandType,
+    Message,
+    MessageType,
 )
 from kiln_controller.service.main import app
 from kiln_controller.service.metrics import MetricsServer
@@ -143,7 +143,7 @@ def test_telemetry_auth_fails(client: TestClient, device: Device, user: User) ->
                 assert False, "should never execute"
 
 
-def remaining_commands(websocket: WebSocketTestSession) -> list[Command]:
+def remaining_messages(websocket: WebSocketTestSession) -> list[Message]:
     """
     Close the websocket and return the commands remaining.
 
@@ -151,15 +151,15 @@ def remaining_commands(websocket: WebSocketTestSession) -> list[Command]:
     bytes being read.
     """
 
-    websocket.close(reason="test: remaining_commands")
-    commands = []
+    websocket.close(reason="test: remaining_messages")
+    messages = []
     try:
         while True:
-            command_bytes = websocket.receive_bytes()
-            command = CommandType.unpack(command_bytes)
-            commands.append(command)
+            message_bytes = websocket.receive_bytes()
+            message = MessageType.unpack(message_bytes)
+            messages.append(message)
     except WebSocketDisconnect:
-        return commands
+        return messages
 
 
 @pytest.mark.timeout(1)
@@ -207,7 +207,7 @@ def test_telemetry_send_no_delta_no_set_time(
         assert telemetry == metrics_server.received_telemetry.get(timeout=0.1)
 
         # No messages from server in response to small time delta
-        assert not remaining_commands(websocket)
+        assert not remaining_messages(websocket)
 
 
 @pytest.mark.timeout(1)
@@ -243,4 +243,4 @@ def test_telemetry_large_delta_sets_time(
         assert (now - set_time.timestamp) == pytest.approx(0, abs=100)  # ms
 
         # Verify there are no more messages.
-        assert not remaining_commands(websocket)
+        assert not remaining_messages(websocket)

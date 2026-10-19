@@ -27,8 +27,8 @@ from ...device.protocol import (
     Telemetry,
     SetTimeCommand,
     Command,
-    SampleAckCommand,
-    CommandType,
+    SampleAckMessage,
+    MessageType,
 )
 from ..dependencies import sessionmaker, metrics_server
 from ..metrics import MetricsServer
@@ -98,6 +98,28 @@ class _TelemetryIO:
     # todo? - create a metric request command
     # todo? - create a metric throttle command
 
+    async def _handle_telemetry(self, device: DeviceORM, telemetry: Telemetry) -> None:
+        tasks: list[Task[Any]] = []
+
+        # If the time delta is "too great" send a SetTimeCommand.
+        now = int(time.time() * 1000)  # todo move this into writer?
+        delta = now - telemetry.timestamp_ms
+        if abs(delta) > 10_000:
+            tasks.append(create_task(self.queue.put(SetTimeCommand(now))))
+
+        telemetry_task = create_task(self.metrics_server.telemetry(telemetry, device))
+        tasks.append(telemetry_task)
+
+        # Create a SampleAck task for the result of the telemetry task.
+        async def _sample_ack() -> None:
+            timestamp = await telemetry_task
+            if timestamp:
+                await self.queue.put(SampleAckCommand(timestamp))
+
+        tasks.append(create_task(_sample_ack()))
+
+        await gather(*tasks)
+
     async def _reader(self) -> None:
         try:
             while True:
@@ -106,37 +128,10 @@ class _TelemetryIO:
                 # todo? improve this logic to detect if the device has been deleted?
                 device = await self.authenticator()
 
-                # todo read full commands not just telemetry (add CommandType to Metrics)
-                # command = CommandType.unpack(body)
-                command = Telemetry.unpack(body)
+                command = MessageType.unpack(body)
                 match (command):
                     case Telemetry():
-                        telemetry = command
-
-                        tasks: list[Task[Any]] = []
-
-                        # If the time delta is "too great" send a SetTimeCommand.
-                        now = int(time.time() * 1000)  # todo move this into writer?
-                        delta = now - telemetry.timestamp_ms
-                        if abs(delta) > 10_000:
-                            tasks.append(
-                                create_task(self.queue.put(SetTimeCommand(now)))
-                            )
-
-                        telemetry_task = create_task(
-                            self.metrics_server.telemetry(telemetry, device)
-                        )
-                        tasks.append(telemetry_task)
-
-                        # Create a SampleAck task for the result of the telemetry task.
-                        async def _sample_ack() -> None:
-                            timestamp = await telemetry_task
-                            if timestamp:
-                                await self.queue.put(SampleAckCommand(timestamp))
-
-                        tasks.append(create_task(_sample_ack()))
-
-                        await gather(*tasks)
+                        await self._handle_telemetry(device, command)
                     case _:
                         raise ValueError(f"device sent invalid command: {command}")
 

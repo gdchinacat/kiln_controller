@@ -114,7 +114,7 @@ class _TelemetryIO:
         async def _sample_ack() -> None:
             timestamp = await telemetry_task
             if timestamp:
-                await self.queue.put(SampleAckCommand(timestamp))
+                await self.queue.put(SampleAckMessage(timestamp))
 
         tasks.append(create_task(_sample_ack()))
 

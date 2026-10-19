@@ -179,24 +179,24 @@ void Telemetry::dispatchCommand(uint8_t* payload, size_t length) {
 
 	protocol::Command* command = (protocol::Command*)payload;
 
-	switch (static_cast<protocol::CommandType>(command->type)) {
-		case protocol::CommandType::SET_TIME: {
+	switch (static_cast<protocol::MessageType>(command->type)) {
+		case protocol::MessageType::SET_TIME: {
 			auto _command = static_cast<protocol::SetTimeCommand*>(command);
 			timeSync.setTime(_command);
 			break; }
-		case protocol::CommandType::START:
+		case protocol::MessageType::START:
 			firing.start(static_cast<protocol::StartCommand*>(command));
 			break;
-		case protocol::CommandType::STOP:
+		case protocol::MessageType::STOP:
 			firing.stop(static_cast<protocol::StopCommand*>(command));
 			break;
-		case protocol::CommandType::PAUSE:
+		case protocol::MessageType::PAUSE:
 			firing.pause(static_cast<protocol::PauseCommand*>(command));
 			break;
-		case protocol::CommandType::RESUME:
+		case protocol::MessageType::RESUME:
 			firing.resume(static_cast<protocol::ResumeCommand*>(command));
 			break;
-		case protocol::CommandType::SAMPLE_ACK: {
+		case protocol::MessageType::SAMPLE_ACK: {
 			protocol::SampleAckCommand* sampleAck = static_cast<protocol::SampleAckCommand*>(command);
 			sampler.discard(sampleAck->timestamp);
 			break; }

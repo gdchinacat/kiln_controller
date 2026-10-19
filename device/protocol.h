@@ -10,11 +10,11 @@ namespace protocol {
 #pragma pack(push, 1)
 
 /**
- * @enum CommandType
+ * @enum MessageType
  * @brief Command identifiers sent to the kiln controller to trigger state changes or updates.
  *        These also act as the unique packet identifiers.
  */
-enum class CommandType : uint8_t {
+enum class MessageType : uint8_t {
 	/**
 	 * @brief Start a firing.
 	 */
@@ -198,7 +198,7 @@ struct Telemetry {
 class Command {
 public:
 	uint8_t type;
-	Command(CommandType _type): type(static_cast<uint8_t>(type)) {}
+	Command(MessageType _type): type(static_cast<uint8_t>(type)) {}
 };
 
 /**
@@ -207,7 +207,7 @@ public:
 class SetTimeCommand : public Command {
 public:
 	SetTimeCommand(uint64_t _timestamp)
-	: Command(CommandType::SET_TIME),
+	: Command(MessageType::SET_TIME),
 	  timestamp(_timestamp) {}
 
 	/**
@@ -223,7 +223,7 @@ public:
 class StartCommand : public Command {
 public:
     // todo include the schedule/phases.
-	StartCommand(): Command(CommandType::START) {};
+	StartCommand(): Command(MessageType::START) {};
 };
 
 /**
@@ -232,7 +232,7 @@ public:
  */
 class PauseCommand : public Command {
 public:
-	PauseCommand(): Command(CommandType::PAUSE) {};
+	PauseCommand(): Command(MessageType::PAUSE) {};
 };
 
 /**
@@ -241,7 +241,7 @@ public:
  */
 class ResumeCommand : public Command {
 public:
-	ResumeCommand(): Command(CommandType::RESUME) {};
+	ResumeCommand(): Command(MessageType::RESUME) {};
 };
 
 /**
@@ -249,7 +249,7 @@ public:
  */
 class StopCommand : public Command {
 public:
-	StopCommand(): Command(CommandType::STOP) {};
+	StopCommand(): Command(MessageType::STOP) {};
 };
 
 /**
@@ -258,7 +258,7 @@ public:
 class SampleAckCommand : public Command {
 public:
 	SampleAckCommand(uint32_t _timestamp):
-		Command(CommandType::SAMPLE_ACK),
+		Command(MessageType::SAMPLE_ACK),
 		timestamp(_timestamp) { };
 
     /**

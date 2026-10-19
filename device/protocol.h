@@ -165,11 +165,29 @@ struct Sample {
 
 };
 
+class Message {
+public:
+	uint8_t type;
+	Message(MessageType _type): type(static_cast<uint8_t>(_type)) {}
+};
+
 /**
- * @struct Telemetry
+ * @class Telemetry
  * @brief The periodic status update and request for command from server.
  */
-struct Telemetry {
+class Telemetry : public Message {
+public:
+	Telemetry(
+		uint64_t _timestamp,
+		uint32_t _uptime,
+		State _state,
+		uint16_t _sample_count
+	): Message(MessageType::TELEMETRY),
+	  timestamp(_timestamp),
+	  uptime(_uptime),
+	  state(_state),
+	  sample_count(_sample_count) {}
+
 	/**
 	 * @brief the time the device thinks it is (in milliseconds).
 	 */
@@ -198,12 +216,6 @@ struct Telemetry {
 	 * that contain it.
      */
     Sample samples[0];
-};
-
-class Message {
-public:
-	uint8_t type;
-	Message(MessageType _type): type(static_cast<uint8_t>(type)) {}
 };
 
 /**

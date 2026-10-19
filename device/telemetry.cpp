@@ -167,7 +167,7 @@ void Telemetry::loop() {
 }
 
 void Telemetry::dispatchCommand(uint8_t* payload, size_t length) {
-	if (length < sizeof(protocol::Command)) {
+	if (length < sizeof(protocol::Message)) {
 		log_e("received invalid command length %d", length);
 		//todo: given the reliability of TCP/IP/SSL, etc this is most likely a
 		//      version sync issue between client and server. Handling is
@@ -177,7 +177,7 @@ void Telemetry::dispatchCommand(uint8_t* payload, size_t length) {
 		return;
 	}
 
-	protocol::Command* command = (protocol::Command*)payload;
+	protocol::Message* command = (protocol::Message*)payload;
 
 	switch (static_cast<protocol::MessageType>(command->type)) {
 		case protocol::MessageType::SET_TIME: {
@@ -197,7 +197,7 @@ void Telemetry::dispatchCommand(uint8_t* payload, size_t length) {
 			firing.resume(static_cast<protocol::ResumeCommand*>(command));
 			break;
 		case protocol::MessageType::SAMPLE_ACK: {
-			protocol::SampleAckCommand* sampleAck = static_cast<protocol::SampleAckCommand*>(command);
+			protocol::SampleAckMessage* sampleAck = static_cast<protocol::SampleAckMessage*>(command);
 			sampler.discard(sampleAck->timestamp);
 			break; }
 		default:

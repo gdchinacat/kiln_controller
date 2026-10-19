@@ -11,7 +11,7 @@ namespace protocol {
 
 /**
  * @enum MessageType
- * @brief Command identifiers sent to the kiln controller to trigger state changes or updates.
+ * @brief Message identifiers sent to the kiln controller to trigger state changes or updates.
  *        These also act as the unique packet identifiers.
  */
 enum class MessageType : uint8_t {
@@ -47,6 +47,11 @@ enum class MessageType : uint8_t {
 	 * @brief Tell the device samples have been received.
 	 */
 	SAMPLE_ACK = 6,
+
+	/**
+	 * @brief Telemetry message from device to service.
+	 */
+	TELEMETRY = 7,
 };
 
 /**
@@ -195,19 +200,19 @@ struct Telemetry {
     Sample samples[0];
 };
 
-class Command {
+class Message {
 public:
 	uint8_t type;
-	Command(MessageType _type): type(static_cast<uint8_t>(type)) {}
+	Message(MessageType _type): type(static_cast<uint8_t>(type)) {}
 };
 
 /**
  * @brief Informs the device what the time is.
  */
-class SetTimeCommand : public Command {
+class SetTimeCommand : public Message {
 public:
 	SetTimeCommand(uint64_t _timestamp)
-	: Command(MessageType::SET_TIME),
+	: Message(MessageType::SET_TIME),
 	  timestamp(_timestamp) {}
 
 	/**
@@ -218,47 +223,47 @@ public:
 
 
 /**
- * @brief Command start a firing.
+ * @brief Message start a firing.
  */
-class StartCommand : public Command {
+class StartCommand : public Message {
 public:
     // todo include the schedule/phases.
-	StartCommand(): Command(MessageType::START) {};
+	StartCommand(): Message(MessageType::START) {};
 };
 
 /**
  * @struct PauseCommand
- * @brief Command to pause a firing.
+ * @brief Message to pause a firing.
  */
-class PauseCommand : public Command {
+class PauseCommand : public Message {
 public:
-	PauseCommand(): Command(MessageType::PAUSE) {};
+	PauseCommand(): Message(MessageType::PAUSE) {};
 };
 
 /**
  * @struct ResumeCommand
- * @brief Command to resume a paused firing.
+ * @brief Message to resume a paused firing.
  */
-class ResumeCommand : public Command {
+class ResumeCommand : public Message {
 public:
-	ResumeCommand(): Command(MessageType::RESUME) {};
+	ResumeCommand(): Message(MessageType::RESUME) {};
 };
 
 /**
- * @brief Command to cancel a firing.
+ * @brief Message to cancel a firing.
  */
-class StopCommand : public Command {
+class StopCommand : public Message {
 public:
-	StopCommand(): Command(MessageType::STOP) {};
+	StopCommand(): Message(MessageType::STOP) {};
 };
 
 /**
- * @brief Command to confirm receipt of samples.
+ * @brief Message to confirm receipt of samples.
  */
-class SampleAckCommand : public Command {
+class SampleAckMessage : public Message {
 public:
-	SampleAckCommand(uint32_t _timestamp):
-		Command(MessageType::SAMPLE_ACK),
+	SampleAckMessage(uint32_t _timestamp):
+		Message(MessageType::SAMPLE_ACK),
 		timestamp(_timestamp) { };
 
     /**

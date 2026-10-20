@@ -327,3 +327,19 @@ def test_schedule_delete_deletes_phases(client, schedule, phase, **kwargs):
     # shaddow request is made but phase has been deleted
     with assert_http_status_error(httpx2.codes.NOT_FOUND):
         _phase.get()
+
+
+@ kwargs["user"] << user_fixture()
+def test_create_existing_user_error(admin_client: Client, user: User, **_) -> None:
+    """
+    Test that POSTing a user that exists results in 409 Conflict.
+
+    This is a targeted test in response to a bug to ensure _create() in
+    routers/base.py does not rely on IntegrityError to detect and handle this
+    case (for at least user).
+    """
+
+    _user = user._testing_shadow()
+    _user.id = None
+    with assert_http_status_error(httpx2.codes.CONFLICT):
+        _user.post(admin_client)

@@ -121,9 +121,15 @@ def create_router(
         orm = orm_type.model_validate(resource_dict)
         async with (session := sessionmaker(expire_on_commit=False)), session.begin():
             session.add(orm)
-            # todo - trying to post an existing user causes an integrity error
-            #        on the flush...properly handle it.
-            await session.flush()
+            try:
+                await session.flush()
+            except IntegrityError as ie:
+                if (
+                    getattr(ie.orig, "sqlite_errorname", None)
+                    == "SQLITE_CONSTRAINT_UNIQUE"
+                ):
+                    raise HTTPException(status_code=status.HTTP_409_CONFLICT)
+                raise
             await session.run_sync(lambda sync_session: orm.validate_create_or_update())
         return orm.model_dump(mode="json") | ret_extra
 

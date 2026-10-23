@@ -6,13 +6,13 @@ import hashlib
 import hmac
 import os
 import secrets
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Self
 
 import pydantic
 import sqlalchemy
 import sqlmodel
 
-from ._base import ResourceCreate, ORMType
+from ._base import ORMType
 from .user import UserORM
 from .validators import DeviceValidator
 from abc import ABC
@@ -61,7 +61,7 @@ class _DeviceAuth(ABC):
         return token, _DeviceAuth._auth_token_hash(token)
 
 
-class DeviceCreate(ResourceCreate):
+class DeviceCreate(pydantic.BaseModel):
     """
     REST create model for Device.
 
@@ -71,24 +71,20 @@ class DeviceCreate(ResourceCreate):
     name: str = pydantic.Field(max_length=NAME_LENGTH)
     user_id: int
 
-    def extra_attrs(
-        self, user: UserORM
-    ) -> tuple[dict[str, str | int], dict[str, str | int]]:
-        """provide the auth_token"""
-        ret = super().extra_attrs(user)
-
-        # Return the plaintext auth token to the device (ret[1]), but store the
-        # hashed auth token in the database (ret[0]).
-        ret[1]["auth_token"], ret[0]["auth_token"] = _DeviceAuth.generate()
-
-        return ret
-
 
 class DeviceCreateResponse(pydantic.BaseModel):
     id: int
     name: str
     auth_token: str = pydantic.Field(max_length=_DeviceAuth.AUTH_TOKEN_LENGTH)
     user_id: int
+
+    @pydantic.model_validator(mode="before")
+    @classmethod
+    def _inject_auth_token(cls, data: DeviceORM) -> dict[str, Any]:
+        assert isinstance(data, DeviceORM), type(data)
+        ret = data.model_dump()
+        ret["auth_token"] = data._plaintext_auth_token
+        return ret
 
 
 class DeviceUpdate(pydantic.BaseModel):
@@ -117,6 +113,7 @@ class DeviceORM(DeviceValidator, ORMType, _DeviceAuth, table=True):
     auth_token: str = sqlmodel.Field(
         nullable=False, max_length=_DeviceAuth.AUTH_TOKEN_LENGTH
     )
+    _plaintext_auth_token: str | None = pydantic.PrivateAttr()
 
     """_plaintext_auth_token is an unmapped field that contains the plaintext
     auth_token. It exists only so newly created devices can return it to the
@@ -134,6 +131,20 @@ class DeviceORM(DeviceValidator, ORMType, _DeviceAuth, table=True):
     """
     The user that manages the device (not the users with access to the device).
     """
+
+    @pydantic.model_validator(mode="wrap")
+    @classmethod
+    def _inject_auth_tokens(
+        cls, data: Any, handler: pydantic.ModelWrapValidatorHandler[Self]
+    ) -> Self:
+        if isinstance(data, DeviceCreate):
+            resource_dict = data.model_dump()
+            plaintext_auth_token, resource_dict["auth_token"] = _DeviceAuth.generate()
+            self = handler(resource_dict)
+            self._plaintext_auth_token = plaintext_auth_token
+            return self
+        else:
+            return handler(data)
 
     ###
     # Hack FiringORM in to avovid having to come back to victoriametrics in a bit

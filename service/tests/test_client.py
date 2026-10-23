@@ -118,7 +118,11 @@ def test_post_user(admin_client, user: User, **_):
 @ kwargs["client"] << user_client()
 @ kwargs["device"] << device_fixture(skip_create=True)
 def test_post_device(client: Client, device: Device, **_: Any) -> None:
-    return _test_post(client, device)
+    _test_post(client, device)
+    assert device.auth_token
+    device.auth_token = None
+    device.refresh()
+    assert not device.auth_token
 
 
 @ kwargs["user"] << user_fixture()

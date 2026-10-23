@@ -7,9 +7,10 @@ from datetime import time
 import pydantic
 import sqlalchemy
 import sqlmodel
+from typing import Any
 
 from ...common.enums import PhaseType
-from ._base import ResourceCreate, ORMType
+from ._base import ORMType
 from .user import UserORM
 from .validators import ScheduleValidator, PhaseValidator
 
@@ -27,7 +28,7 @@ __all__ = (
 NAME_LENGTH = 30
 
 
-class ScheduleCreate(ResourceCreate):
+class ScheduleCreate(pydantic.BaseModel):
     name: str = pydantic.Field(max_length=NAME_LENGTH)
     user_id: int | None = None  # defaults to current user
 
@@ -67,7 +68,7 @@ class ScheduleORM(ScheduleValidator, ORMType, table=True):
     )
 
 
-class PhaseCreate(ResourceCreate):
+class PhaseCreate(pydantic.BaseModel):
     name: str = pydantic.Field(max_length=NAME_LENGTH)
     ordinal: int
     phase_type: PhaseType
@@ -164,3 +165,16 @@ class PhaseORM(PhaseValidator, ORMType, table=True):
         sa_relationship_kwargs={"viewonly": True, "lazy": True},
     )
     """the schedule the phase is part of"""
+
+    @pydantic.model_validator(mode="before")
+    @classmethod
+    def _inject_schedule_id(
+        cls, phase_create: PhaseCreate, info: pydantic.ValidationInfo
+    ) -> dict[str, Any]:
+        assert isinstance(phase_create, PhaseCreate)
+        assert (
+            info.context
+        ), "validatio info has no context, should be set to request.path_params"
+        ret = phase_create.model_dump()
+        ret["schedule_id"] = info.context["schedule_id"]  # from request.path_params
+        return ret

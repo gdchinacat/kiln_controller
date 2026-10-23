@@ -8,7 +8,7 @@ import pydantic
 import sqlalchemy
 import sqlmodel
 
-from ._base import ResourceCreate, ORMType
+from ._base import ORMType
 from .validators import UserValidator
 
 __all__ = ("User", "UserCreate", "UserUpdate", "UserORM")
@@ -24,7 +24,7 @@ PHONE_LENGTH = 20
 EMAIL_LENGTH = 254
 
 
-class UserCreate(ResourceCreate):
+class UserCreate(pydantic.BaseModel):
     name: str = pydantic.Field(max_length=NAME_LENGTH)
     username: str = pydantic.Field(max_length=USERNAME_LENGTH)
     password: str = pydantic.Field(max_length=PASSWORD_LENGTH)

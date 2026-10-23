@@ -17,7 +17,7 @@ import sqlmodel
 
 from ...common.validators import ValidationError, ValidationErrors
 from ..dependencies import sessionmaker, current_user
-from ..models import User, UserORM, ResourceCreate, SessionMaker, ORMType
+from ..models import User, UserORM, SessionMaker, ORMType
 from ..models.validators import ValidatorMixinBase
 
 __all__ = []
@@ -45,7 +45,7 @@ def create_router(
     resource_type: type[pydantic.BaseModel],
     orm_type: type[ORMType],
     url_prefix: str = "",
-    resource_create_type: type[ResourceCreate] | None = None,
+    resource_create_type: type[pydantic.BaseModel] | None = None,
     resource_create_response_type: type[pydantic.BaseModel] | None = None,
     resource_update_type: type[pydantic.BaseModel] | None = None,
     openapi_extra: dict[Any, Any] | None = None,
@@ -111,14 +111,12 @@ def create_router(
     @_apply_resource_type(resource_type=resource_type.__name__)
     async def _create(
         request: Request,
-        resource: resource_create_type,
+        resource_create: resource_create_type,
         user: User = current_user,
         sessionmaker: SessionMaker = sessionmaker,
     ) -> resource_create_response_type:
         """create a {resource_type}"""
-        orm_extra, ret_extra = resource.extra_attrs(user)
-        resource_dict = resource.model_dump() | request.path_params | orm_extra
-        orm = orm_type.model_validate(resource_dict)
+        orm = orm_type.model_validate(resource_create, context=request.path_params)
         async with (session := sessionmaker(expire_on_commit=False)), session.begin():
             session.add(orm)
             try:
@@ -131,7 +129,7 @@ def create_router(
                     raise HTTPException(status_code=status.HTTP_409_CONFLICT)
                 raise
             await session.run_sync(lambda sync_session: orm.validate_create_or_update())
-        return orm.model_dump(mode="json") | ret_extra
+        return orm
 
     @router.put(
         "/{id}",

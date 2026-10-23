@@ -2,7 +2,7 @@
 The server-side data models for the kiln_controller service.
 """
 
-from ._base import ResourceCreate, ORMType
+from ._base import ORMType
 from .db import get_sessionmaker, get_engine, SessionMaker
 from .auth import *
 from .user import *
@@ -25,7 +25,6 @@ __all__ = (
     "get_sessionmaker",
     "get_engine",
     "SessionMaker",
-    "ResourceCreate",
     "FiringORM",
     "ORMType",
     *auth.__all__,

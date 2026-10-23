@@ -106,7 +106,7 @@ class AuthenticatedDevice(Device):
 
 @pytest.fixture
 def device(client: TestClient, user: User, name: str = "kiln") -> AuthenticatedDevice:
-    create = DeviceCreate(name=name)
+    create = DeviceCreate(name=name, user_id=user.id)
     response = client.post("/device", json=dict(create))
     response.raise_for_status()
     return AuthenticatedDevice.model_validate(response.json())
@@ -119,7 +119,7 @@ def test_get_device_401(client: TestClient) -> None:
 
 
 def test_register_device(client: TestClient, user: User) -> None:
-    response = client.post("/device/", json={"name": "device name"})
+    response = client.post("/device/", json={"name": "device name", "user_id": user.id})
     response.raise_for_status()
     device_json = response.json()
     assert device_json.get("auth_token")

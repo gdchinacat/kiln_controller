@@ -1,20 +1,25 @@
-from collections.abc import Callable, Generator, Iterable
+from collections.abc import Callable, Generator, Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from functools import partial, wraps
+from itertools import count
 from typing import Concatenate, Self, Any
 
 import pytest
 
 from fixtures import kwargs
-from kiln_controller.common.enums import PhaseType
 from kiln_controller.common.validators import ValidationErrors
+from kiln_controller.service.models import PhaseType
 from kiln_controller.service.models.validators import (
     ValidationError,
     UserValidator,
     ScheduleValidator,
     DeviceValidator,
-    ValidatorMixinBase,
+    PhaseValidator,
+    ValidatableUser,
+    ValidatableDevice,
+    ValidatableSchedule,
+    ValidatablePhase,
 )
 
 
@@ -50,20 +55,20 @@ class SortedList[T](list[T]):
 
 @kwargs.factory
 @dataclass
-class _User(UserValidator):
+class _User(UserValidator, ValidatableUser):
     """User @fixture"""
 
     name = "name"
-    schedules: list[_Schedule] = field(default_factory=list)  # type: ignore
-    devices: list[_Device] = field(default_factory=list)  # type: ignore
+    schedules: list[ValidatableSchedule] = field(default_factory=list)
+    devices: list[ValidatableDevice] = field(default_factory=list)
 
 
 @kwargs.factory
 @dataclass
-class _Device(DeviceValidator):
+class _Device(DeviceValidator, ValidatableDevice):
     """Device @fixture"""
 
-    user: _User
+    user: ValidatableUser
 
     def __post_init__(self) -> None:
         if self.user:
@@ -72,11 +77,11 @@ class _Device(DeviceValidator):
 
 @kwargs.factory
 @dataclass
-class _Schedule(ScheduleValidator):
+class _Schedule(ScheduleValidator, ValidatableSchedule):
     """Schedule @fixture"""
 
-    user: _User = None  # type: ignore
-    phases: list[_Phase] = field(  # type: ignore
+    user: ValidatableUser | None = None
+    phases: list[ValidatablePhase] = field(
         default_factory=partial(SortedList, key=lambda phase: phase.ordinal)
     )
 
@@ -84,25 +89,23 @@ class _Schedule(ScheduleValidator):
         if self.user is not None:
             self.user.schedules.append(self)
 
-    @property
-    def max_phase_ordinal(self) -> int:
-        """the maximum ordinal of the phases"""
-        return self.phases[-1].ordinal if self.phases else 10
+
+_id = count()
 
 
 @dataclass
-class _Phase:
+class _Phase(PhaseValidator, ValidatablePhase):
     """Schedule @fixture"""
 
     name = "phase"
     ordinal: int
     phase_type: PhaseType
-    temperature: int
-    schedule: "_Schedule"
+    temperature: int | None
+    schedule: ValidatableSchedule
 
     def __post_init__(self) -> None:
         self.schedule.phases.append(self)
-        self.id = str(self.schedule.phases)
+        self.id = next(_id)
         self.name += f" {self.id}"
 
     @kwargs.factory
@@ -110,11 +113,11 @@ class _Phase:
     def ramp(
         schedule: _Schedule,
         temperature: int = 1000,
-        ordinal: int | None = None,
+        ordinal: Iterator[int] = count(),
         **kwargs: Any,
     ) -> _Phase:
         return _Phase(
-            ordinal or schedule.max_phase_ordinal + 10,
+            next(ordinal),
             PhaseType.RAMP,
             temperature,
             schedule,
@@ -125,11 +128,11 @@ class _Phase:
     def constant(
         schedule: _Schedule,
         temperature: int = 1000,
-        ordinal: int | None = None,
+        ordinal: Iterator[int] = count(),
         **kwargs: Any,
     ) -> _Phase:
         return _Phase(
-            ordinal or schedule.max_phase_ordinal + 10,
+            next(ordinal),
             PhaseType.CONSTANT,
             temperature,
             schedule,

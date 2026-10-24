@@ -3,15 +3,16 @@ Schedule related ORMs
 """
 
 from datetime import time
+from enum import Enum
+from typing import Any
 
 import pydantic
 import sqlalchemy
 import sqlmodel
-from typing import Any
 
-from ...common.enums import PhaseType
 from ._base import ORMType
 from .user import UserORM
+from ._validatable import PhaseType
 from .validators import ScheduleValidator, PhaseValidator
 
 __all__ = (

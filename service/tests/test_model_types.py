@@ -1,8 +1,13 @@
 import unittest
 import json
 from datetime import time
-from kiln_controller.common.enums import PhaseType
-from kiln_controller.service.models import Phase, DeviceCreate, DeviceORM, SessionMaker
+from kiln_controller.service.models import (
+    Phase,
+    PhaseType,
+    DeviceCreate,
+    DeviceORM,
+    SessionMaker,
+)
 
 
 def test_phase_type_roundtrip() -> None:

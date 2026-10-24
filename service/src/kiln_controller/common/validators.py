@@ -8,8 +8,6 @@ openapi.json.
 import logging
 from enum import Enum
 
-from .enums import PhaseType
-
 __all__ = ("ValidationError",)
 
 logger = logging.getLogger("kiln_controller.validators")

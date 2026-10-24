@@ -8,8 +8,9 @@ from .auth import *
 from .user import *
 from .schedule import *
 from .device import *
+from ._validatable import *
 
-from . import auth, user, schedule, device, db
+from . import auth, user, schedule, device, db, _validatable
 
 
 ###
@@ -34,4 +35,5 @@ __all__ = (
     *user.__all__,
     *schedule.__all__,
     *device.__all__,
+    *_validatable.__all__,
 )

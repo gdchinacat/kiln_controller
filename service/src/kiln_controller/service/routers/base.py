@@ -18,7 +18,6 @@ import sqlmodel
 from ...common.validators import ValidationError, ValidationErrors
 from ..dependencies import sessionmaker, current_user
 from ..models import User, UserORM, SessionMaker, ORMType
-from ..models.validators import ValidatorMixinBase
 
 __all__ = []
 

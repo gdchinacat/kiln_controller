@@ -101,7 +101,7 @@ def service(service_factory: ServiceFactory) -> Generator[Service]:
 
 @pytest.fixture(scope="function")
 def admin_client(
-    service: Service, username="admin", password="admin"
+    service: Service, username: str = "admin", password: str = "admin"
 ) -> Generator[Client]:
     with httpx2.Client(
         base_url=service.url,

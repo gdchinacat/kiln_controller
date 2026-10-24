@@ -44,7 +44,7 @@ class UserValidator(ValidatorMixinBase):
         schedules: list[ScheduleORM]
         devices: list[DeviceORM]
 
-    def validate_delete(self):
+    def validate_delete(self) -> None:
         """validate the user can be deleted"""
         super().validate_delete()
         if self.schedules:
@@ -146,11 +146,11 @@ class PhaseValidator(ValidatorMixinBase):
     if TYPE_CHECKING:
         schedule: ScheduleORM
 
-    def validate_create_or_update(self):
+    def validate_create_or_update(self) -> None:
         super().validate_create_or_update()
         self.schedule.validate_create_or_update()
 
-    def validate_delete(self):
+    def validate_delete(self) -> None:
         super().validate_delete()
         self.schedule.phases.remove(self)  # type: ignore
         self.schedule.validate_delete()

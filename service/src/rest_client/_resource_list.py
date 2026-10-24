@@ -41,7 +41,7 @@ class ResourceList[T: Resource[Any], PT: Resource[Any]](list[T]):
     Generic on T: type of contained resources, PT: parent type
     """
 
-    def __init__(self, type_: type[T], parent: PT):
+    def __init__(self, type_: type[T], parent: PT) -> None:
         self._type = type_
         self._parent = parent
         self._expired = True
@@ -161,7 +161,7 @@ class RootResourceList[T: Resource[Any]](ResourceList[T, RootResource]):
     A resource root resrouce lists can use as parent.
     """
 
-    def __init__(self, _type: type[T], client: RestClient):
+    def __init__(self, _type: type[T], client: RestClient) -> None:
         super().__init__(_type, parent=RootResource(client))
 
     @property
@@ -178,10 +178,10 @@ class ResourceListDescriptor[T: Resource[Any], PT: Resource[Any]](
     name: str
     attr: str
 
-    def __init__(self, type_: type[T]):
+    def __init__(self, type_: type[T]) -> None:
         self.type_ = type_
 
-    def __set_name__(self, owner, name):
+    def __set_name__(self, owner, name) -> None:
         self.name = name
         self.attr = f"_{name}"
 

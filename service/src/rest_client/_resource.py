@@ -21,7 +21,7 @@ logger = logging.getLogger("client.rest_client")
 
 
 class _ResourceListDescriptor[T: Resource[Any], PT: Resource[Any]]:
-    def __set__(self, obj: Any, value: ResourceList[T, PT]): ...
+    def __set__(self, obj: Any, value: ResourceList[T, PT]) -> None: ...
 
 
 class Resource[PT: "Resource[Any]"](pydantic.BaseModel, ABC):
@@ -74,7 +74,7 @@ class Resource[PT: "Resource[Any]"](pydantic.BaseModel, ABC):
         parent: PT | None = None,
         *args: Any,
         **kwargs: Any,
-    ):
+    ) -> None:
         """
         Create a resource.
         parent: optional parent resource (None when creating a pending
@@ -212,7 +212,7 @@ class Resource[PT: "Resource[Any]"](pydantic.BaseModel, ABC):
 
 class RootResource(Resource["RestClient"]):
 
-    def __init__(self, client: "RestClient"):
+    def __init__(self, client: "RestClient") -> None:
         super().__init__()  # root resources are internal and don't have args
         self.__client = client
 

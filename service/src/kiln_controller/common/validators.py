@@ -38,7 +38,7 @@ class ValidationError(Exception):
     def input(self) -> str:
         return str(self.args[0])
 
-    def json(self):
+    def json(self) -> dict[str, list[dict[str, str]]]:
         """get the json representation of this error"""
         return {
             "detail": [

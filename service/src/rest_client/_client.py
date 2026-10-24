@@ -47,7 +47,7 @@ class RestClient(RootResource, ABC):
 
     __client: httpx2.Client
 
-    def __init__(self, client: httpx2.Client):
+    def __init__(self, client: httpx2.Client) -> None:
         super().__init__(self)
         self.__client = client
 

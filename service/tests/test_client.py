@@ -110,7 +110,7 @@ def _test_post(client: Client, resource: KilnControllerResource) -> None:
 
 
 @ kwargs["user"] << user_fixture(skip_create=True)
-def test_post_user(admin_client, user: User, **_):
+def test_post_user(admin_client, user: User, **_) -> None:
     return _test_post(admin_client, user)
 
 
@@ -169,21 +169,21 @@ def _test_put(
 
 
 @ kwargs["user"] << user_fixture(skip_create=True)
-def test_put_user(user: User, admin_client: Client, **_):
+def test_put_user(user: User, admin_client: Client, **_) -> None:
     return _test_put(user, admin_client)
 
 
 @ kwargs["user"] << user_fixture()
 @ kwargs["client"] << user_client()
 @ kwargs["device"] << device_fixture()
-def test_put_device(device: Device, client: Client, **_):
+def test_put_device(device: Device, client: Client, **_) -> None:
     return _test_put(device, client, skip_put_create=True)
 
 
 @ kwargs["user"] << user_fixture()
 @ kwargs["client"] << user_client()
 @ kwargs["schedule"] << schedule_fixture(skip_create=True)
-def test_put_schedule(schedule: Schedule, client: Client, **_):
+def test_put_schedule(schedule: Schedule, client: Client, **_) -> None:
     return _test_put(schedule, client)
 
 
@@ -211,14 +211,14 @@ def _test_delete_resource(resource: KilnControllerResource) -> None:
 
 
 @ kwargs["user"] << user_fixture(skip_delete=True)
-def test_delete_user_resource(user: User, **_: Any):
+def test_delete_user_resource(user: User, **_: Any) -> None:
     return _test_delete_resource(resource=user)
 
 
 @ kwargs["user"] << user_fixture()
 @ kwargs["client"] << user_client()
 @ kwargs["device"] << device_fixture(skip_delete=True)
-def test_delete_device_resource(client, device, **kwargs):
+def test_delete_device_resource(client, device, **kwargs) -> None:
     return _test_delete_resource(
         resource=device,
     )
@@ -227,7 +227,7 @@ def test_delete_device_resource(client, device, **kwargs):
 @ kwargs["user"] << user_fixture()
 @ kwargs["client"] << user_client()
 @ kwargs["schedule"] << schedule_fixture(skip_delete=True)
-def test_delete_schedule_resource(client, schedule, **kwargs):
+def test_delete_schedule_resource(client, schedule, **kwargs) -> None:
     return _test_delete_resource(
         resource=schedule,
     )
@@ -318,7 +318,7 @@ def test_basic_schedule_phases_resource_list(
 @ kwargs["client"] << user_client()
 @ kwargs["schedule"] << schedule_fixture(skip_delete=True)
 @ kwargs["phase"] << phase_fixture(skip_delete=True)
-def test_schedule_delete_deletes_phases(client, schedule, phase, **kwargs):
+def test_schedule_delete_deletes_phases(client, schedule, phase, **kwargs) -> None:
     """basic test that deleting a schedule deletes its phases"""
     _phase = phase._testing_shadow()
     schedule.delete()

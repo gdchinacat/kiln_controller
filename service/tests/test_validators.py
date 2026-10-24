@@ -2,7 +2,7 @@ from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from functools import partial, wraps
-from typing import Concatenate, Self
+from typing import Concatenate, Self, Any
 
 import pytest
 
@@ -23,7 +23,7 @@ class SortedList[T](list):
 
     key: Callable[[T], int] | None = None
 
-    def __init__(self, *args, key=None):
+    def __init__(self, *args, key=None) -> None:
         super().__init__(*args)
         self.key = key
 
@@ -64,7 +64,7 @@ class _Device(DeviceValidator):
 
     user: _User
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.user:
             self.user.devices.append(self)
 
@@ -79,12 +79,12 @@ class _Schedule(ScheduleValidator):
         default_factory=partial(SortedList, key=lambda phase: phase.ordinal)
     )
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.user is not None:
             self.user.schedules.append(self)
 
     @property
-    def max_phase_ordinal(self):
+    def max_phase_ordinal(self) -> int:
         """the maximum ordinal of the phases"""
         return self.phases[-1].ordinal if self.phases else 10
 
@@ -99,14 +99,16 @@ class _Phase:
     temperature: int
     schedule: "_Schedule"
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.schedule.phases.append(self)
         self.id = str(self.schedule.phases)
         self.name += f" {self.id}"
 
     @kwargs.factory
     @staticmethod
-    def ramp(schedule, temperature=1000, ordinal=None, **kwargs):
+    def ramp(
+        schedule, temperature: int = 1000, ordinal: int | None = None, **kwargs: Any
+    ) -> _Phase:
         return _Phase(
             ordinal or schedule.max_phase_ordinal + 10,
             PhaseType.RAMP,
@@ -116,7 +118,9 @@ class _Phase:
 
     @kwargs.factory
     @staticmethod
-    def constant(schedule, temperature=1000, ordinal=None, **kwargs):
+    def constant(
+        schedule, temperature: int = 1000, ordinal: int | None = None, **kwargs: Any
+    ) -> _Phase:
         return _Phase(
             ordinal or schedule.max_phase_ordinal + 10,
             PhaseType.CONSTANT,
@@ -136,7 +140,7 @@ def _assert_validation_error(
 
 @ kwargs["schedule"] << _Schedule()
 @ kwargs["phase"] << _Phase.constant()
-def test_first_phase_must_be_ramp(schedule, **_):
+def test_first_phase_must_be_ramp(schedule, **_: Any) -> None:
     with _assert_validation_error(ValidationErrors.FIRST_PHASE_NOT_RAMP):
         schedule.validate_create_or_update()
 
@@ -144,7 +148,7 @@ def test_first_phase_must_be_ramp(schedule, **_):
 @ kwargs["schedule"] << _Schedule()
 @ kwargs["phase"] << _Phase.ramp(temperature=1000)
 @ kwargs["phase"] << _Phase.constant(temperature=1500)
-def test_temperature_must_be_continous(schedule, **_):
+def test_temperature_must_be_continous(schedule, **_: Any) -> None:
     with _assert_validation_error(ValidationErrors.TEMPERATURE_NOT_CONTINUOUS):
         schedule.validate_create_or_update()
 
@@ -153,7 +157,7 @@ def test_temperature_must_be_continous(schedule, **_):
 @ kwargs["phase"] << _Phase.ramp()
 @ kwargs["phase"] << _Phase.constant()
 @ kwargs["phase"] << _Phase.constant()
-def test_no_sequential_constant_phases(schedule, **_):
+def test_no_sequential_constant_phases(schedule, **_: Any) -> None:
     with _assert_validation_error(ValidationErrors.SEQUENTIAL_CONSTANT_PHASES):
         schedule.validate_create_or_update()
 
@@ -161,25 +165,25 @@ def test_no_sequential_constant_phases(schedule, **_):
 @ kwargs["schedule"] << _Schedule()
 @ kwargs["phase"] << _Phase.ramp()
 @ kwargs["phase"] << _Phase.ramp()
-def test_no_dupliate_ramp_temperatures(schedule, **_):
+def test_no_dupliate_ramp_temperatures(schedule, **_: Any) -> None:
     with _assert_validation_error(ValidationErrors.DUPLICATE_RAMP_TEMPERATURES):
         schedule.validate_create_or_update()
 
 
 @ kwargs["user"] << _User()
-def test_user_delete_no_schedule_no_device(user):
+def test_user_delete_no_schedule_no_device(user) -> None:
     user.validate_delete()
 
 
 @ kwargs["user"] << _User()
 @ kwargs["shedule"] << _Schedule()
-def test_user_delete_with_schedule_error(user, **_):
+def test_user_delete_with_schedule_error(user, **_: Any) -> None:
     with _assert_validation_error(ValidationErrors.USER_HAS_SCHEDULES):
         user.validate_delete()
 
 
 @ kwargs["user"] << _User()
 @ kwargs["device"] << _Device()  # type: ignore  # kwargs doesn't allow proper typing of this use-case
-def test_user_delete_with_device_error(user, **_):
+def test_user_delete_with_device_error(user, **_: Any) -> None:
     with _assert_validation_error(ValidationErrors.USER_MANAGES_DEVICES):
         user.validate_delete()

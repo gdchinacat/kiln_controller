@@ -20,7 +20,7 @@ from ._fixtures import (
 @ kwargs["user"] << user_fixture()
 @ kwargs["client"] << user_client()
 @ kwargs["schedule"] << schedule_fixture()
-def test_user_delete_fails_with_schedule(client: Client, user, **_):
+def test_user_delete_fails_with_schedule(client: Client, user, **_) -> None:
     """
     Verify an error occurs if a user delete is attempted while the user has
     schedules.
@@ -33,7 +33,7 @@ def test_user_delete_fails_with_schedule(client: Client, user, **_):
 @ kwargs["user"] << user_fixture()
 @ kwargs["client"] << user_client()
 @ kwargs["device"] << device_fixture()
-def test_user_delete_fails_with_device(user, device, **_):
+def test_user_delete_fails_with_device(user, device, **_) -> None:
     """
     Verify an error occurs if a user delete is attempted while the user has
     schedules.
@@ -45,14 +45,14 @@ def test_user_delete_fails_with_device(user, device, **_):
 
 
 @ kwargs["user"] << user_fixture()
-def test_user_get_has_no_password(user, **_):
+def test_user_get_has_no_password(user, **_) -> None:
     user.password = None  # clear the password cached by fixtures
     user.get()
     assert not user.password
 
 
 @ kwargs["user"] << user_fixture()
-def test_user_not_found(user, **_):
+def test_user_not_found(user, **_) -> None:
     user_id = user.id
     user.delete()
     user.id = user_id

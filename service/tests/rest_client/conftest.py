@@ -146,7 +146,7 @@ class TestClient(RestClient):
         # Hide this at runtime so pydantic doesn't treat it as an attribute.
         parents: RootResourceList[Parent]
 
-    def __init__(self, client: httpx2.Client):
+    def __init__(self, client: httpx2.Client) -> None:
         super().__init__(client)
         self.parents = RootResourceList(Parent, self)
 

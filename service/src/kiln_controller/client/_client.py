@@ -17,7 +17,7 @@ class Client(RestClient):
         devices: RootResourceList[Device]
         schedules: RootResourceList[Schedule]
 
-    def __init__(self, client: httpx2.Client):
+    def __init__(self, client: httpx2.Client) -> None:
         super().__init__(client)
         self.users = RootResourceList(User, self)
         self.devices = RootResourceList(Device, self)

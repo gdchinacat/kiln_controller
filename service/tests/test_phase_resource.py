@@ -94,7 +94,7 @@ def _schedule_fixture(schedule: Schedule, **_: object) -> Schedule:
 
 
 @ kwargs["schedule"] << _schedule_fixture()
-def test_first_phase_must_be_ramp_error(schedule, **_):
+def test_first_phase_must_be_ramp_error(schedule, **_) -> None:
     """
     Verify an error occurs if the first phase is not a RAMP.
 
@@ -109,7 +109,7 @@ def test_first_phase_must_be_ramp_error(schedule, **_):
 
 
 @ kwargs["schedule"] << _schedule_fixture()
-def test_sequential_ramp_duplicate_temperature(schedule, **_):
+def test_sequential_ramp_duplicate_temperature(schedule, **_) -> None:
     """
     test that sequential RAMP can't have same temperature
     """
@@ -121,7 +121,7 @@ def test_sequential_ramp_duplicate_temperature(schedule, **_):
 
 
 @ kwargs["schedule"] << _schedule_fixture()
-def test_sequential_constant_phases_error(schedule, **_):
+def test_sequential_constant_phases_error(schedule, **_) -> None:
     """
     Since temperatures must be continuous and PhaseType.CONSTANT phases do
     not change the temperature, two sequential constant phases must have
@@ -164,7 +164,7 @@ def test_sequential_constant_phases_error(schedule, **_):
     temperature=2000,
     duration=time(1, 0),
 )
-def test_sequential_constant_phases_ramp_delete_error(ramp_to_delete, **_):
+def test_sequential_constant_phases_ramp_delete_error(ramp_to_delete, **_) -> None:
     """
     Test that deleting a ramp phase between two constant phases is not
     permitted because it would create sequential constant phases.
@@ -176,7 +176,7 @@ def test_sequential_constant_phases_ramp_delete_error(ramp_to_delete, **_):
 
 
 @ kwargs["schedule"] << _schedule_fixture()
-def test_discountinous_temperature_error(schedule, **_):
+def test_discountinous_temperature_error(schedule, **_) -> None:
     """test the requirement that phases temperature must be continuous"""
     phases = phase_generator(schedule)
     with assert_http_status_error(
@@ -189,7 +189,7 @@ def test_discountinous_temperature_error(schedule, **_):
 
 
 @ kwargs["schedule"] << _schedule_fixture()
-def test_phase_order(schedule, **kwargs):
+def test_phase_order(schedule, **kwargs) -> None:
     """
     Test that phases are ordered by ordinal rather than insert order.
 

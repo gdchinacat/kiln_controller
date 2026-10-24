@@ -14,8 +14,7 @@ import httpx2
 import pytest
 
 from fixtures import kwargs
-from kiln_controller.client import Client, Phase, Schedule
-from kiln_controller.common.enums import PhaseType
+from kiln_controller.client import Client, Phase, Schedule, PhaseType
 
 from ._fixtures import (
     assert_http_status_error,

@@ -18,7 +18,7 @@ def test_resource_lifecycle(client: TestClient) -> None:
     # Update a value.
     parent.a = 2
     parent.put(client)
-    assert parent._id_reason == Resource.IDReason.DOES_HAVE_AN_ID
+    assert parent._id_reason == Resource.IDReason.DOES_HAVE_AN_ID  # type: ignore # https://github.com/python/mypy/issues/9457
 
     # Verify the shadow does not see the value until it is refreshed/get().
     assert _parent.a == 1, "parent should not be changed until refreshed"

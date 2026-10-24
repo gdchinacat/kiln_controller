@@ -2,7 +2,7 @@
 Test the kiln_controller python client library.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 import datetime
 import os
@@ -110,7 +110,7 @@ def _test_post(client: Client, resource: KilnControllerResource) -> None:
 
 
 @ kwargs["user"] << user_fixture(skip_create=True)
-def test_post_user(admin_client, user: User, **_) -> None:
+def test_post_user(admin_client: Client, user: User, **_: Any) -> None:
     return _test_post(admin_client, user)
 
 
@@ -169,26 +169,26 @@ def _test_put(
 
 
 @ kwargs["user"] << user_fixture(skip_create=True)
-def test_put_user(user: User, admin_client: Client, **_) -> None:
+def test_put_user(user: User, admin_client: Client, **_: Any) -> None:
     return _test_put(user, admin_client)
 
 
 @ kwargs["user"] << user_fixture()
 @ kwargs["client"] << user_client()
 @ kwargs["device"] << device_fixture()
-def test_put_device(device: Device, client: Client, **_) -> None:
+def test_put_device(device: Device, client: Client, **_: Any) -> None:
     return _test_put(device, client, skip_put_create=True)
 
 
 @ kwargs["user"] << user_fixture()
 @ kwargs["client"] << user_client()
 @ kwargs["schedule"] << schedule_fixture(skip_create=True)
-def test_put_schedule(schedule: Schedule, client: Client, **_) -> None:
+def test_put_schedule(schedule: Schedule, client: Client, **_: Any) -> None:
     return _test_put(schedule, client)
 
 
 @contextmanager
-def _mock_client_requests():
+def _mock_client_requests() -> Generator[None]:
     """context manager that replaces client.requests with a mock"""
     mock = None
     try:
@@ -218,7 +218,7 @@ def test_delete_user_resource(user: User, **_: Any) -> None:
 @ kwargs["user"] << user_fixture()
 @ kwargs["client"] << user_client()
 @ kwargs["device"] << device_fixture(skip_delete=True)
-def test_delete_device_resource(client, device, **kwargs) -> None:
+def test_delete_device_resource(client: Client, device: Device, **_: Any) -> None:
     return _test_delete_resource(
         resource=device,
     )
@@ -227,7 +227,7 @@ def test_delete_device_resource(client, device, **kwargs) -> None:
 @ kwargs["user"] << user_fixture()
 @ kwargs["client"] << user_client()
 @ kwargs["schedule"] << schedule_fixture(skip_delete=True)
-def test_delete_schedule_resource(client, schedule, **kwargs) -> None:
+def test_delete_schedule_resource(client: Client, schedule: Schedule, **_: Any) -> None:
     return _test_delete_resource(
         resource=schedule,
     )
@@ -267,7 +267,7 @@ def test_delete_user_resource_by_list(user: User, client: Client, **_: Any) -> N
 @ kwargs["client"] << user_client()
 @ kwargs["device"] << device_fixture()
 def test_delete_device_resource_by_list(
-    client: Client, device: Device, **kwargs
+    client: Client, device: Device, **_: Any
 ) -> None:
     return _test_delete_resource_by_list(
         client.devices,
@@ -318,7 +318,9 @@ def test_basic_schedule_phases_resource_list(
 @ kwargs["client"] << user_client()
 @ kwargs["schedule"] << schedule_fixture(skip_delete=True)
 @ kwargs["phase"] << phase_fixture(skip_delete=True)
-def test_schedule_delete_deletes_phases(client, schedule, phase, **kwargs) -> None:
+def test_schedule_delete_deletes_phases(
+    client: Client, schedule: Schedule, phase: Phase, **_: Any
+) -> None:
     """basic test that deleting a schedule deletes its phases"""
     _phase = phase._testing_shadow()
     schedule.delete()
@@ -334,7 +336,7 @@ def test_schedule_delete_deletes_phases(client, schedule, phase, **kwargs) -> No
 
 
 @ kwargs["user"] << user_fixture()
-def test_create_existing_user_error(admin_client: Client, user: User, **_) -> None:
+def test_create_existing_user_error(admin_client: Client, user: User, **_: Any) -> None:
     """
     Test that POSTing a user that exists results in 409 Conflict.
 

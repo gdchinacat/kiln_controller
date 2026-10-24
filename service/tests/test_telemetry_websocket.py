@@ -70,7 +70,7 @@ def test_app(metrics_server: FakeMetricsServer) -> Generator[FastAPI]:
 
 @pytest.fixture
 def client(test_app: FastAPI, sessionmaker: SessionMaker) -> Generator[TestClient]:
-    _sessionmaker = test_app.state.db_sessionmaker
+    _sessionmaker = getattr(test_app.state, 'db_sessionmaker', None)
     try:
         test_app.state.db_sessionmaker = sessionmaker
         client = TestClient(app, base_url="https://testserver")

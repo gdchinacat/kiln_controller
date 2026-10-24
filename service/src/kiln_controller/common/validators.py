@@ -38,24 +38,6 @@ class ValidationError(Exception):
     def input(self) -> str:
         return str(self.args[0])
 
-    @classmethod
-    def from_json(
-        cls: type[ValidationError], json: dict[str, str]
-    ) -> ValidationError | None:
-        """
-        Reconstitute a ValidationError from json.
-
-        If the json does not represent a ValidationError None is returned.
-        """
-        if json.get("error_type") != cls.__name__:
-            return None
-
-        error = getattr(
-            ValidationErrors, json.get("validation_error"), ValidationErrors.GENERIC
-        )
-        args = json.get("args", ())
-        return cls(error, *args)
-
     def json(self):
         """get the json representation of this error"""
         return {

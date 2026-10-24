@@ -6,12 +6,18 @@ the model class annotations.
 
 import logging
 from enum import Enum
+from typing import TYPE_CHECKING
 
 from ...common.enums import PhaseType
 from kiln_controller.common.validators import ValidationErrors, ValidationError
 
 logger = logging.getLogger("kiln_controller.validators")
 __all__ = ("ValidationError",)
+
+
+if TYPE_CHECKING:
+    from .device import DeviceORM
+    from .schedule import ScheduleORM, PhaseORM
 
 
 class ValidatorMixinBase:
@@ -33,9 +39,10 @@ class ValidatorMixinBase:
 class UserValidator(ValidatorMixinBase):
     """user validation"""
 
-    # name: str  # provided by class this is mixed with
-    # schedules: list[Schedule]  # provided by class this is mixed with
-    # devices: list[Devvice]  # provided by class this is mixed with
+    if TYPE_CHECKING:
+        name: str
+        schedules: list[ScheduleORM]
+        devices: list[DeviceORM]
 
     def validate_delete(self):
         """validate the user can be deleted"""
@@ -54,7 +61,8 @@ class DeviceValidator(ValidatorMixinBase):
 class ScheduleValidator(ValidatorMixinBase):
     """schedule validation"""
 
-    # phases: list[Phase]  # provided by class this is mixed with
+    if TYPE_CHECKING:
+        phases: list[PhaseORM]
 
     def _validate(self) -> None:
         """
@@ -135,7 +143,8 @@ class ScheduleValidator(ValidatorMixinBase):
 class PhaseValidator(ValidatorMixinBase):
     """phase validation"""
 
-    schedule = None
+    if TYPE_CHECKING:
+        schedule: ScheduleORM
 
     def validate_create_or_update(self):
         super().validate_create_or_update()
@@ -143,5 +152,5 @@ class PhaseValidator(ValidatorMixinBase):
 
     def validate_delete(self):
         super().validate_delete()
-        self.schedule.phases.remove(self)
+        self.schedule.phases.remove(self)  # type: ignore
         self.schedule.validate_delete()

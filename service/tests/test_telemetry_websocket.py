@@ -180,6 +180,8 @@ def test_telemetry_set_time_on_connect(
         now = int(time.time() * 1000)
         assert (now - set_time.timestamp) == pytest.approx(0, abs=100)  # ms
 
+        assert not remaining_messages(websocket)
+
 
 @pytest.mark.timeout(1)
 def test_telemetry_send_no_delta_no_set_time(

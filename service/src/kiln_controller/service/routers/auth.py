@@ -21,7 +21,7 @@ async def login(
     request: Request,
     sessionmaker: SessionMaker = sessionmaker,
 ) -> LoginResponse:
-    query = select(UserORM).where(UserORM.username == login.username)
+    query = select(UserORM).where(UserORM.username == login.username)  # type: ignore
     async with sessionmaker() as session:
         user = (await session.execute(query)).scalars().first()
         if user is None or not verify_password(login.password, user.password):

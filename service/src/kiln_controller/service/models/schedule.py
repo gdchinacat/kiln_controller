@@ -30,12 +30,12 @@ NAME_LENGTH = 30
 
 class ScheduleCreate(pydantic.BaseModel):
     name: str = pydantic.Field(max_length=NAME_LENGTH)
-    user_id: int | None = None  # defaults to current user
+    user_id: int
 
 
 class ScheduleUpdate(pydantic.BaseModel):
     name: str = pydantic.Field(max_length=NAME_LENGTH)
-    user_id: int | None = None
+    user_id: int
 
 
 class Schedule(ScheduleUpdate):
@@ -46,7 +46,7 @@ class Schedule(ScheduleUpdate):
 
 class ScheduleORM(ScheduleValidator, ORMType, table=True):
 
-    __tablename__ = "schedules"
+    __tablename__ = "schedules"  # type: ignore
     __table_args__ = {"sqlite_autoincrement": True}
 
     id: int | None = sqlmodel.Field(default=None, primary_key=True)
@@ -144,7 +144,7 @@ class Phase(pydantic.BaseModel):
 
 
 class PhaseORM(PhaseValidator, ORMType, table=True):
-    __tablename__ = "phases"
+    __tablename__ = "phases"  # type: ignore
     __table_args__ = (
         sqlmodel.UniqueConstraint("schedule_id", "name"),
         sqlmodel.UniqueConstraint("schedule_id", "ordinal"),

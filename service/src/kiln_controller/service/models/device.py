@@ -2,6 +2,7 @@
 Device model.
 """
 
+from abc import ABC
 import hashlib
 import hmac
 import os
@@ -15,7 +16,6 @@ import sqlmodel
 from ._base import ORMType
 from .user import UserORM
 from .validators import DeviceValidator
-from abc import ABC
 
 __all__ = (
     "Device",
@@ -105,8 +105,8 @@ class Device(pydantic.BaseModel):
 
 
 class DeviceORM(DeviceValidator, ORMType, _DeviceAuth, table=True):
-    __tablename__ = "devices"
-    __table_args__ = {"sqlite_autoincrement": True}
+    __tablename__ = "devices"  # type: ignore
+    __table_args__: ClassVar[dict[str, bool]] = {"sqlite_autoincrement": True}
 
     id: int | None = sqlmodel.Field(default=None, primary_key=True)
     name: str = sqlmodel.Field(max_length=NAME_LENGTH)

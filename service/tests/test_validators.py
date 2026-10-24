@@ -53,8 +53,8 @@ class _User(UserValidator):
     """User @fixture"""
 
     name = "name"
-    schedules: list["_Schedule"] = field(default_factory=list)
-    devices: list["_Device"] = field(default_factory=list)
+    schedules: list[_Schedule] = field(default_factory=list)  # type: ignore
+    devices: list[_Device] = field(default_factory=list)  # type: ignore
 
 
 @kwargs.factory
@@ -74,8 +74,8 @@ class _Device(DeviceValidator):
 class _Schedule(ScheduleValidator):
     """Schedule @fixture"""
 
-    user: _User = None  # type: ignore  # kwargs doesn't allow proper typing of this use-case
-    phases: list["_Phase"] = field(
+    user: _User = None  # type: ignore
+    phases: list[_Phase] = field(  # type: ignore
         default_factory=partial(SortedList, key=lambda phase: phase.ordinal)
     )
 

@@ -26,7 +26,7 @@ from sqlalchemy.orm import selectinload
 from ...device.protocol import (
     Telemetry,
     SetTimeCommand,
-    Command,
+    Message,
     SampleAckMessage,
     MessageType,
 )
@@ -67,7 +67,7 @@ async def _authenticate_device_websocket(
 
         async with sessionmaker(expire_on_commit=False) as session:
             device_orm = await session.get(
-                DeviceORM, device_id, options=[selectinload(DeviceORM.user)]
+                DeviceORM, device_id, options=[selectinload(DeviceORM.user)]  # type: ignore
             )
             if not device_orm:
                 # todo - is it OK to expose this as 404 without auth passing to let
@@ -93,7 +93,7 @@ class _TelemetryIO:
     send_bytes: Sender
     authenticator: Callable[[], Coroutine[Any, Any, DeviceORM]]
 
-    queue: Queue[Command] = field(default_factory=Queue, init=False)
+    queue: Queue[Message] = field(default_factory=Queue, init=False)
 
     # todo? - create a metric request command
     # todo? - create a metric throttle command

@@ -14,8 +14,8 @@ from .validators import UserValidator
 __all__ = ("User", "UserCreate", "UserUpdate", "UserORM")
 
 if TYPE_CHECKING:
-    from .schedule import Schedule
-    from .device import Device
+    from .schedule import ScheduleORM
+    from .device import DeviceORM
 
 NAME_LENGTH = 60
 USERNAME_LENGTH = 16
@@ -49,7 +49,7 @@ class User(pydantic.BaseModel):
 
 
 class UserORM(UserValidator, ORMType, table=True):
-    __tablename__ = "users"
+    __tablename__ = "users"  # type: ignore
     __table_args__ = {"sqlite_autoincrement": True}
 
     id: int | None = sqlmodel.Field(default=None, primary_key=True)
@@ -59,12 +59,10 @@ class UserORM(UserValidator, ORMType, table=True):
     email: str | None = sqlmodel.Field(default=None, max_length=EMAIL_LENGTH)
     phone_number: str | None = sqlmodel.Field(default=None, max_length=PHONE_LENGTH)
 
-    # schedules: Annotated[list["Schedule"], Field(exclude=True)] = Relationship(
     schedules: list["ScheduleORM"] = sqlmodel.Relationship(
         back_populates="user",
         sa_relationship_kwargs={"viewonly": True, "lazy": True},
     )
-    # devices: Annotated[list["Device"], Field(exclude=True)] = Relationship(
     devices: list["DeviceORM"] = sqlmodel.Relationship(
         back_populates="user",
         sa_relationship_kwargs={"viewonly": True, "lazy": True},

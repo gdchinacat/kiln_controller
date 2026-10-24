@@ -9,6 +9,8 @@ from .user import *
 from .schedule import *
 from .device import *
 
+from . import auth, user, schedule, device, db
+
 
 ###
 # Hack FiringORM in to avovid having to come back to victoriametrics in a bit

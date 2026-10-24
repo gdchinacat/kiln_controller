@@ -77,10 +77,7 @@ def create_router(
         if request.path_params:  # schedule_id in '/schedule/{request_id}/phase
             query = query.filter_by(**request.path_params)
         async with sessionmaker() as session:
-            return [
-                orm.model_dump(mode="json")
-                for orm in (await session.execute(query)).scalars()
-            ]
+            return [orm for orm in (await session.execute(query)).scalars()]
 
     @router.get(
         "/{id}",
@@ -99,7 +96,7 @@ def create_router(
         if not orm:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
-        return orm.model_dump(mode="json")
+        return orm
 
     @router.post(
         "",
@@ -190,7 +187,7 @@ def create_router(
                 session.add(orm)
             else:
                 orm.sqlmodel_update(resource.model_dump(exclude_unset=True))
-        return orm.model_dump(mode="json")
+        return orm
 
     @router.delete(
         "/{id}",

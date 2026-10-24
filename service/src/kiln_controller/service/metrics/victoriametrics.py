@@ -104,7 +104,7 @@ class VictoriaMetricsServer(MetricsServer):
     @override
     async def telemetry(self, telemetry: Telemetry, device: DeviceORM) -> int:
         # delta is significantly higher (~70ms) when calculated here relative
-        # to when it was calculated in the websocket route. todo? The main us
+        # to when it was calculated in the websocket route. todo? The main use
         # will be to tell when a device has unreliable connectivity...and tens
         # of milliseconds here won't really matter for that use case. If the
         # delta is consistently high and stable enough the timestamps for its
@@ -135,6 +135,7 @@ class VictoriaMetricsServer(MetricsServer):
 
         async with httpx.AsyncClient() as client:  # todo - reuse the same httpx client
             response = await client.put(self.url, json=json)
+            response.raise_for_status()
             if response.status_code == status.HTTP_204_NO_CONTENT:
                 logger.debug(
                     f"{len(json)} metrics sent successfully "
@@ -144,3 +145,4 @@ class VictoriaMetricsServer(MetricsServer):
                 return telemetry.samples[-1].timestamp if telemetry.samples else 0
             else:
                 logger.error(f"{response.status_code} {response.text=}")
+                return 0

@@ -19,10 +19,9 @@ TODO
 
 from collections.abc import Iterable, Callable
 from dataclasses import dataclass
-import datetime
 from enum import Enum
-import functools
 import logging
+import os
 import time
 from typing import override, Any
 
@@ -31,7 +30,7 @@ import httpx
 
 from . import MetricsServer
 from ...device.protocol import Telemetry, Sample, Metrics
-from ..models import DeviceORM, UserORM, FiringORM
+from ..models import DeviceORM
 
 logger = logging.getLogger("kiln_controller.victoriametrics")
 
@@ -39,7 +38,8 @@ JOB_NAME = "kiln_controller"
 
 
 def log_metrics[**P, R](func: Callable[P, R]) -> Callable[P, R]:
-    return func
+    if "KILN_CONTROLLER_LOG_METRICS" not in os.environ:
+        return func
 
     def wrap(*args: P.args, **kwargs: P.kwargs) -> R:
         metric = func(*args, **kwargs)

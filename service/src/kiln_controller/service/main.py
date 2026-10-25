@@ -5,7 +5,7 @@ Implements the resource model used by the UI and the devices.
 Serves the SPA interface for the service.
 """
 
-from collections.abc import Iterable, AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 import logging
 import os
@@ -14,8 +14,8 @@ import os
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-import pydantic
 import sqlalchemy
+import sqlalchemy.exc
 from starlette.middleware.sessions import SessionMiddleware
 
 from .metrics.victoriametrics import VictoriaMetricsServer
@@ -45,7 +45,7 @@ DB_URL = os.environ.get("DB_URL", SQLALCHEMY_DEFAULT_DATABASE_URL)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.db_engine = await db.get_engine(DB_URL)
     app.state.db_sessionmaker = db.get_sessionmaker(app.state.db_engine)
     yield

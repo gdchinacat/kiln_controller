@@ -1,8 +1,14 @@
-from collections.abc import Generator, Callable, Iterator
+"""
+Pytest fixtures. These are mostly relatively static fixtures that are not
+parameterized (in the 'has parameters' sense, not the pytest.parametrize
+sense). Test specific/parameterized fixtures used with fixtures.kwargs are
+located in _fixtures.
+"""
+
+from collections.abc import Generator, Callable
 from contextlib import contextmanager, AbstractContextManager
 from dataclasses import dataclass
-import os
-import shutil
+import pytest
 import ssl
 from threading import Thread
 import time
@@ -10,21 +16,12 @@ from typing import Generator
 
 import fastapi
 import httpx2
-import pytest
+from kiln_controller.client import Client
+from kiln_controller.service.main import app
+from kiln_controller.service.models import get_engine, get_sessionmaker, SessionMaker
 from sqlalchemy.ext.asyncio import AsyncEngine
 import trustme
 import uvicorn
-
-from kiln_controller.service.main import app
-from kiln_controller.service.models import get_engine, get_sessionmaker, SessionMaker
-from kiln_controller.client import Client
-
-"""
-Pytest fixtures. These are mostly relatively static fixtures that are not
-parameterized (in the 'has parameters' sense, not the pytest.parametrize
-sense). Test specific/parameterized fixtures used with fixtures.kwargs are
-located in _fixtures.
-"""
 
 
 @dataclass
@@ -45,7 +42,7 @@ type ServiceFactory = Callable[[fastapi.FastAPI], AbstractContextManager[Service
 @pytest.fixture(scope="session")
 def service_factory() -> ServiceFactory:
     @contextmanager
-    def _factory(app: fastapi.FastAPI) -> Iterator[Service]:
+    def _factory(app: fastapi.FastAPI) -> Generator[Service]:
         ca = trustme.CA()
         cert = ca.issue_cert("localhost", "127.0.0.1")
 

@@ -54,3 +54,4 @@ asyncio_mode = "auto"
 [tool.pyrefly]
 search-path = ["src", "."]
 preset = "strict"
+min-severity = "warn"

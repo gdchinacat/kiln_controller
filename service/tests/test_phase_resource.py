@@ -2,19 +2,17 @@
 Test the kiln_controller phase resource behavior.
 """
 
-from collections.abc import Generator
-from contextlib import contextmanager
+from collections.abc import Generator, Callable
 from datetime import time
 from functools import wraps
 from itertools import count
 import logging
 import os
-
-import httpx2
-import pytest
+from typing import Any, cast
 
 from fixtures import kwargs
-from kiln_controller.client import Client, Phase, Schedule, PhaseType
+import httpx2
+from kiln_controller.client import Phase, Schedule, PhaseType
 
 from ._fixtures import (
     assert_http_status_error,
@@ -28,19 +26,22 @@ if os.getenv("DEBUG_LOGGING", "false").upper() == "TRUE":
     logging.basicConfig(level=logging.DEBUG, force=True)
 
 
-def generator_primer(func):
+def generator_primer[Y, S, R, **P](
+    func: Callable[P, Generator[Y | None, S | None, R]],
+) -> Callable[P, Generator[Y, S, R]]:
     """decorator to 'prime' a generator that receives values"""
 
     @wraps(func)
-    def _generator_primer(*args, **kwargs):
+    def _generator_primer(*args: P.args, **kwargs: P.kwargs) -> Generator[Y, S, R]:
         ret = func(*args, **kwargs)
         ret.send(None)
-        return ret
+        # Remove '|None' from Y and S...they are only None for priming.
+        return cast(Generator[Y, S, R], ret)
 
     return _generator_primer
 
 
-def _constant(**kwargs):
+def _constant(**kwargs: Any) -> dict[str, Any]:
     """utility to create kwargs for a PhaseType.CONSTANT phase"""
     return {
         "name": None,
@@ -50,7 +51,7 @@ def _constant(**kwargs):
     } | kwargs
 
 
-def _ramp(**kwargs):
+def _ramp(**kwargs: Any) -> dict[str, Any]:
     """utility to create kwargs for a PhaseType.RAMP phase"""
     return {
         "name": None,
@@ -61,7 +62,9 @@ def _ramp(**kwargs):
 
 
 @generator_primer
-def phase_generator(schedule):
+def phase_generator(
+    schedule: Schedule,
+) -> Generator[Phase | None, dict[str, Any] | None, None]:
     """
     Generator that creates a sequence of phases.
 
@@ -93,7 +96,7 @@ def _schedule_fixture(schedule: Schedule, **_: object) -> Schedule:
 
 
 @ kwargs["schedule"] << _schedule_fixture()
-def test_first_phase_must_be_ramp_error(schedule, **_) -> None:
+def test_first_phase_must_be_ramp_error(schedule: Schedule, **_: Any) -> None:
     """
     Verify an error occurs if the first phase is not a RAMP.
 
@@ -108,7 +111,7 @@ def test_first_phase_must_be_ramp_error(schedule, **_) -> None:
 
 
 @ kwargs["schedule"] << _schedule_fixture()
-def test_sequential_ramp_duplicate_temperature(schedule, **_) -> None:
+def test_sequential_ramp_duplicate_temperature(schedule: Schedule, **_: Any) -> None:
     """
     test that sequential RAMP can't have same temperature
     """
@@ -120,7 +123,7 @@ def test_sequential_ramp_duplicate_temperature(schedule, **_) -> None:
 
 
 @ kwargs["schedule"] << _schedule_fixture()
-def test_sequential_constant_phases_error(schedule, **_) -> None:
+def test_sequential_constant_phases_error(schedule: Schedule, **_: Any) -> None:
     """
     Since temperatures must be continuous and PhaseType.CONSTANT phases do
     not change the temperature, two sequential constant phases must have
@@ -163,7 +166,9 @@ def test_sequential_constant_phases_error(schedule, **_) -> None:
     temperature=2000,
     duration=time(1, 0),
 )
-def test_sequential_constant_phases_ramp_delete_error(ramp_to_delete, **_) -> None:
+def test_sequential_constant_phases_ramp_delete_error(
+    ramp_to_delete: Phase, **_: Any
+) -> None:
     """
     Test that deleting a ramp phase between two constant phases is not
     permitted because it would create sequential constant phases.
@@ -175,7 +180,7 @@ def test_sequential_constant_phases_ramp_delete_error(ramp_to_delete, **_) -> No
 
 
 @ kwargs["schedule"] << _schedule_fixture()
-def test_discountinous_temperature_error(schedule, **_) -> None:
+def test_discountinous_temperature_error(schedule: Schedule, **_: Any) -> None:
     """test the requirement that phases temperature must be continuous"""
     phases = phase_generator(schedule)
     with assert_http_status_error(
@@ -188,7 +193,7 @@ def test_discountinous_temperature_error(schedule, **_) -> None:
 
 
 @ kwargs["schedule"] << _schedule_fixture()
-def test_phase_order(schedule, **kwargs) -> None:
+def test_phase_order(schedule: Schedule, **_: Any) -> None:
     """
     Test that phases are ordered by ordinal rather than insert order.
 

@@ -1,7 +1,7 @@
-from rest_client import Resource
+from rest_client import Resource, RestClient
 
 
-class Device(Resource):
+class Device(Resource[RestClient]):
     _URL = "/device"
 
     name: str

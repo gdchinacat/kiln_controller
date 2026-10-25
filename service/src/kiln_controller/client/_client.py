@@ -7,7 +7,7 @@ from rest_client import RestClient, RootResourceList
 from ._auth import LoginInfo
 from ._user import User
 from ._device import Device
-from ._schedule import Schedule, Phase
+from ._schedule import Schedule
 
 
 class Client(RestClient):

@@ -3,12 +3,9 @@ REST client framework.
 """
 
 from abc import ABC
-from collections.abc import Callable, Iterable
 from enum import Enum
-from functools import wraps
-import functools
 import logging
-from typing import Any, ClassVar, Self, Concatenate, TYPE_CHECKING
+from typing import Any, ClassVar, Self, TYPE_CHECKING, override
 
 import httpx2
 import pydantic
@@ -216,10 +213,12 @@ class RootResource(Resource["RestClient"]):
         super().__init__()  # root resources are internal and don't have args
         self.__client = client
 
+    @override
     @property
     def _client(self) -> "RestClient":
         return self.__client
 
+    @override
     @property
     def _url(self) -> str:
         return ""

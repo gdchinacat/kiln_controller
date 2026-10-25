@@ -1,12 +1,11 @@
 from collections import defaultdict
 from collections.abc import Generator, Iterable
 import itertools
-from typing import Any, Self, ClassVar, TYPE_CHECKING
+from typing import Any, Self, ClassVar, TYPE_CHECKING, Never
 
 import fastapi
 import httpx2
 import pydantic
-from pydantic.deprecated.json import pydantic_encoder
 import pytest
 
 from fixtures import kwargs
@@ -35,7 +34,7 @@ class _ChildModel(pydantic.BaseModel):
     a: int
 
 
-class Child(Resource):
+class Child(Resource["Parent"]):
     _URL: ClassVar[str] = "/child"  # relative to parent
 
     a: int
@@ -53,7 +52,7 @@ class _ParentModel(pydantic.BaseModel):
     a: int
 
 
-class Parent(Resource):
+class Parent(Resource["TestClient"]):
     _URL: ClassVar[str] = "/parent"
 
     a: int

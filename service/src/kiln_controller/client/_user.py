@@ -1,7 +1,7 @@
-from rest_client import Resource
+from rest_client import Resource, RestClient
 
 
-class User(Resource):
+class User(Resource[RestClient]):
     _URL = "/user"
 
     name: str

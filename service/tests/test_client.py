@@ -2,13 +2,10 @@
 Test the kiln_controller python client library.
 """
 
-from collections.abc import Callable, Generator
+from collections.abc import Generator, Iterator
 from contextlib import contextmanager
-import datetime
-import os
-import random
+from itertools import count
 from typing import Any
-import unittest
 
 import httpx2
 import pytest
@@ -21,9 +18,8 @@ from kiln_controller.client import (
     Device,
     Schedule,
     Phase,
-    PhaseType,
 )
-from rest_client import ResourceList
+from rest_client import ResourceList, RestClient
 
 from ._fixtures import (
     user_fixture,
@@ -88,7 +84,10 @@ def test_add_schedule_to_list(
     _test_list_add(schedule, client.schedules, iadd=iadd)
 
 
-def _test_post(client: Client, resource: KilnControllerResource) -> None:
+def _test_post[PT: KilnControllerResource | RestClient](
+    parent: PT,
+    resource: Resource[PT],
+) -> None:
     """
     test that resources of type _type can be created using
     Resource.post(client)
@@ -98,7 +97,7 @@ def _test_post(client: Client, resource: KilnControllerResource) -> None:
     ), f"{resource} appears to have already been created"  # precondition check
 
     # test post success
-    resource.post(client)
+    resource.post(parent)
 
     assert resource.id is not None, "post failed to assign id to resource"
 
@@ -133,7 +132,10 @@ def test_post_schedule(client: Client, schedule: Schedule, **_: Any) -> None:
 
 
 def _test_put(
-    resource: KilnControllerResource, client: Client, skip_put_create: bool = False
+    resource: User | Device | Schedule,
+    client: Client,
+    skip_put_create: bool = False,
+    _ids: Iterator[int] = count(),
 ) -> None:
     """
     test that resources of type _type can be created and updated using
@@ -141,8 +143,7 @@ def _test_put(
     """
     if not skip_put_create:
         # test put create success
-        # good chance this won't collide...right?
-        resource.id = int(random.random() * 1000000)
+        resource.id = next(_ids)
         resource.put(client)
         assert resource.id is not None, "put failed to assign id to resource"
 
@@ -157,13 +158,13 @@ def _test_put(
     # test put with resource.id succeeds, attribute changes
     name = resource.name * 2
     resource.name = name
-    resource.put(client)
+    resource.put()
 
     # Verify name is updated by creating a new bare Resource with only
     # id and getting it with the client.
     resource2 = resource._testing_shadow()
     resource2.name = ""
-    resource2.get(client)
+    resource2.get()
 
     assert name == resource2.name, "name not updated in put"
 

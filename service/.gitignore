@@ -3,3 +3,4 @@ kiln_controller.db
 *.pem
 /tests/static
 /tests/rest_client/static
+/.externalToolBuilders/

@@ -132,6 +132,7 @@ class ResourceList[T: Resource[Any], PT: Resource[Any]](list[T]):
     pop = _not_implemented  # type: ignore[bad-override-mutable-attribute]
     remove = _not_implemented  # type: ignore[bad-override-mutable-attribute]
 
+    @override
     @_expire
     def __iadd__(self, value: Iterable[T]) -> Self:
         assert all(isinstance(obj, self._type) for obj in value), (
@@ -143,9 +144,11 @@ class ResourceList[T: Resource[Any], PT: Resource[Any]](list[T]):
             resource.post(self._parent)
         return self
 
+    @override
     def append(self, obj: T) -> None:
         self += (obj,)
 
+    @override
     @_expire
     def __delitem__(self, key: SupportsIndex | slice) -> None:
         if isinstance(key, slice):
@@ -164,6 +167,7 @@ class RootResourceList[T: Resource[Any]](ResourceList[T, RootResource]):
     def __init__(self, _type: type[T], client: RestClient) -> None:
         super().__init__(_type, parent=RootResource(client))
 
+    @override
     @property
     def _url(self) -> str:
         return self._type._URL
@@ -181,10 +185,11 @@ class ResourceListDescriptor[T: Resource[Any], PT: Resource[Any]](
     def __init__(self, type_: type[T]) -> None:
         self.type_ = type_
 
-    def __set_name__(self, owner, name) -> None:
+    def __set_name__(self, owner: Any, name: str) -> None:
         self.name = name
         self.attr = f"_{name}"
 
+    @override
     def __set__(self, obj: Any, value: ResourceList[T, PT]) -> None:
         setattr(obj, self.attr, value)
 

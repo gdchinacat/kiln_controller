@@ -3,7 +3,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from functools import partial, wraps
 from itertools import count
-from typing import Concatenate, Self, Any
+from typing import Concatenate, Self, Any, override
 
 import pytest
 
@@ -48,9 +48,11 @@ class SortedList[T](list[T]):
 
         return _wrap
 
-    __add__ = _sort(list.__add__)
-    __delitem__ = _sort(list.__delitem__)
-    __setitem__ = _sort(list.__setitem__)
+    __add__ = override(_sort(list.__add__))
+    __delitem__ = override(  # pyrefly: ignore[missing-override-decorator]
+        _sort(list.__delitem__)
+    )
+    __setitem__ = override(_sort(list.__setitem__))
 
 
 @kwargs.factory

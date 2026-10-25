@@ -1,8 +1,7 @@
 from datetime import time
 from enum import Enum
-from typing import ClassVar, TYPE_CHECKING
 
-from rest_client import Resource, ResourceList, ResourceListDescriptor
+from rest_client import Resource, ResourceListDescriptor, RestClient
 
 
 class PhaseType(str, Enum):
@@ -12,7 +11,7 @@ class PhaseType(str, Enum):
     RAMP = "ramp"
 
 
-class Phase(Resource):
+class Phase(Resource["Schedule"]):
     _URL = "/phase"
 
     name: str
@@ -24,7 +23,7 @@ class Phase(Resource):
     temperature: int | None = None
 
 
-class Schedule(Resource):
+class Schedule(Resource[RestClient]):
     _URL = "/schedule"
 
     phases = ResourceListDescriptor(Phase)

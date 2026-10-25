@@ -13,12 +13,12 @@ metrics service adapter?
 
 from abc import ABC
 from collections.abc import Iterable, Callable
-from dataclasses import dataclass, Field, fields, field, asdict
+from dataclasses import dataclass, Field, fields, field
 from enum import Enum
 from itertools import pairwise
-from struct import pack, unpack, Struct
+from struct import Struct
 import time
-from typing import Self, Protocol, ClassVar, Any, overload
+from typing import Self, Protocol, ClassVar, Any, override
 
 __all__ = (
     "Message",
@@ -216,10 +216,12 @@ class Message(Metrics, ABC):
     struct: ClassVar[Struct] = Struct("<B")
     message_type: ClassVar[MessageType]
 
+    @override
     def field_values(self) -> Iterable[tuple[str, Any]]:
         # insert command type into fields to pack
         yield from (("message_type", self.message_type), *super().field_values())
 
+    @override
     @classmethod
     def unpack(cls, buffer: bytes) -> Self:
         args = cls.struct.unpack(buffer)
@@ -253,6 +255,7 @@ class Telemetry(ClientMessage):
         if isinstance(self.state, bytes):
             self.state = State.unpack(self.state)
 
+    @override
     @classmethod
     def unpack(cls, buffer: bytes) -> Self:
         self = super().unpack(buffer[: cls.struct.size])
@@ -262,6 +265,7 @@ class Telemetry(ClientMessage):
         ]
         return self
 
+    @override
     def pack(self) -> bytes:
         return b"".join((super().pack(), *(sample.pack() for sample in self.samples)))
 

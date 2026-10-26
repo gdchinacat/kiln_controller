@@ -2,7 +2,7 @@
 Users ORM
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 import pydantic
 import sqlmodel
@@ -58,8 +58,8 @@ class User(pydantic.BaseModel):
 
 
 class UserORM(UserValidator, ORMType, table=True):
-    __tablename__ = "users"  # type: ignore
-    __table_args__ = {"sqlite_autoincrement": True}
+    __tablename__ = "users"  # type: ignore[bad-override]
+    __table_args__: ClassVar[dict[str, bool]] = {"sqlite_autoincrement": True}
 
     id: int | None = sqlmodel.Field(default=None, primary_key=True)
     name: str = sqlmodel.Field(max_length=NAME_LENGTH)

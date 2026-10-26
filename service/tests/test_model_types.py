@@ -2,7 +2,6 @@ import json
 from datetime import time
 
 from kiln_controller.service.models import (
-    DeviceCreate,
     DeviceORM,
     Phase,
     PhaseType,
@@ -55,6 +54,3 @@ async def test_ids_are_not_reused(sessionmaker: SessionMaker) -> None:
 
         assert device1.id and device2.id
         assert device1.id != device2.id
-
-
-DeviceCreate

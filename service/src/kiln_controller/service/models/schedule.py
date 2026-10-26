@@ -3,7 +3,7 @@ Schedule related ORMs
 """
 
 from datetime import time
-from typing import Any
+from typing import Any, ClassVar
 
 import pydantic
 import sqlmodel
@@ -45,8 +45,8 @@ class Schedule(ScheduleUpdate):
 
 class ScheduleORM(ScheduleValidator, ORMType, table=True):
 
-    __tablename__ = "schedules"  # type: ignore
-    __table_args__ = {"sqlite_autoincrement": True}
+    __tablename__ = "schedules"  # type: ignore[bad-override]
+    __table_args__: ClassVar[dict[str, bool]] = {"sqlite_autoincrement": True}
 
     id: int | None = sqlmodel.Field(default=None, primary_key=True)
 

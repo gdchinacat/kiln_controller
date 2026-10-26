@@ -2,9 +2,8 @@
 Test the kiln_controller python client library.
 """
 
-from collections.abc import Generator, Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
-from itertools import count
 from typing import Any
 
 import httpx2
@@ -22,6 +21,7 @@ from kiln_controller.client import (
 from rest_client import ResourceList, RestClient
 
 from ._fixtures import (
+    IDS,
     assert_http_status_error,
     device_fixture,
     phase_fixture,
@@ -135,7 +135,6 @@ def _test_put(
     resource: User | Device | Schedule,
     client: Client,
     skip_put_create: bool = False,
-    _ids: Iterator[int] = count(),
 ) -> None:
     """
     test that resources of type _type can be created and updated using
@@ -143,7 +142,7 @@ def _test_put(
     """
     if not skip_put_create:
         # test put create success
-        resource.id = next(_ids)
+        resource.id = next(IDS)
         resource.put(client)
         assert resource.id is not None, "put failed to assign id to resource"
 

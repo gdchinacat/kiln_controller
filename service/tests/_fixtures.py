@@ -39,6 +39,8 @@ __all__ = [
     "user_fixture",
 ]
 
+IDS: Iterator[int] = count()
+
 
 @contextmanager
 def assert_http_status_error(
@@ -69,7 +71,6 @@ def user_fixture(
     password: str | None = "password",
     skip_create: bool = False,
     skip_delete: bool = False,
-    _user_count: Iterator[int] = count(),
     **kwargs: dict[str, Any],
 ) -> Generator[User]:
     """
@@ -82,7 +83,7 @@ def user_fixture(
     skip_create causes the user to not be inserted (useful for when you need
     a user with a uniqueish username that hasn't been created on the server).
     """
-    username = username or f"username{next(_user_count)}"
+    username = username or f"username{next(IDS)}"
     user = User(name=name, username=username, password=password)
     if not skip_create:
         user.post(admin_client)

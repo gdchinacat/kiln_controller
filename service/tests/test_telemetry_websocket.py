@@ -30,7 +30,6 @@ from kiln_controller.service.models import (
     User,
     UserCreate,
 )
-from kiln_controller.service.models.db import SessionMaker
 
 os.environ["NON_PERSISTENT"] = "TRUE"
 

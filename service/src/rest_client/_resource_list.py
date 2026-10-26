@@ -54,7 +54,9 @@ class ResourceList[T: Resource[Any], PT: Resource[Any]](list[T]):
         assert self._parent._client
         super().clear()
         for _resource in (
-            self._parent._client._http_client.get(self._url).raise_for_status().json()
+            self._parent._client._http_client.get(self._url)
+            .raise_for_status()
+            .json()
         ):
             resource = self._type.model_validate(_resource)
             resource._parent = self._parent
@@ -195,7 +197,9 @@ class ResourceListDescriptor[T: Resource[Any], PT: Resource[Any]](
     ) -> ResourceList[T, PT] | Self:
         if parent is None:
             return self
-        resource_list = cast(ResourceList[T, PT], getattr(parent, self.attr, None))
+        resource_list = cast(
+            ResourceList[T, PT], getattr(parent, self.attr, None)
+        )
         if resource_list is None:
             resource_list = ResourceList(
                 self.type_,

@@ -69,7 +69,9 @@ def test_app() -> TestApp:
 
     @app.post(Parent._URL)
     async def _create_parent(create: _ParentCreate) -> _ParentModel:
-        parent = _ParentModel.model_validate(create.model_dump() | {"id": next(ids)})
+        parent = _ParentModel.model_validate(
+            create.model_dump() | {"id": next(ids)}
+        )
         parents[parent.id] = parent
         return parents[parent.id]
 
@@ -80,13 +82,17 @@ def test_app() -> TestApp:
     @app.get(Parent._URL + "/{_id}")
     async def _get_parent(_id: int) -> _ParentModel:
         if _id not in parents:
-            raise fastapi.HTTPException(status_code=fastapi.status.HTTP_404_NOT_FOUND)
+            raise fastapi.HTTPException(
+                status_code=fastapi.status.HTTP_404_NOT_FOUND
+            )
         return parents[_id]
 
     @app.put(Parent._URL + "/{_id}")
     async def _put_parent(_id: int, put: _ParentPut) -> _ParentModel:
         if _id not in parents:
-            raise fastapi.HTTPException(status_code=fastapi.status.HTTP_404_NOT_FOUND)
+            raise fastapi.HTTPException(
+                status_code=fastapi.status.HTTP_404_NOT_FOUND
+            )
         parent = parents[_id]
         for k, v in put.model_dump().items():
             setattr(parent, k, v)
@@ -98,29 +104,43 @@ def test_app() -> TestApp:
         return {}
 
     @app.post(f"{Parent._URL}/{{parent_id}}{Child._URL}")
-    async def _create_child(parent_id: int, create: _ChildCreate) -> _ChildModel:
+    async def _create_child(
+        parent_id: int, create: _ChildCreate
+    ) -> _ChildModel:
         if parent_id not in parents:
-            raise fastapi.HTTPException(status_code=fastapi.status.HTTP_404_NOT_FOUND)
-        child = _ChildModel.model_validate(create.model_dump() | {"id": next(ids)})
+            raise fastapi.HTTPException(
+                status_code=fastapi.status.HTTP_404_NOT_FOUND
+            )
+        child = _ChildModel.model_validate(
+            create.model_dump() | {"id": next(ids)}
+        )
         children[parent_id][child.id] = child
         return children[parent_id][child.id]
 
     @app.get(f"{Parent._URL}/{{parent_id}}{Child._URL}")
     async def _list_children(parent_id: int) -> Iterable[_ChildModel]:
         if parent_id not in parents:
-            raise fastapi.HTTPException(status_code=fastapi.status.HTTP_404_NOT_FOUND)
+            raise fastapi.HTTPException(
+                status_code=fastapi.status.HTTP_404_NOT_FOUND
+            )
         return children.get(parent_id, {}).values()
 
     @app.get(f"{Parent._URL}/{{parent_id}}{Child._URL}/{{child_id}}")
     async def _get_child(parent_id: int, child_id: int) -> _ChildModel:
         if parent_id not in children or child_id not in children[parent_id]:
-            raise fastapi.HTTPException(status_code=fastapi.status.HTTP_404_NOT_FOUND)
+            raise fastapi.HTTPException(
+                status_code=fastapi.status.HTTP_404_NOT_FOUND
+            )
         return children[parent_id][child_id]
 
     @app.put(f"{Parent._URL}/{{parent_id}}{Child._URL}/{{child_id}}")
-    async def _put_child(parent_id: int, child_id: int, put: _ChildPut) -> _ChildModel:
+    async def _put_child(
+        parent_id: int, child_id: int, put: _ChildPut
+    ) -> _ChildModel:
         if parent_id not in children or child_id not in children[parent_id]:
-            raise fastapi.HTTPException(status_code=fastapi.status.HTTP_404_NOT_FOUND)
+            raise fastapi.HTTPException(
+                status_code=fastapi.status.HTTP_404_NOT_FOUND
+            )
         child = children[parent_id][child_id]
         for k, v in put.model_dump().items():
             setattr(child, k, v)

@@ -19,7 +19,14 @@ import httpx2
 import pytest
 from fixtures import kwargs
 
-from kiln_controller.client import Client, Device, Phase, PhaseType, Schedule, User
+from kiln_controller.client import (
+    Client,
+    Device,
+    Phase,
+    PhaseType,
+    Schedule,
+    User,
+)
 
 from .conftest import Service
 

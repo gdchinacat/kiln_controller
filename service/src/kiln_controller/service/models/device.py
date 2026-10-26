@@ -138,7 +138,9 @@ class DeviceORM(DeviceValidator, ORMType, _DeviceAuth, table=True):
     ) -> Self:
         if isinstance(data, DeviceCreate):
             resource_dict = data.model_dump()
-            plaintext_auth_token, resource_dict["auth_token"] = _DeviceAuth.generate()
+            plaintext_auth_token, resource_dict["auth_token"] = (
+                _DeviceAuth.generate()
+            )
             self = handler(resource_dict)
             self._plaintext_auth_token = plaintext_auth_token
             return self

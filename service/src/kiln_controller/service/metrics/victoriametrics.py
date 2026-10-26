@@ -129,11 +129,15 @@ class VictoriaMetricsServer(MetricsServer):
                         "firing_id": str(device.firing.id),
                     },
                 ),
-                *metrics_for_sample("kiln.telemetry.", telemetry, timestamp, tags),
+                *metrics_for_sample(
+                    "kiln.telemetry.", telemetry, timestamp, tags
+                ),
             ]
         )
 
-        async with httpx.AsyncClient() as client:  # todo - reuse the same httpx client
+        async with (
+            httpx.AsyncClient() as client
+        ):  # todo - reuse the same httpx client
             response = await client.put(self.url, json=json)
             response.raise_for_status()
             if response.status_code == status.HTTP_204_NO_CONTENT:
@@ -142,7 +146,9 @@ class VictoriaMetricsServer(MetricsServer):
                     f"for {len(telemetry.samples)} samples "
                     f"for {', '.join(str(sample.timestamp) for sample in telemetry.samples)}."
                 )
-                return telemetry.samples[-1].timestamp if telemetry.samples else 0
+                return (
+                    telemetry.samples[-1].timestamp if telemetry.samples else 0
+                )
             else:
                 logger.error(f"{response.status_code} {response.text=}")
                 return 0

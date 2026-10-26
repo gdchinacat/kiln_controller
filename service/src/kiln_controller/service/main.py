@@ -60,7 +60,9 @@ app.add_middleware(
     same_site="lax",
 )
 
-app.state.metrics_server = VictoriaMetricsServer("http://localhost:4242/api/put")
+app.state.metrics_server = VictoriaMetricsServer(
+    "http://localhost:4242/api/put"
+)
 
 app.frontend("/", directory="./static")
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -92,14 +94,18 @@ async def _integrity_error_handler(
     # todo - don't expose internal details (e) to client
     logger.exception(exc)
     return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content={"message": str(exc)}
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"message": str(exc)},
     )
 
 
 @app.exception_handler(Exception)
-async def _default_error_handler(request: Request, exc: Exception) -> JSONResponse:
+async def _default_error_handler(
+    request: Request, exc: Exception
+) -> JSONResponse:
     logger.exception(exc)
     # todo - don't expose internal details (e) to client
     return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content={"message": str(exc)}
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"message": str(exc)},
     )

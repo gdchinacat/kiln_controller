@@ -40,7 +40,9 @@ async def get_engine(uri: str) -> AsyncEngine:
         async with get_sessionmaker(engine)() as session:
             session.add(
                 UserORM(
-                    name=ADMIN_NAME, username=ADMIN_USERNAME, password=ADMIN_PASSWORD
+                    name=ADMIN_NAME,
+                    username=ADMIN_USERNAME,
+                    password=ADMIN_PASSWORD,
                 )
             )
             await session.commit()

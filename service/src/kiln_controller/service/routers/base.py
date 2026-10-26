@@ -53,11 +53,17 @@ def create_router(
     operations for resource_type.
     """
     resource_create_type = resource_create_type or resource_type
-    resource_create_response_type = resource_create_response_type or resource_type
+    resource_create_response_type = (
+        resource_create_response_type or resource_type
+    )
     resource_update_type = resource_update_type or resource_type
-    router = APIRouter(prefix=f"{url_prefix}/{url_path}", tags=[resource_type.__name__])
+    router = APIRouter(
+        prefix=f"{url_prefix}/{url_path}", tags=[resource_type.__name__]
+    )
 
-    @router.get("", openapi_extra=openapi_extra, operation_id=f"list_{url_path}")
+    @router.get(
+        "", openapi_extra=openapi_extra, operation_id=f"list_{url_path}"
+    )
     @_apply_resource_type(resource_type=resource_type.__name__)
     async def _list(
         request: Request,
@@ -105,8 +111,12 @@ def create_router(
         sessionmaker: SessionMaker = sessionmaker,
     ) -> resource_create_response_type:
         """create a {resource_type}"""
-        orm = orm_type.model_validate(resource_create, context=request.path_params)
-        async with (session := sessionmaker(expire_on_commit=False)), session.begin():
+        orm = orm_type.model_validate(
+            resource_create, context=request.path_params
+        )
+        async with (
+            session := sessionmaker(expire_on_commit=False)
+        ), session.begin():
             session.add(orm)
             try:
                 await session.flush()
@@ -117,7 +127,9 @@ def create_router(
                 ):
                     raise HTTPException(status_code=status.HTTP_409_CONFLICT)
                 raise
-            await session.run_sync(lambda sync_session: orm.validate_create_or_update())
+            await session.run_sync(
+                lambda sync_session: orm.validate_create_or_update()
+            )
         return orm
 
     @router.put(
@@ -170,7 +182,9 @@ def create_router(
                clients will clobber existing entities.
         Create or update a resource by id.
         """
-        async with (session := sessionmaker(expire_on_commit=False)), session.begin():
+        async with (
+            session := sessionmaker(expire_on_commit=False)
+        ), session.begin():
             orm = await session.get(orm_type, id)
             if not orm:
                 resource_dict = resource.model_dump()
@@ -198,7 +212,9 @@ def create_router(
         async with (session := sessionmaker()), session.begin():
             orm = await session.get(orm_type, id)
             if orm is not None:
-                await session.run_sync(lambda sync_session: orm.validate_delete())
+                await session.run_sync(
+                    lambda sync_session: orm.validate_delete()
+                )
                 await session.delete(orm)
 
     return router

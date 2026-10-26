@@ -58,7 +58,12 @@ def sample(
     time: _Time[float],
 ) -> Sample:
     return Sample(
-        int(time.time()), 1, StateEnum.COMPLETE | StateEnum.IDLE, temperature, 0, memory
+        int(time.time()),
+        1,
+        StateEnum.COMPLETE | StateEnum.IDLE,
+        temperature,
+        0,
+        memory,
     )
 
 
@@ -73,7 +78,9 @@ def sample_ack_message(
 def telemetry(
     time: _Time[float], uptime: _Time[int], state: State, sample: Sample
 ) -> Telemetry:
-    return Telemetry(int(time.time() * 1000), uptime.time(), state, 1, [sample])
+    return Telemetry(
+        int(time.time() * 1000), uptime.time(), state, 1, [sample]
+    )
 
 
 @pytest.fixture
@@ -147,6 +154,10 @@ def test_resume_command_roundtrip(resume_command: ResumeCommand) -> None:
     assert resume_command == MessageType.unpack(resume_command.pack())
 
 
-def test_sample_ack_message_roundtrip(sample_ack_message: SampleAckMessage) -> None:
-    assert sample_ack_message == SampleAckMessage.unpack(sample_ack_message.pack())
+def test_sample_ack_message_roundtrip(
+    sample_ack_message: SampleAckMessage,
+) -> None:
+    assert sample_ack_message == SampleAckMessage.unpack(
+        sample_ack_message.pack()
+    )
     assert sample_ack_message == MessageType.unpack(sample_ack_message.pack())

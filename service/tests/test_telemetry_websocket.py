@@ -42,7 +42,9 @@ class _Auth(NamedTuple):
 
 @dataclass
 class FakeMetricsServer(MetricsServer):
-    received_telemetry: Queue[Telemetry] = field(default_factory=Queue[Telemetry])
+    received_telemetry: Queue[Telemetry] = field(
+        default_factory=Queue[Telemetry]
+    )
 
     @override
     async def telemetry(self, telemetry: Telemetry, device: DeviceORM) -> int:
@@ -66,7 +68,9 @@ def test_app(metrics_server: FakeMetricsServer) -> Generator[FastAPI]:
 
 
 @pytest.fixture
-def client(test_app: FastAPI, sessionmaker: SessionMaker) -> Generator[TestClient]:
+def client(
+    test_app: FastAPI, sessionmaker: SessionMaker
+) -> Generator[TestClient]:
     _sessionmaker = getattr(test_app.state, "db_sessionmaker", None)
     try:
         test_app.state.db_sessionmaker = sessionmaker
@@ -102,7 +106,9 @@ class AuthenticatedDevice(Device):
 
 
 @pytest.fixture
-def device(client: TestClient, user: User, name: str = "kiln") -> AuthenticatedDevice:
+def device(
+    client: TestClient, user: User, name: str = "kiln"
+) -> AuthenticatedDevice:
     create = DeviceCreate(name=name, user_id=user.id)
     response = client.post("/device", json=dict(create))
     response.raise_for_status()
@@ -116,25 +122,34 @@ def test_get_device_401(client: TestClient) -> None:
 
 
 def test_register_device(client: TestClient, user: User) -> None:
-    response = client.post("/device/", json={"name": "device name", "user_id": user.id})
+    response = client.post(
+        "/device/", json={"name": "device name", "user_id": user.id}
+    )
     response.raise_for_status()
     device_json = response.json()
     assert device_json.get("auth_token")
 
 
-def test_get_device_200(client: TestClient, device: Device, user: User) -> None:
+def test_get_device_200(
+    client: TestClient, device: Device, user: User
+) -> None:
     response = client.get(f"/device/{device.id}")
     response.raise_for_status()
 
 
-def test_telemetry_auth_fails(client: TestClient, device: Device, user: User) -> None:
+def test_telemetry_auth_fails(
+    client: TestClient, device: Device, user: User
+) -> None:
     for auth in (
         None,  # no auth
         ("", ""),  # bad auth
         ("admin", "admin"),  # user auth
     ):
-        with pytest.raises(WebSocketDenialResponse), client.websocket_connect(
-            f"/device/{device.id}/telemetry",
+        with (
+            pytest.raises(WebSocketDenialResponse),
+            client.websocket_connect(
+                f"/device/{device.id}/telemetry",
+            ),
         ):
             assert False, "should never execute"
 

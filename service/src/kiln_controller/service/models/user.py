@@ -28,15 +28,23 @@ class UserCreate(pydantic.BaseModel):
     username: str = pydantic.Field(max_length=USERNAME_LENGTH)
     password: str = pydantic.Field(max_length=PASSWORD_LENGTH)
     email: str | None = pydantic.Field(default=None, max_length=EMAIL_LENGTH)
-    phone_number: str | None = pydantic.Field(default=None, max_length=PHONE_LENGTH)
+    phone_number: str | None = pydantic.Field(
+        default=None, max_length=PHONE_LENGTH
+    )
 
 
 class UserUpdate(pydantic.BaseModel):
     name: str | None = pydantic.Field(default=None, max_length=NAME_LENGTH)
-    username: str | None = pydantic.Field(default=None, max_length=USERNAME_LENGTH)
-    password: str | None = pydantic.Field(default=None, max_length=PASSWORD_LENGTH)
+    username: str | None = pydantic.Field(
+        default=None, max_length=USERNAME_LENGTH
+    )
+    password: str | None = pydantic.Field(
+        default=None, max_length=PASSWORD_LENGTH
+    )
     email: str | None = pydantic.Field(default=None, max_length=EMAIL_LENGTH)
-    phone_number: str | None = pydantic.Field(default=None, max_length=PHONE_LENGTH)
+    phone_number: str | None = pydantic.Field(
+        default=None, max_length=PHONE_LENGTH
+    )
 
 
 class User(pydantic.BaseModel):
@@ -44,7 +52,9 @@ class User(pydantic.BaseModel):
     name: str = pydantic.Field(max_length=NAME_LENGTH)
     username: str = pydantic.Field(max_length=USERNAME_LENGTH)
     email: str | None = pydantic.Field(default=None, max_length=EMAIL_LENGTH)
-    phone_number: str | None = pydantic.Field(default=None, max_length=PHONE_LENGTH)
+    phone_number: str | None = pydantic.Field(
+        default=None, max_length=PHONE_LENGTH
+    )
 
 
 class UserORM(UserValidator, ORMType, table=True):
@@ -56,7 +66,9 @@ class UserORM(UserValidator, ORMType, table=True):
     username: str = sqlmodel.Field(max_length=USERNAME_LENGTH, unique=True)
     password: str = sqlmodel.Field(max_length=PASSWORD_LENGTH)
     email: str | None = sqlmodel.Field(default=None, max_length=EMAIL_LENGTH)
-    phone_number: str | None = sqlmodel.Field(default=None, max_length=PHONE_LENGTH)
+    phone_number: str | None = sqlmodel.Field(
+        default=None, max_length=PHONE_LENGTH
+    )
 
     schedules: list[ScheduleORM] = sqlmodel.Relationship(
         back_populates="user",

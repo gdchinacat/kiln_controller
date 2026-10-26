@@ -93,7 +93,9 @@ class _TelemetryIO:
     # todo? - create a metric request command
     # todo? - create a metric throttle command
 
-    async def _handle_telemetry(self, device: DeviceORM, telemetry: Telemetry) -> None:
+    async def _handle_telemetry(
+        self, device: DeviceORM, telemetry: Telemetry
+    ) -> None:
         tasks: list[Task[Any]] = []
 
         # If the time delta is "too great" send a SetTimeCommand.
@@ -102,7 +104,9 @@ class _TelemetryIO:
         if abs(delta) > 10_000:
             tasks.append(create_task(self.queue.put(SetTimeCommand(now))))
 
-        telemetry_task = create_task(self.metrics_server.telemetry(telemetry, device))
+        telemetry_task = create_task(
+            self.metrics_server.telemetry(telemetry, device)
+        )
         tasks.append(telemetry_task)
 
         # Create a SampleAck task for the result of the telemetry task.
@@ -128,7 +132,9 @@ class _TelemetryIO:
                     case Telemetry():
                         await self._handle_telemetry(device, command)
                     case _:
-                        raise ValueError(f"device sent invalid command: {command}")
+                        raise ValueError(
+                            f"device sent invalid command: {command}"
+                        )
 
         except HTTPException as he:
             if he.status_code in (
@@ -165,7 +171,10 @@ async def telemetry(
                 websocket.receive_bytes,
                 websocket.send_bytes,
                 partial(
-                    _authenticate_device_websocket, device_id, websocket, sessionmaker
+                    _authenticate_device_websocket,
+                    device_id,
+                    websocket,
+                    sessionmaker,
                 ),
             )
             await telemetry_io.queue.put(SetTimeCommand())

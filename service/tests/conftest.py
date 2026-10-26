@@ -21,7 +21,11 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from kiln_controller.client import Client
 from kiln_controller.service.main import app
-from kiln_controller.service.models import SessionMaker, get_engine, get_sessionmaker
+from kiln_controller.service.models import (
+    SessionMaker,
+    get_engine,
+    get_sessionmaker,
+)
 
 
 @dataclass
@@ -36,7 +40,9 @@ class Service:
         return context
 
 
-type ServiceFactory = Callable[[fastapi.FastAPI], AbstractContextManager[Service]]
+type ServiceFactory = Callable[
+    [fastapi.FastAPI], AbstractContextManager[Service]
+]
 
 
 @pytest.fixture(scope="session")

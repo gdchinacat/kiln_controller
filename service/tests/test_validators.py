@@ -180,7 +180,9 @@ def test_no_sequential_constant_phases(schedule: _Schedule, **_: Any) -> None:
 @ kwargs["phase"] << _Phase.ramp()
 @ kwargs["phase"] << _Phase.ramp()
 def test_no_dupliate_ramp_temperatures(schedule: _Schedule, **_: Any) -> None:
-    with _assert_validation_error(ValidationErrors.DUPLICATE_RAMP_TEMPERATURES):
+    with _assert_validation_error(
+        ValidationErrors.DUPLICATE_RAMP_TEMPERATURES
+    ):
         schedule.validate_create_or_update()
 
 

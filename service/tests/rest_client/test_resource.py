@@ -12,7 +12,9 @@ def test_resource_lifecycle(client: TestClient) -> None:
 
     #  create the parent object and get a shadow for it
     parent.post(client)
-    _parent = Parent.from_response(client._http_client.get(parent._url), client)
+    _parent = Parent.from_response(
+        client._http_client.get(parent._url), client
+    )
     assert _parent._id_reason == Resource.IDReason.DOES_HAVE_AN_ID
     assert _parent is not parent
 
@@ -51,7 +53,9 @@ def test_resource_list_refresh(client: TestClient) -> None:
     assert len(client.parents) == 1
 
     # delete the parent, but keep a (stale) reference to it
-    _parent = Parent.from_response(client._http_client.get(parent._url), client)
+    _parent = Parent.from_response(
+        client._http_client.get(parent._url), client
+    )
     del client.parents[0]
 
     # Verify the parent was actually deleted on the server by getting the stale

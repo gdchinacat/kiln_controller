@@ -33,7 +33,9 @@ def generator_primer[Y, S, R, **P](
     """decorator to 'prime' a generator that receives values"""
 
     @wraps(func)
-    def _generator_primer(*args: P.args, **kwargs: P.kwargs) -> Generator[Y, S, R]:
+    def _generator_primer(
+        *args: P.args, **kwargs: P.kwargs
+    ) -> Generator[Y, S, R]:
         ret = func(*args, **kwargs)
         ret.send(None)
         # Remove '|None' from Y and S...they are only None for priming.
@@ -112,7 +114,9 @@ def test_first_phase_must_be_ramp_error(schedule: Schedule, **_: Any) -> None:
 
 
 @ kwargs["schedule"] << _schedule_fixture()
-def test_sequential_ramp_duplicate_temperature(schedule: Schedule, **_: Any) -> None:
+def test_sequential_ramp_duplicate_temperature(
+    schedule: Schedule, **_: Any
+) -> None:
     """
     test that sequential RAMP can't have same temperature
     """
@@ -124,7 +128,9 @@ def test_sequential_ramp_duplicate_temperature(schedule: Schedule, **_: Any) -> 
 
 
 @ kwargs["schedule"] << _schedule_fixture()
-def test_sequential_constant_phases_error(schedule: Schedule, **_: Any) -> None:
+def test_sequential_constant_phases_error(
+    schedule: Schedule, **_: Any
+) -> None:
     """
     Since temperatures must be continuous and PhaseType.CONSTANT phases do
     not change the temperature, two sequential constant phases must have
@@ -148,7 +154,11 @@ def test_sequential_constant_phases_error(schedule: Schedule, **_: Any) -> None:
 
 @ kwargs["schedule"] << _schedule_fixture()
 @ kwargs["ramp1"] << phase_fixture(  # constant must follow ramp
-    name="ramp1", ordinal=1, phase_type=PhaseType.RAMP, temperature=1000, rate=100
+    name="ramp1",
+    ordinal=1,
+    phase_type=PhaseType.RAMP,
+    temperature=1000,
+    rate=100,
 )
 @ kwargs["constant1"] << phase_fixture(
     name="constant1",
@@ -158,7 +168,11 @@ def test_sequential_constant_phases_error(schedule: Schedule, **_: Any) -> None:
     duration=time(1, 0),
 )
 @ kwargs["ramp_to_delete"] << phase_fixture(
-    name="ramp2", ordinal=3, phase_type=PhaseType.RAMP, temperature=2000, rate=100
+    name="ramp2",
+    ordinal=3,
+    phase_type=PhaseType.RAMP,
+    temperature=2000,
+    rate=100,
 )
 @ kwargs["constant2"] << phase_fixture(
     name="constant2",

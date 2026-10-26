@@ -97,7 +97,9 @@ class Resource[PT: "Resource[Any]"](pydantic.BaseModel, ABC):
         'resource' that provides the client. This ensures the full url path
         to the resource exists when a client is requested for it.
         """
-        assert self._parent, """resource must be attached to a parent to get a client"""
+        assert (
+            self._parent
+        ), """resource must be attached to a parent to get a client"""
         return self._parent._client
 
     @property
@@ -122,7 +124,9 @@ class Resource[PT: "Resource[Any]"](pydantic.BaseModel, ABC):
         assert (
             self._client is not None
         ), "resources that have no client do not have a url"
-        assert self.id is not None, f"{self!r} has no id, it {self._id_reason.value}"
+        assert (
+            self.id is not None
+        ), f"{self!r} has no id, it {self._id_reason.value}"
 
         return f"{self._parent._url}{self._URL}/{self.id}"
 
@@ -181,7 +185,9 @@ class Resource[PT: "Resource[Any]"](pydantic.BaseModel, ABC):
             self._parent = parent
         assert self._client  # LBYL to make type checker happy
         self._update(
-            self._client._http_client.put(self._url, json=self.model_dump(mode="json"))
+            self._client._http_client.put(
+                self._url, json=self.model_dump(mode="json")
+            )
         )
         return self
 
@@ -189,7 +195,9 @@ class Resource[PT: "Resource[Any]"](pydantic.BaseModel, ABC):
         if parent:
             self._parent = parent
         if self.id is not None:
-            raise AttributeError("refusing to POST resource with id (use put()?)")
+            raise AttributeError(
+                "refusing to POST resource with id (use put()?)"
+            )
         assert self._parent
         assert self._client
         self._update(

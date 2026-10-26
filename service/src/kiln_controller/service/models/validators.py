@@ -30,10 +30,14 @@ class UserValidator:
     def validate_delete(self: ValidatableUser) -> None:
         """validate the user can be deleted"""
         if self.schedules:
-            raise ValidationError(ValidationErrors.USER_HAS_SCHEDULES, self.name)
+            raise ValidationError(
+                ValidationErrors.USER_HAS_SCHEDULES, self.name
+            )
 
         if self.devices:
-            raise ValidationError(ValidationErrors.USER_MANAGES_DEVICES, self.name)
+            raise ValidationError(
+                ValidationErrors.USER_MANAGES_DEVICES, self.name
+            )
 
 
 class DeviceValidator:

@@ -219,7 +219,9 @@ def test_delete_user_resource(user: User, **_: Any) -> None:
 @ kwargs["user"] << user_fixture()
 @ kwargs["client"] << user_client()
 @ kwargs["device"] << device_fixture(skip_delete=True)
-def test_delete_device_resource(client: Client, device: Device, **_: Any) -> None:
+def test_delete_device_resource(
+    client: Client, device: Device, **_: Any
+) -> None:
     return _test_delete_resource(
         resource=device,
     )
@@ -228,7 +230,9 @@ def test_delete_device_resource(client: Client, device: Device, **_: Any) -> Non
 @ kwargs["user"] << user_fixture()
 @ kwargs["client"] << user_client()
 @ kwargs["schedule"] << schedule_fixture(skip_delete=True)
-def test_delete_schedule_resource(client: Client, schedule: Schedule, **_: Any) -> None:
+def test_delete_schedule_resource(
+    client: Client, schedule: Schedule, **_: Any
+) -> None:
     return _test_delete_resource(
         resource=schedule,
     )
@@ -259,7 +263,9 @@ def _test_delete_resource_by_list[T: KilnControllerResource](
 
 @ kwargs["user"] << user_fixture(skip_delete=True)
 @ kwargs["client"] << user_client()
-def test_delete_user_resource_by_list(user: User, client: Client, **_: Any) -> None:
+def test_delete_user_resource_by_list(
+    user: User, client: Client, **_: Any
+) -> None:
     return _test_delete_resource_by_list(client.users, user)
 
 
@@ -336,7 +342,9 @@ def test_schedule_delete_deletes_phases(
 
 
 @ kwargs["user"] << user_fixture()
-def test_create_existing_user_error(admin_client: Client, user: User, **_: Any) -> None:
+def test_create_existing_user_error(
+    admin_client: Client, user: User, **_: Any
+) -> None:
     """
     Test that POSTing a user that exists results in 409 Conflict.
 

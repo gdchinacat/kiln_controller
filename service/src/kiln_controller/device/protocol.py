@@ -99,7 +99,9 @@ class Metrics(DataclassInstance):
         and aren't in the dataclass fields. For example, Message uses this to
         insert the automatically managed message_type.
         """
-        yield from ((field.name, getattr(self, field.name)) for field in fields(self))
+        yield from (
+            (field.name, getattr(self, field.name)) for field in fields(self)
+        )
 
     def pack(self) -> bytes:
         """
@@ -107,7 +109,9 @@ class Metrics(DataclassInstance):
         Sublcases should override this as needed to replace placeholder (zero
         byte) in the struct format with the proper bytes.
         """
-        pack_values = (self._value_to_pack(value) for _, value in self.field_values())
+        pack_values = (
+            self._value_to_pack(value) for _, value in self.field_values()
+        )
         return self.struct.pack(*pack_values)
 
     @classproperty
@@ -129,7 +133,9 @@ class StateEnum(Enum):
     DOOR_OPEN = 1 << 10
 
     def __or__(self, other: int | StateEnum) -> int:
-        return self.value | (other.value if isinstance(other, StateEnum) else other)
+        return self.value | (
+            other.value if isinstance(other, StateEnum) else other
+        )
 
 
 @dataclass
@@ -172,7 +178,9 @@ class MessageType(Enum):
             case MessageType.TELEMETRY:
                 return Telemetry.unpack(buffer)
             case _:
-                raise ValueError(f"command type {message_type} is unknown {buffer=}")
+                raise ValueError(
+                    f"command type {message_type} is unknown {buffer=}"
+                )
 
 
 @dataclass
@@ -196,7 +204,9 @@ class Memory(Metrics):
 
 @dataclass
 class Sample(Metrics):
-    struct: ClassVar[Struct] = Struct(f"<IBH{Temperature.format}B{Memory.format}")
+    struct: ClassVar[Struct] = Struct(
+        f"<IBH{Temperature.format}B{Memory.format}"
+    )
     timestamp: int  # uint32_t
     sub_sample_count: int  # uint8_t
     state: int  # uint16_t
@@ -219,7 +229,10 @@ class Message(Metrics, ABC):
     @override
     def field_values(self) -> Iterable[tuple[str, Any]]:
         # insert command type into fields to pack
-        yield from (("message_type", self.message_type), *super().field_values())
+        yield from (
+            ("message_type", self.message_type),
+            *super().field_values(),
+        )
 
     @override
     @classmethod
@@ -242,7 +255,9 @@ class ClientMessage(Message): ...
 
 @dataclass
 class Telemetry(ClientMessage):
-    struct: ClassVar[Struct] = Struct(f"{Message.struct.format}QI{State.format}H0s")
+    struct: ClassVar[Struct] = Struct(
+        f"{Message.struct.format}QI{State.format}H0s"
+    )
     message_type = MessageType.TELEMETRY
 
     timestamp_ms: int
@@ -267,7 +282,9 @@ class Telemetry(ClientMessage):
 
     @override
     def pack(self) -> bytes:
-        return b"".join((super().pack(), *(sample.pack() for sample in self.samples)))
+        return b"".join(
+            (super().pack(), *(sample.pack() for sample in self.samples))
+        )
 
 
 @dataclass

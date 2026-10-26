@@ -3,7 +3,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from functools import partial, wraps
 from itertools import count
-from typing import Any, Concatenate, override
+from typing import Any, ClassVar, Concatenate, override
 
 import pytest
 from fixtures import kwargs
@@ -105,6 +105,8 @@ class _Phase(PhaseValidator, ValidatablePhase):
     temperature: int | None
     schedule: ValidatableSchedule
 
+    _ids: ClassVar[Iterator[int]] = count()
+
     def __post_init__(self) -> None:
         self.schedule.phases.append(self)
         self.id = next(_id)
@@ -115,11 +117,11 @@ class _Phase(PhaseValidator, ValidatablePhase):
     def ramp(
         schedule: _Schedule,
         temperature: int = 1000,
-        ordinal: Iterator[int] = count(),
+        ordinal: int | None = None,
         **kwargs: Any,
     ) -> _Phase:
         return _Phase(
-            next(ordinal),
+            ordinal if ordinal is not None else next(_Phase._ids),
             PhaseType.RAMP,
             temperature,
             schedule,
@@ -130,11 +132,11 @@ class _Phase(PhaseValidator, ValidatablePhase):
     def constant(
         schedule: _Schedule,
         temperature: int = 1000,
-        ordinal: Iterator[int] = count(),
+        ordinal: int | None = None,
         **kwargs: Any,
     ) -> _Phase:
         return _Phase(
-            next(ordinal),
+            ordinal if ordinal is not None else next(_Phase._ids),
             PhaseType.CONSTANT,
             temperature,
             schedule,

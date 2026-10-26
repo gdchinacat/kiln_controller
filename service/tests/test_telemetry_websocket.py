@@ -135,7 +135,7 @@ def test_telemetry_auth_fails(client: TestClient, device: Device, user: User) ->
     ):
         with pytest.raises(WebSocketDenialResponse), client.websocket_connect(
             f"/device/{device.id}/telemetry",
-        ) as websocket:
+        ):
             assert False, "should never execute"
 
 

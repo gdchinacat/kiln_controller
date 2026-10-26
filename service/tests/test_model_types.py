@@ -37,7 +37,7 @@ async def test_ids_are_not_reused(sessionmaker: SessionMaker) -> None:
     External services may have ids so they should not be reused to avoid
     confusion between resources.
     """
-    device_dict = dict(name="name", auth_token="", user_id=1)
+    device_dict = {"name": "name", "auth_token": "", "user_id": 1}
     async with sessionmaker() as session:
         device1 = DeviceORM.model_validate(device_dict)
         session.add(device1)

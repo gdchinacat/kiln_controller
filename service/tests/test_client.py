@@ -238,7 +238,6 @@ def _test_delete_resource_by_list[T: KilnControllerResource](
     resource_list: ResourceList[T, Any], resource: T
 ) -> None:
     """test that Resource.delete() functions"""
-    resource_id = resource.id
     _resource = resource._testing_shadow()
 
     # resource_list.expire()  # ensure the view is in sync with resource

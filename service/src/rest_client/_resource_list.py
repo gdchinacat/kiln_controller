@@ -126,7 +126,7 @@ class ResourceList[T: Resource[Any], PT: Resource[Any]](list[T]):
     def __iadd__(self, value: Iterable[T]) -> Self:
         assert all(isinstance(obj, self._type) for obj in value), (
             f"all elements in value must be an instance of {self._type}"
-            f": {set(type(obj) for obj in value)}"
+            f": { {type(obj) for obj in value} }"
         )
 
         for resource in value:

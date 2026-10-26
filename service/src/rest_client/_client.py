@@ -72,13 +72,13 @@ class RestClient(RootResource, ABC):
         """Expire the resource lists exposed by the client."""
         # todo? - use metaclass, __set_name__, etc to do this automatically?
 
-    @override
     @property
+    @override
     def _url(self) -> str:
         return RestClient._URL
 
-    @override
     @property
+    @override
     def _client(self) -> RestClient:
         return self
 

@@ -158,8 +158,8 @@ class RootResourceList[T: Resource[Any]](ResourceList[T, RootResource]):
     def __init__(self, _type: type[T], client: RestClient) -> None:
         super().__init__(_type, parent=RootResource(client))
 
-    @override
     @property
+    @override
     def _url(self) -> str:
         return self._type._URL
 

@@ -221,12 +221,12 @@ class RootResource(Resource["RestClient"]):
         super().__init__()  # root resources are internal and don't have args
         self.__client = client
 
-    @override
     @property
+    @override
     def _client(self) -> RestClient:
         return self.__client
 
-    @override
     @property
+    @override
     def _url(self) -> str:
         return ""

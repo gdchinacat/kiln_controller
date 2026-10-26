@@ -78,7 +78,7 @@ def phase_generator(
     phase2 = gen.send(_constant())
     """
     ordinal = count(10, 10)
-    kwargs = yield
+    kwargs = yield None
     while kwargs is not None:
         _ordinal = next(ordinal)
         kwargs = yield Phase(

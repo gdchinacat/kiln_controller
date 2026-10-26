@@ -2,28 +2,21 @@
 ResoureList et. al. to provide list-like semantics for rest resources.
 """
 
-from collections.abc import Callable, Sequence, Iterable
-from dataclasses import dataclass, field, asdict
+from collections.abc import Callable, Iterable
 from functools import wraps
-from http import HTTPStatus
 import logging
 from typing import (
     SupportsIndex,
-    Dict,
     Any,
-    ClassVar,
     Self,
     override,
     overload,
     Concatenate,
-    Protocol,
     Never,
     cast,
     TYPE_CHECKING,
 )
 
-import httpx2
-import pydantic
 
 from ._resource import Resource, RootResource, _ResourceListDescriptor
 
@@ -110,27 +103,24 @@ class ResourceList[T: Resource[Any], PT: Resource[Any]](list[T]):
 
         return _unexpire
 
-    # The 'type: ignore[bad-override-mutable-attribute]' are used because type
-    # checkers (inconsistently) fail to infer the types properly and complain
-    # that this override is incompatible with the base class definitions.
-    sort = _unexpire(list.sort)  # type: ignore[bad-override-mutable-attribute]
-    index = _unexpire(list.index)  # type: ignore[bad-override-mutable-attribute]
-    reverse = _unexpire(list.reverse)  # type: ignore[bad-override-mutable-attribute]
-    __contains__ = _unexpire(list.__contains__)  # type: ignore[bad-override-mutable-attribute]
-    __eq__ = _unexpire(list.__eq__)  # type: ignore[bad-override-mutable-attribute]
-    __getitem__ = _unexpire(list.__getitem__)  # type: ignore[bad-override-mutable-attribute]
-    __iter__ = _unexpire(list.__iter__)  # type: ignore[bad-override-mutable-attribute]
-    __len__ = _unexpire(list.__len__)  # type: ignore[bad-override-mutable-attribute]
+    sort = _unexpire(list.sort)  # type: ignore[missing-override-decorator]
+    index = _unexpire(list.index)  # type: ignore[missing-override-decorator]
+    reverse = _unexpire(list.reverse)  # type: ignore[missing-override-decorator]
+    __contains__ = _unexpire(list.__contains__)  # type: ignore[missing-override-decorator]
+    __eq__ = _unexpire(list.__eq__)  # type: ignore[missing-override-decorator]
+    __getitem__ = _unexpire(list.__getitem__)  # type: ignore[missing-override-decorator]
+    __iter__ = _unexpire(list.__iter__)  # type: ignore[missing-override-decorator]
+    __len__ = _unexpire(list.__len__)  # type: ignore[missing-override-decorator]
 
-    def _not_implemented(self, *args: Any, **kwargs: Any) -> Callable[..., Never]:
+    def _not_implemented(self, *args: Any, **kwargs: Any) -> Never:
         raise NotImplementedError()
 
-    copy = _not_implemented  # type: ignore[bad-override-mutable-attribute]
-    count = _not_implemented  # type: ignore[bad-override-mutable-attribute]
-    extend = _not_implemented  # type: ignore[bad-override-mutable-attribute]
-    insert = _not_implemented  # type: ignore[bad-override-mutable-attribute]
-    pop = _not_implemented  # type: ignore[bad-override-mutable-attribute]
-    remove = _not_implemented  # type: ignore[bad-override-mutable-attribute]
+    copy = _not_implemented
+    count = _not_implemented
+    extend = _not_implemented
+    insert = _not_implemented
+    pop = _not_implemented
+    remove = _not_implemented
 
     @override
     @_expire

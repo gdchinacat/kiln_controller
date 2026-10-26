@@ -55,3 +55,4 @@ asyncio_mode = "auto"
 search-path = ["src", "."]
 preset = "strict"
 min-severity = "warn"
+#type-ignore-unknown-tag-behavior = "no-effect"

@@ -5,23 +5,23 @@ sense). Test specific/parameterized fixtures used with fixtures.kwargs are
 located in _fixtures.
 """
 
-from collections.abc import Generator, Callable
-from contextlib import contextmanager, AbstractContextManager
-from dataclasses import dataclass
-import pytest
 import ssl
-from threading import Thread
 import time
-from typing import Generator
+from collections.abc import Callable, Generator
+from contextlib import AbstractContextManager, contextmanager
+from dataclasses import dataclass
+from threading import Thread
 
 import fastapi
 import httpx2
-from kiln_controller.client import Client
-from kiln_controller.service.main import app
-from kiln_controller.service.models import get_engine, get_sessionmaker, SessionMaker
-from sqlalchemy.ext.asyncio import AsyncEngine
+import pytest
 import trustme
 import uvicorn
+from sqlalchemy.ext.asyncio import AsyncEngine
+
+from kiln_controller.client import Client
+from kiln_controller.service.main import app
+from kiln_controller.service.models import SessionMaker, get_engine, get_sessionmaker
 
 
 @dataclass

@@ -1,7 +1,7 @@
 from dataclasses import dataclass
-import pytest
-import random
 from typing import Protocol
+
+import pytest
 
 from kiln_controller.device.protocol import *
 

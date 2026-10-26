@@ -6,7 +6,7 @@ client wrapper interfaces.
 """
 
 from abc import ABC, abstractmethod
-from typing import Self, ClassVar, Any, override
+from typing import Any, ClassVar, Self, override
 
 import httpx2
 

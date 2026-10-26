@@ -2,10 +2,10 @@
 REST client framework.
 """
 
+import logging
 from abc import ABC
 from enum import Enum
-import logging
-from typing import Any, ClassVar, Self, TYPE_CHECKING, override
+from typing import TYPE_CHECKING, Any, ClassVar, Self, override
 
 import httpx2
 import pydantic
@@ -90,7 +90,7 @@ class Resource[PT: "Resource[Any]"](pydantic.BaseModel, ABC):
             super().__setattr__(name, value)
 
     @property
-    def _client(self) -> "RestClient":
+    def _client(self) -> RestClient:
         """
         The client to use to make requests for this resource. The client is
         actually established through a recursive parent chain to a root
@@ -209,13 +209,13 @@ class Resource[PT: "Resource[Any]"](pydantic.BaseModel, ABC):
 
 class RootResource(Resource["RestClient"]):
 
-    def __init__(self, client: "RestClient") -> None:
+    def __init__(self, client: RestClient) -> None:
         super().__init__()  # root resources are internal and don't have args
         self.__client = client
 
     @override
     @property
-    def _client(self) -> "RestClient":
+    def _client(self) -> RestClient:
         return self.__client
 
     @override

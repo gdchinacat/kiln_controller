@@ -9,28 +9,27 @@ resources becoming stale. ResourceList.expire() should be used to indicate the
 resource lists should be refreshed on next access.
 """
 
-from collections.abc import Generator, Iterator, Callable
-from contextlib import contextmanager
 import datetime
+from collections.abc import Generator, Iterator
+from contextlib import contextmanager
 from itertools import count
-import os
 from typing import Any
 
 import httpx2
 import pytest
-
 from fixtures import kwargs
-from kiln_controller.client import Client, User, Device, Schedule, Phase, PhaseType
 
-from .conftest import admin_client, Service
+from kiln_controller.client import Client, Device, Phase, PhaseType, Schedule, User
+
+from .conftest import Service
 
 __all__ = [
     "assert_http_status_error",
-    "user_fixture",
-    "user_client",
     "device_fixture",
-    "schedule_fixture",
     "phase_fixture",
+    "schedule_fixture",
+    "user_client",
+    "user_fixture",
 ]
 
 

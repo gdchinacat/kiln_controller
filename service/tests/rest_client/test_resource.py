@@ -1,8 +1,9 @@
 import httpx2
 import pytest
 
-from .conftest import TestClient, Parent, Child
 from rest_client import Resource
+
+from .conftest import Child, Parent, TestClient
 
 
 def test_resource_lifecycle(client: TestClient) -> None:

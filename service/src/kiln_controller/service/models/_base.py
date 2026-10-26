@@ -1,6 +1,3 @@
-import typing
-
-import pydantic
 import sqlmodel
 
 

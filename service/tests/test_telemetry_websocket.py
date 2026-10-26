@@ -1,37 +1,34 @@
-import asyncio
-from collections.abc import Iterable, AsyncGenerator, Generator
-from dataclasses import dataclass, field
 import os
-from queue import Queue, Empty
 import time
-from typing import TypedDict, NamedTuple, override, Any
+from collections.abc import Generator
+from dataclasses import dataclass, field
+from queue import Queue
+from typing import NamedTuple, override
 
-from fastapi import status, FastAPI
-from fastapi.testclient import TestClient
 import pytest
-from sqlalchemy.ext.asyncio import AsyncEngine
+from fastapi import FastAPI, status
+from fastapi.testclient import TestClient
 from starlette.testclient import WebSocketDenialResponse, WebSocketTestSession
 from starlette.websockets import WebSocketDisconnect
 
 from kiln_controller.device.protocol import (
-    Telemetry,
-    State,
-    StateEnum,
-    SetTimeCommand,
     Message,
     MessageType,
+    SetTimeCommand,
+    State,
+    StateEnum,
+    Telemetry,
 )
 from kiln_controller.service.main import app
 from kiln_controller.service.metrics import MetricsServer
 from kiln_controller.service.models import (
-    User,
-    UserCreate,
     Device,
     DeviceCreate,
     DeviceORM,
     LoginRequest,
     SessionMaker,
-    get_engine,
+    User,
+    UserCreate,
 )
 from kiln_controller.service.models.db import SessionMaker
 
@@ -136,11 +133,10 @@ def test_telemetry_auth_fails(client: TestClient, device: Device, user: User) ->
         ("", ""),  # bad auth
         ("admin", "admin"),  # user auth
     ):
-        with pytest.raises(WebSocketDenialResponse):
-            with client.websocket_connect(
-                f"/device/{device.id}/telemetry",
-            ) as websocket:
-                assert False, "should never execute"
+        with pytest.raises(WebSocketDenialResponse), client.websocket_connect(
+            f"/device/{device.id}/telemetry",
+        ) as websocket:
+            assert False, "should never execute"
 
 
 def remaining_messages(websocket: WebSocketTestSession) -> list[Message]:

@@ -39,6 +39,7 @@ dev = [
     "pytest-xdist>=3.8.0",
     "wsproto>=1.3.2",
     "pyrefly>=1.4.0",
+    "ruff>=0.17.2",
 ]
 
 [tool.uv.sources]

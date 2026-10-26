@@ -3,14 +3,14 @@ Application resources for schedule and related objects.
 """
 
 from ..models import (
-    Schedule,
-    ScheduleCreate,
-    ScheduleUpdate,
-    ScheduleORM,
     Phase,
     PhaseCreate,
-    PhaseUpdate,
     PhaseORM,
+    PhaseUpdate,
+    Schedule,
+    ScheduleCreate,
+    ScheduleORM,
+    ScheduleUpdate,
 )
 from .base import create_router
 

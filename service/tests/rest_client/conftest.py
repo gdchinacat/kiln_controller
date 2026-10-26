@@ -1,20 +1,18 @@
+import itertools
 from collections import defaultdict
 from collections.abc import Generator, Iterable
-import itertools
-from typing import Any, Self, ClassVar, TYPE_CHECKING, Never
+from typing import TYPE_CHECKING, ClassVar, Self
 
 import fastapi
 import httpx2
 import pydantic
 import pytest
 
-from fixtures import kwargs
 from rest_client import (
     Resource,
-    ResourceList,
+    ResourceListDescriptor,
     RestClient,
     RootResourceList,
-    ResourceListDescriptor,
 )
 
 from ..conftest import ServiceFactory
@@ -96,8 +94,7 @@ def test_app() -> TestApp:
 
     @app.delete(Parent._URL + "/{_id}")
     async def _delete_parent(_id: int) -> dict[str, str]:
-        if _id in parents:
-            del parents[_id]
+        parents.pop(_id, None)
         return {}
 
     @app.post(f"{Parent._URL}/{{parent_id}}{Child._URL}")
@@ -158,8 +155,10 @@ class TestClient(RestClient):
 def client(
     service_factory: ServiceFactory, test_app: fastapi.FastAPI
 ) -> Generator[TestClient]:
-    with service_factory(test_app) as service:
-        with httpx2.Client(
+    with (
+        service_factory(test_app) as service,
+        httpx2.Client(
             base_url=service.url, verify=service.client_ssl_context
-        ) as client:
-            yield TestClient(client)
+        ) as client,
+    ):
+        yield TestClient(client)

@@ -1,25 +1,25 @@
-from collections.abc import Callable, Generator, Iterable, Iterator
+from collections.abc import Callable, Generator, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from functools import partial, wraps
 from itertools import count
-from typing import Concatenate, Self, Any, override
+from typing import Any, Concatenate, override
 
 import pytest
-
 from fixtures import kwargs
+
 from kiln_controller.common.validators import ValidationErrors
 from kiln_controller.service.models import PhaseType
 from kiln_controller.service.models.validators import (
-    ValidationError,
-    UserValidator,
-    ScheduleValidator,
     DeviceValidator,
     PhaseValidator,
-    ValidatableUser,
+    ScheduleValidator,
+    UserValidator,
     ValidatableDevice,
-    ValidatableSchedule,
     ValidatablePhase,
+    ValidatableSchedule,
+    ValidatableUser,
+    ValidationError,
 )
 
 

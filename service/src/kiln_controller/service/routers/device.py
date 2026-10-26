@@ -2,43 +2,38 @@
 Device related Flask resources
 """
 
-from asyncio import Queue, get_running_loop, TaskGroup, Task, create_task, gather
+import logging
+import time
+from asyncio import Queue, Task, TaskGroup, create_task, gather
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
 from functools import partial
-import logging
-import time
 from typing import Any
 
 from fastapi import (
     Depends,
     HTTPException,
-    status,
-    Request,
-    Response,
     WebSocket,
     WebSocketDisconnect,
+    status,
 )
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import selectinload
 
-
 from ...device.protocol import (
-    Telemetry,
-    SetTimeCommand,
     Message,
-    SampleAckMessage,
     MessageType,
+    SampleAckMessage,
+    SetTimeCommand,
+    Telemetry,
 )
-from ..dependencies import sessionmaker, metrics_server
+from ..dependencies import metrics_server, sessionmaker
 from ..metrics import MetricsServer
 from ..models import (
     Device,
     DeviceCreate,
     DeviceCreateResponse,
-    DeviceUpdate,
     DeviceORM,
-    User,
+    DeviceUpdate,
     SessionMaker,
 )
 from .base import create_router
@@ -177,5 +172,5 @@ async def telemetry(
             task_group.create_task(telemetry_io._writer())
             task_group.create_task(telemetry_io._reader())
 
-    except* WebSocketDisconnect as wsd:
+    except* WebSocketDisconnect:
         await websocket.close()

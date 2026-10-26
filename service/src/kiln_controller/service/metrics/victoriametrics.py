@@ -17,20 +17,20 @@ TODO
 
 """
 
-from collections.abc import Iterable, Callable
-from dataclasses import dataclass
-from enum import Enum
 import logging
 import os
 import time
-from typing import override, Any
+from collections.abc import Callable, Iterable
+from dataclasses import dataclass
+from enum import Enum
+from typing import Any, override
 
-from fastapi import status
 import httpx
+from fastapi import status
 
-from . import MetricsServer
-from ...device.protocol import Telemetry, Sample, Metrics
+from ...device.protocol import Metrics, Sample, Telemetry
 from ..models import DeviceORM
+from . import MetricsServer
 
 logger = logging.getLogger("kiln_controller.victoriametrics")
 
@@ -129,7 +129,7 @@ class VictoriaMetricsServer(MetricsServer):
                         "firing_id": str(device.firing.id),
                     },
                 ),
-                *metrics_for_sample(f"kiln.telemetry.", telemetry, timestamp, tags),
+                *metrics_for_sample("kiln.telemetry.", telemetry, timestamp, tags),
             ]
         )
 

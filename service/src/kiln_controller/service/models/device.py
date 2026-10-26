@@ -2,15 +2,14 @@
 Device model.
 """
 
-from abc import ABC
 import hashlib
 import hmac
 import os
 import secrets
+from abc import ABC
 from typing import Any, ClassVar, Self
 
 import pydantic
-import sqlalchemy
 import sqlmodel
 
 from ._base import ORMType
@@ -21,8 +20,8 @@ __all__ = (
     "Device",
     "DeviceCreate",
     "DeviceCreateResponse",
-    "DeviceUpdate",
     "DeviceORM",
+    "DeviceUpdate",
     "FiringORM",  # hack until it's actually implemented (moves to firing.py)
 )
 

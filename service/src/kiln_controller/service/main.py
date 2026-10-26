@@ -5,17 +5,16 @@ Implements the resource model used by the UI and the devices.
 Serves the SPA interface for the service.
 """
 
-from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
 import logging
 import os
-import os
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 
+import sqlalchemy
+import sqlalchemy.exc
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-import sqlalchemy
-import sqlalchemy.exc
 from starlette.middleware.sessions import SessionMiddleware
 
 from .metrics.victoriametrics import VictoriaMetricsServer
@@ -23,10 +22,10 @@ from .models import db  # initialize the database
 from .models.validators import ValidationError
 from .routers import (
     auth_router,
-    users_router,
     devices_router,
-    schedules_router,
     phases_router,
+    schedules_router,
+    users_router,
 )
 
 # debug

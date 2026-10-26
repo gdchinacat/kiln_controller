@@ -2,7 +2,7 @@
 User resource implementation.
 """
 
-from ..models import User, UserCreate, UserUpdate, UserORM
+from ..models import User, UserCreate, UserORM, UserUpdate
 from .base import create_router
 
 users_router = create_router(

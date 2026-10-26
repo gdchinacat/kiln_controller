@@ -3,27 +3,25 @@ Schedule related ORMs
 """
 
 from datetime import time
-from enum import Enum
 from typing import Any
 
 import pydantic
-import sqlalchemy
 import sqlmodel
 
 from ._base import ORMType
-from .user import UserORM
 from ._validatable import PhaseType
-from .validators import ScheduleValidator, PhaseValidator
+from .user import UserORM
+from .validators import PhaseValidator, ScheduleValidator
 
 __all__ = (
     "Phase",
     "PhaseCreate",
-    "PhaseUpdate",
     "PhaseORM",
+    "PhaseUpdate",
     "Schedule",
     "ScheduleCreate",
-    "ScheduleUpdate",
     "ScheduleORM",
+    "ScheduleUpdate",
 )
 
 NAME_LENGTH = 30
@@ -59,7 +57,7 @@ class ScheduleORM(ScheduleValidator, ORMType, table=True):
     )
     user_id: int = sqlmodel.Field(foreign_key="users.id")
 
-    phases: list["PhaseORM"] = sqlmodel.Relationship(
+    phases: list[PhaseORM] = sqlmodel.Relationship(
         back_populates="schedule",
         sa_relationship_kwargs={
             "order_by": "PhaseORM.ordinal",

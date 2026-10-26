@@ -1,17 +1,17 @@
-from ._resource import Resource
 from ._client import RestClient
+from ._resource import Resource
 from ._resource_list import (
     ResourceList,
-    RootResourceList,
     ResourceListDescriptor,
     RootResource,
+    RootResourceList,
 )
 
 __all__ = (
     "Resource",
-    "RootResource",
-    "RestClient",
     "ResourceList",
-    "RootResourceList",
     "ResourceListDescriptor",
+    "RestClient",
+    "RootResource",
+    "RootResourceList",
 )

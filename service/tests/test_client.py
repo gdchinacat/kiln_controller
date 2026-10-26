@@ -9,25 +9,25 @@ from typing import Any
 
 import httpx2
 import pytest
-
 from fixtures import kwargs
+
 from kiln_controller.client import (
-    Resource,
     Client,
-    User,
     Device,
-    Schedule,
     Phase,
+    Resource,
+    Schedule,
+    User,
 )
 from rest_client import ResourceList, RestClient
 
 from ._fixtures import (
-    user_fixture,
-    user_client,
-    device_fixture,
-    schedule_fixture,
-    phase_fixture,
     assert_http_status_error,
+    device_fixture,
+    phase_fixture,
+    schedule_fixture,
+    user_client,
+    user_fixture,
 )
 
 type KilnControllerResource = User | Device | Schedule | Phase

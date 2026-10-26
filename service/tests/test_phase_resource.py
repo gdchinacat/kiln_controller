@@ -2,24 +2,25 @@
 Test the kiln_controller phase resource behavior.
 """
 
-from collections.abc import Generator, Callable
+import logging
+import os
+from collections.abc import Callable, Generator
 from datetime import time
 from functools import wraps
 from itertools import count
-import logging
-import os
 from typing import Any, cast
 
-from fixtures import kwargs
 import httpx2
-from kiln_controller.client import Phase, Schedule, PhaseType
+from fixtures import kwargs
+
+from kiln_controller.client import Phase, PhaseType, Schedule
 
 from ._fixtures import (
     assert_http_status_error,
+    phase_fixture,
+    schedule_fixture,
     user_client,
     user_fixture,
-    schedule_fixture,
-    phase_fixture,
 )
 
 if os.getenv("DEBUG_LOGGING", "false").upper() == "TRUE":
@@ -64,7 +65,7 @@ def _ramp(**kwargs: Any) -> dict[str, Any]:
 @generator_primer
 def phase_generator(
     schedule: Schedule,
-) -> Generator[Phase | None, dict[str, Any] | None, None]:
+) -> Generator[Phase | None, dict[str, Any] | None]:
     """
     Generator that creates a sequence of phases.
 

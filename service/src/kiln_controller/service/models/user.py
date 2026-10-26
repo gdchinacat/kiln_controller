@@ -2,20 +2,19 @@
 Users ORM
 """
 
-from typing import Annotated, ClassVar, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 import pydantic
-import sqlalchemy
 import sqlmodel
 
 from ._base import ORMType
 from .validators import UserValidator
 
-__all__ = ("User", "UserCreate", "UserUpdate", "UserORM")
+__all__ = ("User", "UserCreate", "UserORM", "UserUpdate")
 
 if TYPE_CHECKING:
-    from .schedule import ScheduleORM
     from .device import DeviceORM
+    from .schedule import ScheduleORM
 
 NAME_LENGTH = 60
 USERNAME_LENGTH = 16
@@ -59,11 +58,11 @@ class UserORM(UserValidator, ORMType, table=True):
     email: str | None = sqlmodel.Field(default=None, max_length=EMAIL_LENGTH)
     phone_number: str | None = sqlmodel.Field(default=None, max_length=PHONE_LENGTH)
 
-    schedules: list["ScheduleORM"] = sqlmodel.Relationship(
+    schedules: list[ScheduleORM] = sqlmodel.Relationship(
         back_populates="user",
         sa_relationship_kwargs={"viewonly": True, "lazy": True},
     )
-    devices: list["DeviceORM"] = sqlmodel.Relationship(
+    devices: list[DeviceORM] = sqlmodel.Relationship(
         back_populates="user",
         sa_relationship_kwargs={"viewonly": True, "lazy": True},
     )

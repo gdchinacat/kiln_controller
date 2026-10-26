@@ -2,22 +2,18 @@
 Framework for application resources.
 """
 
-from abc import ABC
-from functools import wraps
+from collections.abc import Callable
 from http import HTTPStatus
 from logging import getLogger
-from typing import Callable, Any
+from typing import Any
 
-from fastapi import Depends, Request, Response, status, HTTPException, APIRouter
 import pydantic
+from fastapi import APIRouter, HTTPException, Request, Response, status
 from sqlalchemy import select
-from sqlalchemy.exc import NoResultFound, IntegrityError
-from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
-import sqlmodel
+from sqlalchemy.exc import IntegrityError
 
-from ...common.validators import ValidationError, ValidationErrors
-from ..dependencies import sessionmaker, current_user
-from ..models import User, UserORM, SessionMaker, ORMType
+from ..dependencies import current_user, sessionmaker
+from ..models import ORMType, SessionMaker, User, UserORM
 
 logger = getLogger("resource/base.py")
 

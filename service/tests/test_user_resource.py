@@ -2,19 +2,19 @@
 Test the kiln_controller user resource behavior.
 """
 
-import httpx2
-import pytest
 from typing import Any
 
+import httpx2
 from fixtures import kwargs
-from kiln_controller.client import Client, User, Device
+
+from kiln_controller.client import Client, Device, User
 
 from ._fixtures import (
     assert_http_status_error,
     device_fixture,
+    schedule_fixture,
     user_client,
     user_fixture,
-    schedule_fixture,
 )
 
 

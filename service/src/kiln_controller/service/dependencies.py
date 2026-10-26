@@ -1,6 +1,4 @@
-from fastapi import Request, WebSocket, Depends, HTTPException, status
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
+from fastapi import Depends, HTTPException, Request, status
 from starlette.requests import HTTPConnection
 
 from .metrics import MetricsServer
@@ -8,8 +6,8 @@ from .models import SessionMaker, UserORM
 
 __all__ = (
     "current_user",
-    "sessionmaker",
     "metrics_server",
+    "sessionmaker",
 )
 
 

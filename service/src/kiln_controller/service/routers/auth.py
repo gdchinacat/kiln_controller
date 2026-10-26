@@ -1,9 +1,8 @@
-from fastapi import Request, HTTPException, status, APIRouter
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, Request, status
 from sqlalchemy import select
 
 from ..dependencies import sessionmaker
-from ..models import SessionMaker, UserORM, LoginRequest, LoginResponse
+from ..models import LoginRequest, LoginResponse, SessionMaker, UserORM
 
 __all__ = ("auth_router",)
 

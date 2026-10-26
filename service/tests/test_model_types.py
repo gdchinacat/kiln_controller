@@ -1,11 +1,11 @@
-import unittest
 import json
 from datetime import time
+
 from kiln_controller.service.models import (
-    Phase,
-    PhaseType,
     DeviceCreate,
     DeviceORM,
+    Phase,
+    PhaseType,
     SessionMaker,
 )
 

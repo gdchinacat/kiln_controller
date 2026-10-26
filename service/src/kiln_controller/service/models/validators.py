@@ -4,13 +4,13 @@ adhere to constraints). request validation is performed by pydantic based on
 the model class annotations.
 """
 
-from ...common.validators import ValidationErrors, ValidationError
+from ...common.validators import ValidationError, ValidationErrors
 from ._validatable import (
     PhaseType,
-    ValidatableUser,
+    ValidatablePhase,
     ValidatableDevice,
     ValidatableSchedule,
-    ValidatablePhase,
+    ValidatableUser,
 )
 
 
@@ -66,7 +66,7 @@ class ScheduleValidator:
                 ):
                     raise ValidationError(
                         ValidationErrors.SEQUENTIAL_CONSTANT_PHASES,
-                        f"{phases[i].name}({phases[i].id})",
+                        f"{phase.name}({phase.id})",
                     )
 
                 # CONSTANT phases have same temperature as preceding phase
@@ -77,7 +77,7 @@ class ScheduleValidator:
                 ):
                     raise ValidationError(
                         ValidationErrors.TEMPERATURE_NOT_CONTINUOUS,
-                        f"{phases[i].name}({phases[i].id})",
+                        f"{phase.name}({phase.id})",
                     )
 
                 # Sequential RAMP must have different temperatures.
@@ -89,7 +89,7 @@ class ScheduleValidator:
                 ):
                     raise ValidationError(
                         ValidationErrors.DUPLICATE_RAMP_TEMPERATURES,
-                        f"{phases[i].name}({phases[i].id})",
+                        f"{phase.name}({phase.id})",
                     )
 
             # Last phase must be a RAMP (disabled)

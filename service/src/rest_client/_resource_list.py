@@ -2,21 +2,20 @@
 ResoureList et. al. to provide list-like semantics for rest resources.
 """
 
+import logging
 from collections.abc import Callable, Iterable
 from functools import wraps
-import logging
 from typing import (
-    SupportsIndex,
+    TYPE_CHECKING,
     Any,
-    Self,
-    override,
-    overload,
     Concatenate,
     Never,
+    Self,
+    SupportsIndex,
     cast,
-    TYPE_CHECKING,
+    overload,
+    override,
 )
-
 
 from ._resource import Resource, RootResource, _ResourceListDescriptor
 

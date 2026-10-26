@@ -5,9 +5,9 @@ import httpx2
 from rest_client import RestClient, RootResourceList
 
 from ._auth import LoginInfo
-from ._user import User
 from ._device import Device
 from ._schedule import Schedule
+from ._user import User
 
 
 class Client(RestClient):

@@ -8,7 +8,6 @@ from typing import Any, Concatenate, override
 import pytest
 from fixtures import kwargs
 
-from kiln_controller.common.validators import ValidationErrors
 from kiln_controller.service.models import PhaseType
 from kiln_controller.service.models.validators import (
     DeviceValidator,
@@ -20,6 +19,7 @@ from kiln_controller.service.models.validators import (
     ValidatableSchedule,
     ValidatableUser,
     ValidationError,
+    ValidationErrors,
 )
 
 

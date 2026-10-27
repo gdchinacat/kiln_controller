@@ -33,10 +33,10 @@ async def login(
     return LoginResponse()
 
 
-@auth_router.post("/logout")
+@auth_router.api_route("/logout", methods=["GET", "POST"])
 async def logout(
     request: Request,
-    sessionmaker: SessionMaker = sessionmaker,
 ) -> LogoutResponse:
-    del request.session["user_id"]
+    if request.session:
+        request.session["user_id"] = None
     return LogoutResponse()

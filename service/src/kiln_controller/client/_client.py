@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Self
 
 import httpx2
@@ -38,7 +39,11 @@ class Client(RestClient):
             ).model_dump(),
         ).raise_for_status()
 
-    def logout(self) -> None:
-        self._http_client.post(
+    def logout(
+        self, method: Callable[..., httpx2.Response] = httpx2.Client.post
+    ) -> None:
+        assert method in (httpx2.Client.get, httpx2.Client.post)
+        method(
+            self._http_client,
             "/auth/logout",
         ).raise_for_status()

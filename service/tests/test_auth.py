@@ -1,6 +1,8 @@
+from collections.abc import Callable
 from typing import Any
 
 import httpx2
+import pytest
 from fixtures import kwargs
 
 from kiln_controller.client import Client
@@ -44,11 +46,37 @@ def test_login_fail(client: Client, user: User, **_: Any) -> None:
             assert user.get()
 
 
+@pytest.mark.parametrize("method", (httpx2.Client.get, httpx2.Client.post))
 @ kwargs["user"] << user_fixture()
 @ kwargs["client"] << user_client()
-def test_logout(client: Client, user: User, **_: Any) -> None:
+def test_logout(
+    method: Callable[..., httpx2.Response],
+    client: Client,
+    user: User,
+    **_: Any,
+) -> None:
     assert user.get()
-    client.logout()
+    client.logout(method=method)
 
     with assert_http_status_error(httpx2.codes.UNAUTHORIZED):
         assert user.get()
+
+
+@ kwargs["user"] << user_fixture()
+@ kwargs["client"] << user_client(skip_login=True)
+def test_logout_no_session(client: Client, **_: Any) -> None:
+    assert not client._http_client.cookies
+    client.logout()
+
+
+@ kwargs["user"] << user_fixture()
+@ kwargs["client"] << user_client()
+def test_logout_not_logged_in(client: Client, user: User, **_: Any) -> None:
+    # ensure user is logged in to make sure client has a session
+    assert user.get()
+
+    client.logout()
+    with assert_http_status_error(httpx2.codes.UNAUTHORIZED):
+        assert user.get()
+
+    client.logout()

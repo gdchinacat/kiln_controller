@@ -1,12 +1,13 @@
 from fastapi import APIRouter, HTTPException, Request, status
 from sqlalchemy import select
 
-from ..dependencies import sessionmaker
+from ..dependencies import current_user, sessionmaker
 from ..models import (
     LoginRequest,
     LoginResponse,
     LogoutResponse,
     SessionMaker,
+    User,
     UserORM,
 )
 
@@ -14,6 +15,11 @@ __all__ = ("auth_router",)
 
 
 auth_router = APIRouter(prefix="/auth", tags=["authentication"])
+
+
+@auth_router.get("/me")
+async def me(user: User = current_user) -> User:
+    return user
 
 
 @auth_router.post("/login")

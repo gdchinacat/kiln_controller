@@ -80,3 +80,14 @@ def test_logout_not_logged_in(client: Client, user: User, **_: Any) -> None:
         assert user.get()
 
     client.logout()
+
+
+@ kwargs["user"] << user_fixture()
+@ kwargs["client"] << user_client()
+def test_me(client: Client, user: User, **_: Any) -> None:
+    http_client = client._http_client
+    user_json = user.model_dump(mode="json")
+    user_json.pop("password")
+
+    response = http_client.get("/auth/me").raise_for_status()
+    assert response.json() == user_json

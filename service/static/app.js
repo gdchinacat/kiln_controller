@@ -96,6 +96,10 @@ document.addEventListener('alpine:init', () => {
       this.refreshCurrentView();
     },
 
+    async logout() {
+        this.apiRequest("/auth/logout").catch(() => []);
+    },
+
     async refreshCurrentView() {
       try {
         if (this.activeTab === 'dashboard') await this.renderDashboard();

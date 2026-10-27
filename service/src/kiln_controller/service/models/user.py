@@ -2,10 +2,12 @@
 Users ORM
 """
 
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, Annotated, ClassVar
 
 import pydantic
 import sqlmodel
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError
 
 from ._base import ORMType
 from .validators import UserValidator
@@ -18,15 +20,17 @@ if TYPE_CHECKING:
 
 NAME_LENGTH = 60
 USERNAME_LENGTH = 16
-PASSWORD_LENGTH = 16
+PASSWORD_LENGTH = 255  # to comfortably fit an argon2 hash
 PHONE_LENGTH = 20
 EMAIL_LENGTH = 254
+
+PASSWORD_HASHER = PasswordHasher()
 
 
 class UserCreate(pydantic.BaseModel):
     name: str = pydantic.Field(max_length=NAME_LENGTH)
     username: str = pydantic.Field(max_length=USERNAME_LENGTH)
-    password: str = pydantic.Field(max_length=PASSWORD_LENGTH)
+    password: Annotated[str, pydantic.AfterValidator(PASSWORD_HASHER.hash)]
     email: str | None = pydantic.Field(default=None, max_length=EMAIL_LENGTH)
     phone_number: str | None = pydantic.Field(
         default=None, max_length=PHONE_LENGTH
@@ -38,9 +42,9 @@ class UserUpdate(pydantic.BaseModel):
     username: str | None = pydantic.Field(
         default=None, max_length=USERNAME_LENGTH
     )
-    password: str | None = pydantic.Field(
-        default=None, max_length=PASSWORD_LENGTH
-    )
+    password: Annotated[
+        str | None, pydantic.AfterValidator(PASSWORD_HASHER.hash)
+    ]
     email: str | None = pydantic.Field(default=None, max_length=EMAIL_LENGTH)
     phone_number: str | None = pydantic.Field(
         default=None, max_length=PHONE_LENGTH
@@ -78,3 +82,9 @@ class UserORM(UserValidator, ORMType, table=True):
         back_populates="user",
         sa_relationship_kwargs={"viewonly": True, "lazy": True},
     )
+
+    def verify_password(self, password: str) -> bool:
+        try:
+            return PASSWORD_HASHER.verify(self.password, password)
+        except VerifyMismatchError:
+            return False

@@ -97,6 +97,7 @@ def user_client(
     *,
     service: Service,
     user: User,
+    skip_login: bool = False,
     **_: object,
 ) -> Generator[Client]:
     """Get a client using users authorization."""
@@ -106,7 +107,8 @@ def user_client(
         verify=service.client_ssl_context,
     ) as http_client:
         client = Client(http_client)
-        client.login(user.username, user.password)
+        if not skip_login:
+            client.login(user.username, user.password)
 
         # Update the user to use its own client.
         parent = user._parent

@@ -37,3 +37,8 @@ class Client(RestClient):
                 password=password,
             ).model_dump(),
         ).raise_for_status()
+
+    def logout(self) -> None:
+        self._http_client.post(
+            "/auth/logout",
+        ).raise_for_status()

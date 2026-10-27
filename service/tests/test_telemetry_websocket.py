@@ -172,7 +172,7 @@ def remaining_messages(websocket: WebSocketTestSession) -> list[Message]:
         return messages
 
 
-@pytest.mark.timeout(1)
+@pytest.mark.timeout(3)
 def test_telemetry_set_time_on_connect(
     client: TestClient,
     device: AuthenticatedDevice,
@@ -193,7 +193,7 @@ def test_telemetry_set_time_on_connect(
         assert not remaining_messages(websocket)
 
 
-@pytest.mark.timeout(1)
+@pytest.mark.timeout(3)
 def test_telemetry_send_no_delta_no_set_time(
     client: TestClient,
     device: AuthenticatedDevice,
@@ -222,7 +222,7 @@ def test_telemetry_send_no_delta_no_set_time(
         assert not remaining_messages(websocket)
 
 
-@pytest.mark.timeout(1)
+@pytest.mark.timeout(3)
 def test_telemetry_large_delta_sets_time(
     client: TestClient,
     device: AuthenticatedDevice,

@@ -38,13 +38,14 @@ async def get_engine(uri: str) -> AsyncEngine:
 
     if initialize:
         async with get_sessionmaker(engine)() as session:
-            session.add(
-                UserORM(
-                    name=ADMIN_NAME,
-                    username=ADMIN_USERNAME,
-                    password=ADMIN_PASSWORD,
-                )
+            create = UserCreate.model_validate(
+                {
+                    "name": ADMIN_NAME,
+                    "username": ADMIN_USERNAME,
+                    "password": ADMIN_PASSWORD,
+                }
             )
+            session.add(UserORM.model_validate(create))
             await session.commit()
     return engine
 

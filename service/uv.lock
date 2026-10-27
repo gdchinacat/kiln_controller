@@ -894,6 +894,7 @@ source = { editable = "." }
 dependencies = [
     { name = "aiofiles" },
     { name = "aiosqlite" },
+    { name = "argon2-cffi" },
     { name = "fastapi", extra = ["standard"] },
     { name = "fixtures" },
     { name = "httpx2" },
@@ -926,6 +927,7 @@ dev = [
 requires-dist = [
     { name = "aiofiles", specifier = ">=25.1.0" },
     { name = "aiosqlite", specifier = ">=0.22.1" },
+    { name = "argon2-cffi", specifier = ">=25.1.0" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.141.1" },
     { name = "fixtures", editable = "../../fixtures" },
     { name = "httpx2", specifier = ">=2.13.1" },

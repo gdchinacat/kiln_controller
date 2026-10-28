@@ -22,9 +22,12 @@ def test_login(client: Client, user: User, **_: Any) -> None:
 
     with assert_http_status_error(httpx2.codes.UNAUTHORIZED):
         assert user.get()
-    client.login(user.username, user.password)
+    _user = client.login(user.username, user.password)
 
     assert user.get()
+
+    user.password = None
+    assert _user.model_dump() == user.model_dump()
 
 
 @ kwargs["user"] << user_fixture()

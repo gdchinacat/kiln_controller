@@ -30,14 +30,15 @@ class Client(RestClient):
         self.schedules.expire()
         return self
 
-    def login(self, username: str, password: str) -> None:
-        self._http_client.post(
+    def login(self, username: str, password: str) -> User:
+        response = self._http_client.post(
             "/auth/login",
             json=LoginInfo(
                 username=username,
                 password=password,
             ).model_dump(),
         ).raise_for_status()
+        return User.model_validate(response.json())
 
     def logout(
         self, method: Callable[..., httpx2.Response] = httpx2.Client.post

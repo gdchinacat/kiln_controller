@@ -4,7 +4,6 @@ from sqlalchemy import select
 from ..dependencies import current_user, sessionmaker
 from ..models import (
     LoginRequest,
-    LoginResponse,
     LogoutResponse,
     SessionMaker,
     User,
@@ -22,12 +21,12 @@ async def me(user: User = current_user) -> User:
     return user
 
 
-@auth_router.post("/login")
+@auth_router.post("/login", response_model=User)
 async def login(
     login: LoginRequest,
     request: Request,
     sessionmaker: SessionMaker = sessionmaker,
-) -> LoginResponse:
+) -> UserORM:
     query = select(UserORM).where(UserORM.username == login.username)  # type: ignore
     async with sessionmaker() as session:
         user = (await session.execute(query)).scalars().first()
@@ -35,8 +34,7 @@ async def login(
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
 
     request.session["user_id"] = user.id
-
-    return LoginResponse()
+    return user
 
 
 @auth_router.api_route("/logout", methods=["GET", "POST"])

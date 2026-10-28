@@ -2,7 +2,6 @@ from pydantic import BaseModel
 
 __all__ = (
     "LoginRequest",
-    "LoginResponse",
     "LogoutResponse",
 )
 
@@ -10,10 +9,6 @@ __all__ = (
 class LoginRequest(BaseModel):
     username: str
     password: str
-
-
-class LoginResponse(BaseModel):
-    pass
 
 
 class LogoutResponse(BaseModel):

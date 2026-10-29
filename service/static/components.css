@@ -1,0 +1,242 @@
+
+@layer components {
+
+  /* ------------------------------------------------------------------ */
+  /* Icons (lucide <i data-lucide> elements)                            */
+  /* ------------------------------------------------------------------ */
+  .icon    { @apply w-4 h-4; }
+  .icon-sm { @apply w-3.5 h-3.5; }
+  .icon-md { @apply w-5 h-5; }
+  .icon-lg { @apply w-6 h-6; }
+
+  /* ------------------------------------------------------------------ */
+  /* App shell                                                          */
+  /* ------------------------------------------------------------------ */
+  .app-body  { @apply h-full flex flex-col font-sans overflow-hidden bg-slate-950 text-slate-100; }
+  .app-shell { @apply flex flex-col h-screen overflow-hidden; }
+  .app-main  { @apply flex-1 overflow-y-auto p-6 space-y-6 min-h-0; }
+
+  /* Header */
+  .app-header     { @apply h-16 border-b border-slate-800 bg-slate-900/90 backdrop-blur px-6 flex items-center justify-between shrink-0 z-20; }
+  .app-brand      { @apply flex items-center space-x-3; }
+  .app-brand-logo { @apply p-2 bg-gradient-to-tr from-orange-600 to-amber-500 rounded-lg text-white shadow-lg shadow-orange-500/20; }
+  .app-title      { @apply font-bold text-lg leading-none tracking-tight; }
+  .app-subtitle   { @apply text-xs text-slate-400 font-mono; }
+
+  /* Main navigation tabs */
+  .nav-tabs { @apply hidden md:flex space-x-1 bg-slate-950/60 p-1 rounded-xl border border-slate-800; }
+  .nav-tab  { @apply px-4 py-1.5 text-sm font-medium rounded-lg transition-all flex items-center gap-2 text-slate-400 hover:text-white; }
+  .nav-tab.is-active { @apply bg-orange-600 text-white shadow; }
+
+  /* Header right-side controls */
+  .header-actions      { @apply flex items-center space-x-3; }
+  .header-button       { @apply p-2 text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800 rounded-lg border border-slate-700/60 transition-all flex items-center gap-1.5 text-xs font-medium; }
+  .header-button-label { @apply hidden sm:inline; }
+
+  /* ------------------------------------------------------------------ */
+  /* Views (top-level sections)                                         */
+  /* ------------------------------------------------------------------ */
+  .view          { @apply space-y-6; }
+  .view-header   { @apply flex items-center justify-between; }
+  .view-title    { @apply text-2xl font-bold text-white; }
+  .view-subtitle { @apply text-sm text-slate-400; }
+  .view-toolbar  { @apply flex items-center gap-2; }
+
+  /* ------------------------------------------------------------------ */
+  /* Buttons                                                            */
+  /* ------------------------------------------------------------------ */
+  .btn-refresh       { @apply p-2 text-slate-400 hover:text-white bg-slate-900 border border-slate-800 rounded-xl text-xs flex items-center gap-1; }
+  .btn-create        { @apply bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 shadow-lg shadow-orange-600/20; }
+  .btn-primary       { @apply px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-xs font-semibold; }
+  .btn-danger        { @apply px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-semibold; }
+  .btn-text          { @apply px-4 py-2 text-xs text-slate-400 hover:text-white; }
+  .btn-outline-accent{ @apply bg-slate-800 hover:bg-slate-700 text-orange-400 border border-orange-500/30 px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5; }
+  .btn-tool          { @apply bg-slate-800 hover:bg-slate-700 text-slate-300 p-2 rounded-lg text-xs; }
+  .btn-tool-danger   { @apply bg-red-500/10 hover:bg-red-500/20 text-red-400 p-2 rounded-lg text-xs; }
+  .link-reload       { @apply text-xs text-slate-400 hover:text-orange-400 flex items-center gap-1; }
+  .link-more         { @apply text-xs text-orange-400 hover:text-orange-300 font-medium; }
+
+  /* Small icon-only actions (table rows, cards) */
+  .row-action        { @apply text-slate-400 hover:text-white p-1; }
+  .row-action-danger { @apply text-red-400 hover:text-red-300 p-1; }
+  .card-actions      { @apply flex items-center gap-1; }
+
+  /* ------------------------------------------------------------------ */
+  /* Panels                                                             */
+  /* ------------------------------------------------------------------ */
+  .panel {
+    background: rgba(30, 41, 59, 0.7);
+    backdrop-filter: blur(12px);
+    @apply rounded-2xl border border-slate-800;
+  }
+  .panel-placeholder {
+    background: rgba(30, 41, 59, 0.7);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    @apply col-span-full p-8 rounded-2xl text-center text-slate-500;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Dashboard                                                          */
+  /* ------------------------------------------------------------------ */
+  .stats-grid { @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4; }
+  .stat-card  { @apply p-5 flex items-center justify-between; }
+  .stat-label { @apply text-xs font-medium text-slate-400 uppercase tracking-wider; }
+  .stat-value { @apply text-3xl font-bold mt-1 text-slate-100; }
+  .stat-icon  { @apply p-3 rounded-xl border; }
+  .stat-icon--users     { @apply bg-blue-500/10 text-blue-400 border-blue-500/20; }
+  .stat-icon--kilns     { @apply bg-emerald-500/10 text-emerald-400 border-emerald-500/20; }
+  .stat-icon--schedules { @apply bg-orange-500/10 text-orange-400 border-orange-500/20; }
+
+  /* Active firing monitor */
+  .firing-monitor          { @apply p-6; }
+  .firing-monitor-header   { @apply flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6; }
+  .firing-monitor-tags     { @apply flex items-center gap-2; }
+  .firing-monitor-badge    { @apply px-2.5 py-0.5 rounded-full text-xs font-semibold bg-orange-500/20 text-orange-400 border border-orange-500/30; }
+  .firing-monitor-owner    { @apply text-xs text-slate-400; }
+  .firing-monitor-title    { @apply text-2xl font-bold text-white mt-1; }
+  .firing-monitor-controls { @apply flex items-center gap-3; }
+  .firing-select           { @apply bg-slate-900 border border-slate-700 text-sm rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-orange-500; }
+  .firing-chart            { @apply w-full h-72 relative; }
+
+  /* Summary cards (Kiln Status / Operators) */
+  .summary-grid         { @apply grid grid-cols-1 lg:grid-cols-2 gap-6; }
+  .summary-card         { @apply p-5; }
+  .summary-card-header  { @apply flex items-center justify-between mb-4; }
+  .summary-card-title   { @apply font-bold text-slate-200 flex items-center gap-2; }
+  .summary-icon--kilns  { @apply text-emerald-400; }
+  .summary-icon--users  { @apply text-blue-400; }
+  .summary-list         { @apply space-y-3; }
+  .summary-empty        { @apply text-xs text-slate-500 italic p-2; }
+
+  .list-item          { @apply flex items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-slate-800; }
+  .list-item-title    { @apply font-medium text-slate-200 text-sm; }
+  .list-item-subtitle { @apply text-xs text-slate-500; }
+  .list-item-address  { @apply text-xs text-slate-500 font-mono; }
+  .list-item-contact  { @apply text-xs text-slate-400 font-mono; }
+
+  .user-identity  { @apply flex items-center gap-3; }
+  .avatar         { @apply w-8 h-8 rounded-full bg-orange-600/20 text-orange-400 flex items-center justify-center font-bold text-xs border border-orange-500/30; }
+  .operator-badge { @apply text-xs px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1; }
+  .status-dot     { @apply w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse; }
+
+  /* ------------------------------------------------------------------ */
+  /* Data table (Users)                                                 */
+  /* ------------------------------------------------------------------ */
+  .table-panel    { @apply overflow-hidden; }
+  .table-scroll   { @apply overflow-x-auto; }
+  .data-table     { @apply w-full text-left border-collapse; }
+  .data-table th,
+  .data-table td  { @apply p-4; }
+  .data-table-head-row { @apply bg-slate-950/60 border-b border-slate-800 text-slate-400 text-xs uppercase tracking-wider; }
+  .data-table-body     { @apply divide-y divide-slate-800 text-sm; }
+  .data-table-row      { @apply hover:bg-slate-900/50 transition-colors; }
+  .data-table .table-empty  { @apply p-8 text-center text-slate-500; }
+  .data-table .cell-actions { @apply text-right space-x-2; }
+
+  .cell-primary  { @apply font-medium text-slate-200; }
+  .cell-username { @apply text-orange-400 font-mono; }
+  .cell-muted    { @apply text-slate-400; }
+  .col-actions   { @apply text-right; }
+
+  /* ------------------------------------------------------------------ */
+  /* Kilns (devices)                                                    */
+  /* ------------------------------------------------------------------ */
+  .kiln-grid             { @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6; }
+  .kiln-card             { @apply p-5 flex flex-col justify-between space-y-4; }
+  .kiln-card-header      { @apply flex items-start justify-between; }
+  .kiln-state-badge      { @apply inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20; }
+  .kiln-card-title       { @apply text-lg font-bold text-slate-100 mt-2; }
+  .kiln-card-description { @apply text-xs text-slate-400 mt-2 line-clamp-2; }
+  .kiln-card-footer      { @apply space-y-2 border-t border-slate-800/80 pt-3 text-xs; }
+  .detail-row            { @apply flex justify-between; }
+  .detail-label          { @apply text-slate-500; }
+  .detail-value          { @apply text-orange-400 font-medium; }
+
+  /* ------------------------------------------------------------------ */
+  /* Schedules                                                          */
+  /* ------------------------------------------------------------------ */
+  .schedules-layout      { @apply grid grid-cols-1 lg:grid-cols-12 gap-6; }
+  .schedule-sidebar      { @apply lg:col-span-4 space-y-3; }
+  .schedule-sidebar-title{ @apply text-xs uppercase font-bold text-slate-400 tracking-wider mb-2; }
+  .schedule-list         { @apply space-y-3; }
+  .schedule-list-empty   { @apply p-4 text-center text-xs text-slate-500; }
+
+  .schedule-item { @apply p-4 rounded-xl border transition-all cursor-pointer bg-slate-900/60 border-slate-800 hover:border-slate-700; }
+  .schedule-item.is-selected,
+  .schedule-item.is-selected:hover { @apply bg-orange-600/10 border-orange-500/50 shadow-lg shadow-orange-500/5; }
+  .schedule-item-header { @apply flex items-center justify-between; }
+  .schedule-item-title  { @apply font-bold text-slate-200 text-sm; }
+  .schedule-item-meta   { @apply text-xs text-slate-400 mt-1; }
+  .schedule-item-owner  { @apply text-slate-300; }
+
+  .schedule-main          { @apply lg:col-span-8 space-y-6; }
+  .schedule-detail        { @apply p-6; }
+  .schedule-detail-body   { @apply space-y-6; }
+  .schedule-detail-header { @apply flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4; }
+  .schedule-detail-title  { @apply text-2xl font-bold text-white mt-1; }
+  .schedule-detail-meta   { @apply text-xs text-slate-400 mt-0.5; }
+  .schedule-detail-owner  { @apply text-slate-200 font-medium; }
+
+  .empty-state      { @apply text-center py-12 text-slate-500; }
+  .empty-state-icon { @apply w-12 h-12 mx-auto mb-3 opacity-30; }
+
+  .subsection-title  { @apply text-xs font-bold uppercase text-slate-400 tracking-wider; }
+  .subsection-header { @apply flex items-center justify-between mb-3; }
+  .chart-section     { @apply space-y-2; }
+  .chart-frame       { @apply w-full h-64 bg-slate-950/50 p-2 rounded-xl border border-slate-800/80; }
+
+  /* Phase table */
+  .table-frame       { @apply border border-slate-800 rounded-xl overflow-hidden bg-slate-950/40; }
+  .phase-table       { @apply w-full text-left text-xs; }
+  .phase-table th,
+  .phase-table td    { @apply p-3; }
+  .phase-table-head-row { @apply bg-slate-900 text-slate-400 border-b border-slate-800; }
+  .phase-table-body  { @apply divide-y divide-slate-800; }
+  .phase-table-row   { @apply hover:bg-slate-900/80; }
+  .phase-table .table-empty  { @apply p-6 text-center text-slate-500; }
+  .phase-table .cell-actions { @apply text-right space-x-1; }
+  .cell-strong       { @apply font-semibold text-slate-200; }
+  .cell-numeric      { @apply font-mono text-slate-300; }
+
+  .phase-badge           { @apply px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border; }
+  .phase-badge--ramp     { @apply bg-amber-500/10 text-amber-400 border-amber-500/20; }
+  .phase-badge--constant { @apply bg-blue-500/10 text-blue-400 border-blue-500/20; }
+
+  /* ------------------------------------------------------------------ */
+  /* Modals & forms                                                     */
+  /* ------------------------------------------------------------------ */
+  .modal-backdrop { @apply fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50; }
+  .modal          { @apply bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl; }
+  .modal.modal--confirm { @apply max-w-sm space-y-4; }
+  .modal-header   { @apply flex items-center justify-between mb-4; }
+  .modal-title    { @apply text-lg font-bold text-white; }
+  .modal-close    { @apply text-slate-400 hover:text-white; }
+
+  .confirm-header  { @apply flex items-center gap-3 text-red-400; }
+  .confirm-icon    { @apply p-2 bg-red-500/10 rounded-lg border border-red-500/20; }
+  .confirm-message { @apply text-xs text-slate-300; }
+
+  .form-stack     { @apply space-y-4; }
+  .form-row       { @apply grid grid-cols-2 gap-3; }
+  .form-label     { @apply block text-xs font-medium text-slate-400 mb-1; }
+  .form-label-row { @apply flex items-center justify-between mb-1; }
+  .form-label-row .form-label { @apply mb-0; }
+  .form-control   { @apply w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500; }
+  .form-control.is-readonly   { @apply opacity-60 bg-slate-900; }
+  .form-control.is-calculated { @apply bg-slate-900 text-orange-400 border-orange-500/30; }
+  .form-control.is-calculated:focus { @apply border-orange-500; }
+  .form-hint      { @apply text-[10px] text-slate-400 mt-1 block; }
+  .tag-calculated { @apply text-[9px] px-1.5 rounded font-mono uppercase bg-slate-800 text-slate-400; }
+  .form-actions   { @apply flex justify-end gap-3 pt-2; }
+
+  /* ------------------------------------------------------------------ */
+  /* Toast notifications                                                */
+  /* ------------------------------------------------------------------ */
+  .toast-stack { @apply fixed top-20 right-6 z-50 flex flex-col space-y-2 pointer-events-none; }
+  .toast       { @apply px-4 py-3 rounded-xl border text-xs font-medium shadow-xl backdrop-blur flex items-center gap-2 transform transition-all duration-300 pointer-events-auto; }
+  .toast--success { @apply bg-emerald-900/90 border-emerald-500 text-emerald-100; }
+  .toast--error   { @apply bg-red-900/90 border-red-500 text-red-100; }
+  .toast--warning { @apply bg-amber-900/90 border-amber-500 text-amber-100; }
+  .toast--info    { @apply bg-slate-800/90 border-slate-600 text-slate-100; }
+}

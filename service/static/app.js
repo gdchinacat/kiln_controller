@@ -105,16 +105,13 @@ document.addEventListener('alpine:init', () => {
     },
 
     async initialize() {
-      if (!this.initialized) {
-        try {
-          const user = await Alpine.store('network').apiRequest('/auth/me');
-          this.user = user;
-          Alpine.store('toast').showToast(`Logged in as ${user.name} (${user.username}).`)
-        } catch (error) {
-          this.user = null;
-        }
+      try {
+        const user = await Alpine.store('network').apiRequest('/auth/me');
+        this.user = user;
+        Alpine.store('toast').showToast(`Logged in as ${user.name} (${user.username}).`)
+      } catch (error) {
+        this.user = null;
       }
-      this.initialized = true;
     },
 
     get isAuthenticated() { return this.user !== null; },

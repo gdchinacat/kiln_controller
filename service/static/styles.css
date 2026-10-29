@@ -79,7 +79,7 @@
   /* ------------------------------------------------------------------ */
   /* Dashboard                                                          */
   /* ------------------------------------------------------------------ */
-  .stats-grid { @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4; }
+  .stats-grid { @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4; }
   .stat-card  { @apply p-5 flex items-center justify-between; }
   .stat-label { @apply text-xs font-medium text-slate-400 uppercase tracking-wider; }
   .stat-value { @apply text-3xl font-bold mt-1 text-slate-100; }
@@ -87,6 +87,7 @@
   .stat-icon--users     { @apply bg-blue-500/10 text-blue-400 border-blue-500/20; }
   .stat-icon--kilns     { @apply bg-emerald-500/10 text-emerald-400 border-emerald-500/20; }
   .stat-icon--schedules { @apply bg-orange-500/10 text-orange-400 border-orange-500/20; }
+  .stat-icon--firings   { @apply bg-orange-500/10 text-orange-400 border-orange-500/20; }
 
   /* Active firing monitor */
   .firing-monitor          { @apply p-6; }

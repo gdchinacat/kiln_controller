@@ -124,7 +124,7 @@
         <div class="stats-grid">
           <div @click="switchTab('users')" class="panel stat-card">
             <div>
-              <p class="stat-label">Active Users</p>
+              <p class="stat-label">Users</p>
               <h3 x-text="users.length" class="stat-value">--</h3>
             </div>
             <div class="stat-icon stat-icon--users">
@@ -134,7 +134,7 @@
 
           <div @click="switchTab('devices')" class="panel stat-card">
             <div>
-              <p class="stat-label">Connected Kilns</p>
+              <p class="stat-label">Kilns</p>
               <h3 x-text="devices.length" class="stat-value">--</h3>
             </div>
             <div class="stat-icon stat-icon--kilns">
@@ -144,10 +144,20 @@
 
           <div @click="switchTab('schedules')" class="panel stat-card">
             <div>
-              <p class="stat-label">Firing Schedules</p>
+              <p class="stat-label">Schedules</p>
               <h3 x-text="schedules.length" class="stat-value">--</h3>
             </div>
             <div class="stat-icon stat-icon--schedules">
+              <i data-lucide="calendar" class="icon-lg"></i>
+            </div>
+          </div>
+
+          <div @click="switchTab('firings')" class="panel stat-card">
+            <div>
+              <p class="stat-label">Firings</p>
+              <h3 x-text="schedules.length" class="stat-value">--</h3>
+            </div>
+            <div class="stat-icon stat-icon--firings">
               <i data-lucide="calendar" class="icon-lg"></i>
             </div>
           </div>

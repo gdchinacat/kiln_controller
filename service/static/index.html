@@ -43,7 +43,7 @@
     (function () {
       const root = document.documentElement;
       root.style.visibility = 'hidden';
-      fetch('/static/components.css')
+      fetch('/static/styles.css')
         .then((response) => response.text())
         .then((css) => {
           const style = document.createElement('style');
@@ -51,7 +51,7 @@
           style.textContent = css;
           document.head.appendChild(style);
         })
-        .catch((err) => console.error('Failed to load components.css', err))
+        .catch((err) => console.error('Failed to load styles.css', err))
         .finally(() => requestAnimationFrame(() => { root.style.visibility = ''; }));
     })();
   </script>
@@ -122,7 +122,7 @@
 
         <!-- Overview Stats Cards -->
         <div class="stats-grid">
-          <div class="panel stat-card">
+          <div @click="switchTab('users')" class="panel stat-card">
             <div>
               <p class="stat-label">Active Users</p>
               <h3 x-text="users.length" class="stat-value">--</h3>
@@ -132,7 +132,7 @@
             </div>
           </div>
 
-          <div class="panel stat-card">
+          <div @click="switchTab('devices')" class="panel stat-card">
             <div>
               <p class="stat-label">Connected Kilns</p>
               <h3 x-text="devices.length" class="stat-value">--</h3>
@@ -142,7 +142,7 @@
             </div>
           </div>
 
-          <div class="panel stat-card">
+          <div @click="switchTab('schedules')" class="panel stat-card">
             <div>
               <p class="stat-label">Firing Schedules</p>
               <h3 x-text="schedules.length" class="stat-value">--</h3>

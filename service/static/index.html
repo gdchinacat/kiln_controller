@@ -12,7 +12,11 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+    });
+  </script>
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -35,7 +39,7 @@
   <link rel="stylesheet" href="/static/styles.css">
   <script src="/static/app.js"></script>
 </head>
-<body class="h-full flex flex-col font-sans overflow-hidden bg-slate-950 text-slate-100" x-data="kilnApp">
+<body x-data="kilnApp" x-on:refresh-view.window="refreshCurrentView()" class="h-full flex flex-col font-sans overflow-hidden bg-slate-950 text-slate-100">
 
   <div id="app" class="flex flex-col h-screen overflow-hidden">
     
@@ -72,21 +76,13 @@
 
       <!-- Right Side Controls -->
       <div class="flex items-center space-x-3">
-        <button @click="openLoginModal()" title="Login" class="p-2 text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800 rounded-lg border border-slate-700/60 transition-all flex items-center gap-1.5 text-xs font-medium">
-          <i data-lucide="log-in" class="w-4 h-4"></i>
-          <span class="hidden sm:inline">Login</span>
-        </button>
-        <button @click="logout()" title="Logout" class="p-2 text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800 rounded-lg border border-slate-700/60 transition-all flex items-center gap-1.5 text-xs font-medium">
+        <button x-data x-show="$store.auth.isAuthenticated" @click="$store.auth.logout()" title="Logout" class="p-2 text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800 rounded-lg border border-slate-700/60 transition-all flex items-center gap-1.5 text-xs font-medium">
           <i data-lucide="log-out" class="w-4 h-4"></i>
           <span class="hidden sm:inline">Logout</span>
         </button>
         <button @click="refreshCurrentView()" title="Refresh Data" class="p-2 text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800 rounded-lg border border-slate-700/60 transition-all flex items-center gap-1.5 text-xs font-medium">
           <i data-lucide="refresh-cw" class="w-4 h-4"></i>
           <span class="hidden sm:inline">Refresh</span>
-        </button>
-        <button @click="toggleConsoleDrawer()" title="API Activity Logs" class="relative p-2 text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800 rounded-lg border border-slate-700/60 transition-all">
-          <i data-lucide="terminal" class="w-5 h-5"></i>
-          <span x-show="hasUnreadLogs" class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-orange-500 rounded-full animate-pulse"></span>
         </button>
       </div>
     </header>
@@ -446,63 +442,21 @@
 
     </main>
 
-    <!-- Console / Telemetry Drawer -->
-    <div x-show="consoleDrawerOpen" class="bg-slate-950 border-t border-slate-800 shadow-2xl transition-all duration-300 shrink-0 flex flex-col h-72 z-40">
-      <div class="bg-slate-900 px-4 py-2 border-b border-slate-800 flex items-center justify-between shrink-0">
-        <div class="flex items-center gap-2">
-          <i data-lucide="terminal" class="w-4 h-4 text-orange-400"></i>
-          <span class="text-xs font-bold text-slate-200 uppercase tracking-wider">API Request & Response Logs</span>
-        </div>
-        <div class="flex items-center gap-3">
-          <button @click="$store.network.clearConsoleLogs()" class="text-xs text-slate-400 hover:text-white">Clear</button>
-          <button @click="toggleConsoleDrawer()" class="text-slate-400 hover:text-white">
-            <i data-lucide="x" class="w-4 h-4"></i>
-          </button>
-        </div>
-      </div>
-      <div class="p-4 font-mono text-xs overflow-y-auto space-y-2 flex-1 bg-slate-950/90 text-slate-300">
-        <template x-for="(log, idx) in $store.network.consoleLogs" :key="idx">
-          <div>
-            <template x-if="log.type === 'req'">
-              <div class="flex items-start gap-2 border-b border-slate-900 pb-1">
-                <span x-text="`[#${log.reqId}]`" class="text-slate-500 font-bold"></span>
-                <span x-text="log.time" class="text-slate-500"></span>
-                <span x-text="log.method" :class="log.method === 'GET' ? 'text-blue-400' : log.method === 'POST' ? 'text-emerald-400' : log.method === 'PUT' ? 'text-amber-400' : 'text-red-400'" class="font-bold"></span>
-                <span x-text="log.endpoint" class="text-slate-200"></span>
-                <span x-show="log.body" x-text="JSON.stringify(log.body)" class="text-slate-500 truncate max-w-xs"></span>
-              </div>
-            </template>
-            <template x-if="log.type === 'res'">
-              <div class="pl-4 text-xs font-mono mb-1 flex items-center gap-2">
-                <span x-text="`[#${log.reqId}]`" class="text-slate-500 font-bold"></span>
-                <span x-text="`STATUS ${log.status}`" :class="log.status >= 200 && log.status < 300 ? 'text-emerald-400' : 'text-red-400'" class="font-bold"></span>
-                <span x-text="log.data ? JSON.stringify(log.data).substring(0, 150) : 'No content'" class="text-slate-400"></span>
-              </div>
-            </template>
-          </div>
-        </template>
-      </div>
-    </div>
-  </div>
-
   <!-- LOGIN MODAL -->
-  <div x-show="modals.login" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-    <div @click.outside="modals.login = false" class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
-      <div class="flex items-center justify-between mb-4">
-        <h3 x-text="'Login'" class="text-lg font-bold text-white"></h3>
-        <button @click="modals.login = false" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
-      </div>
-      <form @submit.prevent="handleLoginSubmit()" class="space-y-4">
+  <div x-show="$store.loginModal.show"
+       x-data="ResettingForm('$store.loginModal.show', {username: '', password: ''}, ['password'])"
+       class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+      <form @submit.prevent="await $store.auth.login(form)" class="space-y-4">
         <div>
           <label class="block text-xs font-medium text-slate-400 mb-1">Username *</label>
-          <input type="text" x-model="forms.login.username" required maxlength="16" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
+          <input type="text" x-model="form.username" required maxlength="16" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
         </div>
         <div>
           <label class="block text-xs font-medium text-slate-400 mb-1">Password *</label>
-          <input type="password" x-model="forms.login.password" required maxlength="16" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
+          <input type="password" x-model="form.password" required maxlength="16" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500">
         </div>
         <div class="flex justify-end gap-3 pt-2">
-          <button type="button" @click="modals.login = false" class="px-4 py-2 text-xs text-slate-400 hover:text-white">Cancel</button>
           <button type="submit" class="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-xs font-semibold">Login</button>
         </div>
       </form>
@@ -680,7 +634,7 @@
 
   <!-- TOAST CONTAINER -->
   <div class="fixed top-20 right-6 z-50 flex flex-col space-y-2 pointer-events-none">
-    <template x-for="t in $store.ui.toasts" :key="t.id">
+    <template x-for="t in $store.toast.toasts" :key="t.id">
       <div :class="{
         'bg-emerald-900/90 border-emerald-500 text-emerald-100': t.type === 'success',
         'bg-red-900/90 border-red-500 text-red-100': t.type === 'error',

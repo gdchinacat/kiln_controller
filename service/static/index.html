@@ -187,63 +187,6 @@
             <canvas id="dashboardChart"></canvas>
           </div>
         </div>
-
-        <!-- Quick Summary Grid -->
-        <div class="summary-grid">
-          <!-- Recent Devices -->
-          <div class="panel summary-card">
-            <div class="summary-card-header">
-              <h3 class="summary-card-title">
-                <i data-lucide="cpu" class="icon summary-icon--kilns"></i> Kiln Status
-              </h3>
-              <button @click="switchTab('devices')" class="link-more">Manage All &rarr;</button>
-            </div>
-            <div class="summary-list">
-              <template x-if="devices.length === 0">
-                <p class="summary-empty">No hardware devices registered on server.</p>
-              </template>
-              <template x-for="d in devices.slice(0, 3)" :key="d.id">
-                <div class="list-item">
-                  <div>
-                    <p x-text="d.name" class="list-item-title"></p>
-                    <p x-text="`${d.host}:${d.port}`" class="list-item-address"></p>
-                  </div>
-                  <span class="operator-badge">
-                    <span class="status-dot"></span>
-                    <span x-text="users.find(u => u.id === d.user_id)?.name || 'User #' + d.user_id"></span>
-                  </span>
-                </div>
-              </template>
-            </div>
-          </div>
-
-          <!-- Quick Users -->
-          <div class="panel summary-card">
-            <div class="summary-card-header">
-              <h3 class="summary-card-title">
-                <i data-lucide="users" class="icon summary-icon--users"></i> Operators
-              </h3>
-              <button @click="switchTab('users')" class="link-more">Manage All &rarr;</button>
-            </div>
-            <div class="summary-list">
-              <template x-if="users.length === 0">
-                <p class="summary-empty">No users found on the server.</p>
-              </template>
-              <template x-for="u in users.slice(0, 3)" :key="u.id">
-                <div class="list-item">
-                  <div class="user-identity">
-                    <div x-text="u.name.charAt(0).toUpperCase()" class="avatar"></div>
-                    <div>
-                      <p x-text="u.name" class="list-item-title"></p>
-                      <p x-text="`${u.username}`" class="list-item-subtitle"></p>
-                    </div>
-                  </div>
-                  <span x-text="u.phone_number || u.email || 'No contact'" class="list-item-contact"></span>
-                </div>
-              </template>
-            </div>
-          </div>
-        </div>
       </section>
 
       <!-- USERS VIEW -->

@@ -100,16 +100,6 @@
   .firing-select           { @apply bg-slate-900 border border-slate-700 text-sm rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-orange-500; }
   .firing-chart            { @apply w-full h-72 relative; }
 
-  /* Summary cards (Kiln Status / Operators) */
-  .summary-grid         { @apply grid grid-cols-1 lg:grid-cols-2 gap-6; }
-  .summary-card         { @apply p-5; }
-  .summary-card-header  { @apply flex items-center justify-between mb-4; }
-  .summary-card-title   { @apply font-bold text-slate-200 flex items-center gap-2; }
-  .summary-icon--kilns  { @apply text-emerald-400; }
-  .summary-icon--users  { @apply text-blue-400; }
-  .summary-list         { @apply space-y-3; }
-  .summary-empty        { @apply text-xs text-slate-500 italic p-2; }
-
   .list-item          { @apply flex items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-slate-800; }
   .list-item-title    { @apply font-medium text-slate-200 text-sm; }
   .list-item-subtitle { @apply text-xs text-slate-500; }

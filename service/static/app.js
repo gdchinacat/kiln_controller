@@ -148,7 +148,7 @@ document.addEventListener('alpine:init', () => {
     toast: Alpine.store('toast'),
 
     // App State & Data Collections
-    activeTab: 'dashboard',
+    activeTab: window.location.hash.replace("#", "") || "dashboard",
     selectedScheduleId: null,
     users: [],
     devices: [],
@@ -191,13 +191,20 @@ document.addEventListener('alpine:init', () => {
 
     init() {
       this.serverOrigin = `Connected: ${window.location.origin}`;
-      this.refreshCurrentView();
+      this.switchTab(window.location.hash.replace("#", "") || "dashboard");
+
+      window.addEventListener('hashchange', () => {
+        const tab = window.location.hash.replace("#", "") || "dashboard";
+        if (tab != this.activeTab) {
+          this.activeTab = tab;
+          this.refreshCurrentView();
+        }
+      });
     },
 
     // --- Navigation ---
     switchTab(tab) {
-      this.activeTab = tab;
-      this.refreshCurrentView();
+      window.location.hash = `#${tab}`
     },
 
     // --- Views Rendering ---

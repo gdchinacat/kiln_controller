@@ -136,6 +136,8 @@ document.addEventListener('alpine:init', () => {
     async logout() {
       await Alpine.store('network').apiRequest("/auth/logout").catch(() => []);
       this.userPromise = this.user = null;
+      // todo - when user enters invalid credentials this toast is shown which
+      //        is confusing since they tried to log in, not log out.
       Alpine.store('toast').showToast("Logout success.", "success");
       window.dispatchEvent(new CustomEvent('refresh-view'));
     },

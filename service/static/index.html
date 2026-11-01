@@ -70,7 +70,6 @@
         </div>
         <div>
           <h1 class="app-title">Kiln Control Hub</h1>
-          <span x-text="serverOrigin" class="app-subtitle">Connected to Server</span>
         </div>
       </div>
 
@@ -125,7 +124,7 @@
           <div @click="switchTab('users')" class="panel stat-card">
             <div>
               <p class="stat-label">Users</p>
-              <h3 x-text="users.length" class="stat-value">--</h3>
+              <h3 x-text="$store.users.items.length" class="stat-value">--</h3>
             </div>
             <div class="stat-icon stat-icon--users">
               <i data-lucide="users" class="icon-lg"></i>
@@ -135,7 +134,7 @@
           <div @click="switchTab('devices')" class="panel stat-card">
             <div>
               <p class="stat-label">Kilns</p>
-              <h3 x-text="devices.length" class="stat-value">--</h3>
+              <h3 x-text="$store.devices.items.length" class="stat-value">--</h3>
             </div>
             <div class="stat-icon stat-icon--kilns">
               <i data-lucide="cpu" class="icon-lg"></i>
@@ -145,7 +144,7 @@
           <div @click="switchTab('schedules')" class="panel stat-card">
             <div>
               <p class="stat-label">Schedules</p>
-              <h3 x-text="schedules.length" class="stat-value">--</h3>
+              <h3 x-text="$store.schedules.items.length" class="stat-value">--</h3>
             </div>
             <div class="stat-icon stat-icon--schedules">
               <i data-lucide="calendar" class="icon-lg"></i>
@@ -155,7 +154,7 @@
           <div @click="switchTab('firings')" class="panel stat-card">
             <div>
               <p class="stat-label">Firings</p>
-              <h3 x-text="schedules.length" class="stat-value">--</h3>
+              <h3 x-text="$store.schedules.items.length" class="stat-value">--</h3>
             </div>
             <div class="stat-icon stat-icon--firings">
               <i data-lucide="calendar" class="icon-lg"></i>
@@ -176,7 +175,7 @@
             <div class="firing-monitor-controls">
               <select x-model="selectedScheduleId" @change="loadDashboardScheduleChart($event.target.value)" class="firing-select">
                 <option value="">Select Firing...</option>
-                <template x-for="s in schedules" :key="s.id">
+                <template x-for="s in $store.schedules.items" :key="s.id">
                   <option :value="s.id" x-text="s.name"></option>
                 </template>
               </select>
@@ -199,7 +198,7 @@
             <button @click="renderUsers()" class="btn-refresh">
               <i data-lucide="refresh-cw" class="icon"></i>
             </button>
-            <button @click="openUserModal()" class="btn-create">
+            <button @click="$store.userModal.open()" class="btn-create">
               <i data-lucide="user-plus" class="icon"></i> Add User
             </button>
           </div>
@@ -218,18 +217,18 @@
                 </tr>
               </thead>
               <tbody class="data-table-body">
-                <template x-if="users.length === 0">
+                <template x-if="$store.users.items.length === 0">
                   <tr><td colspan="5" class="table-empty">No users found on server. Click "Add User" above.</td></tr>
                 </template>
-                <template x-for="u in users" :key="u.id">
+                <template x-for="u in $store.users.items" :key="u.id">
                   <tr class="data-table-row">
                     <td x-text="u.name" class="cell-primary"></td>
                     <td x-text="`${u.username}`" class="cell-username"></td>
                     <td x-text="u.email || '--'" class="cell-muted"></td>
                     <td x-text="u.phone_number || '--'" class="cell-muted"></td>
                     <td class="cell-actions">
-                      <button @click="openUserModal(u)" class="row-action"><i data-lucide="edit-2" class="icon"></i></button>
-                      <button @click="deleteUser(u)" class="row-action-danger"><i data-lucide="trash-2" class="icon"></i></button>
+                      <button @click="$store.userModal.open(u)" class="row-action"><i x-icon="edit-2" class="icon"></i></button>
+                      <button @click="$store.userModal.delete(u)" class="row-action-danger"><i x-icon="trash-2" class="icon"></i></button>
                     </td>
                   </tr>
                 </template>
@@ -254,10 +253,10 @@
         </div>
 
         <div class="kiln-grid">
-          <template x-if="devices.length === 0">
+          <template x-if="$store.devices.items.length === 0">
             <div class="panel-placeholder">No devices connected.</div>
           </template>
-          <template x-for="d in devices" :key="d.id">
+          <template x-for="d in $store.devices.items" :key="d.id">
             <div class="panel kiln-card">
               <div>
                 <div class="kiln-card-header">
@@ -268,8 +267,8 @@
                     <h3 x-text="d.name" class="kiln-card-title"></h3>
                   </div>
                   <div class="card-actions">
-                    <button @click="openDeviceModal(d)" class="row-action"><i data-lucide="edit-2" class="icon"></i></button>
-                    <button @click="deleteDevice(d)" class="row-action-danger"><i data-lucide="trash-2" class="icon"></i></button>
+                    <button @click="$store.deviceModal.open(d)" class="row-action"><i x-icon="edit-2" class="icon"></i></button>
+                    <button @click="$store.deviceModal.delete(d)" class="row-action-danger"><i x-icon="trash-2" class="icon"></i></button>
                   </div>
                 </div>
                 <p x-text="d.description || 'No device description provided.'" class="kiln-card-description"></p>
@@ -278,7 +277,7 @@
               <div class="kiln-card-footer">
                 <div class="detail-row">
                   <span class="detail-label">Operator:</span>
-                  <span x-text="users.find(u => u.id === d.user_id)?.name || 'User ID #' + d.user_id" class="detail-value"></span>
+                  <span x-text="$store.users.items.find(u => u.id === d.user_id)?.name || 'User ID #' + d.user_id" class="detail-value"></span>
                 </div>
               </div>
             </div>
@@ -297,7 +296,7 @@
             <button @click="renderSchedules()" class="btn-refresh">
               <i data-lucide="refresh-cw" class="icon"></i>
             </button>
-            <button @click="openScheduleModal()" class="btn-create">
+            <button @click="$store.scheduleModal.open()" class="btn-create">
               <i data-lucide="calendar-plus" class="icon"></i> Create Schedule
             </button>
           </div>
@@ -308,15 +307,15 @@
           <aside class="schedule-sidebar">
             <h3 class="schedule-sidebar-title">Available Profiles</h3>
             <div class="schedule-list">
-              <template x-if="schedules.length === 0">
+              <template x-if="$store.schedules.items.length === 0">
                 <div class="schedule-list-empty">No schedules. Click "Create Schedule" above.</div>
               </template>
-              <template x-for="s in schedules" :key="s.id">
+              <template x-for="s in $store.schedules.items" :key="s.id">
                 <div @click="selectSchedule(s.id)" :class="{ 'is-selected': selectedScheduleId === s.id }" class="schedule-item">
                   <div class="schedule-item-header">
                     <h4 x-text="s.name" class="schedule-item-title"></h4>
                   </div>
-                  <p class="schedule-item-meta">Operator: <span x-text="users.find(u => u.id === s.user_id)?.name || 'User ID #' + s.user_id" class="schedule-item-owner"></span></p>
+                  <p class="schedule-item-meta">Operator: <span x-text="$store.users.items.find(u => u.id === s.user_id)?.name || 'User ID #' + s.user_id" class="schedule-item-owner"></span></p>
                 </div>
               </template>
             </div>
@@ -326,12 +325,12 @@
           <div class="schedule-main">
             <div class="panel schedule-detail">
 
-              <div x-show="!selectedScheduleId || schedules.length === 0" class="empty-state">
+              <div x-show="!selectedScheduleId || $store.schedules.items.length === 0" class="empty-state">
                 <i data-lucide="flame" class="empty-state-icon"></i>
                 <p>Select or create a firing schedule to view its curve and edit phases.</p>
               </div>
 
-              <div x-show="selectedScheduleId && schedules.length > 0" class="schedule-detail-body">
+              <div x-show="selectedScheduleId && $store.schedules.items.length > 0" class="schedule-detail-body">
                 <!-- Header -->
                 <div class="schedule-detail-header">
                   <div>
@@ -342,10 +341,10 @@
                     <button @click="openPhaseModal()" class="btn-outline-accent">
                       <i data-lucide="plus-circle" class="icon"></i> Add Phase
                     </button>
-                    <button @click="openScheduleModal(currentSchedule)" class="btn-tool">
+                    <button @click="$store.scheduleModal.open(currentSchedule)" class="btn-tool">
                       <i data-lucide="edit-3" class="icon"></i>
                     </button>
-                    <button @click="deleteSchedule(selectedScheduleId)" class="btn-tool-danger">
+                    <button @click="$store.scheduleModal.delete(currentSchedule)" class="btn-tool-danger">
                       <i data-lucide="trash-2" class="icon"></i>
                     </button>
                   </div>
@@ -436,35 +435,35 @@
   </div>
 
   <!-- USER MODAL -->
-  <div x-show="modals.user" class="modal-backdrop">
-    <div @click.outside="modals.user = false" class="modal">
+  <div x-show="$store.userModal.show" class="modal-backdrop">
+    <div @click.outside="$store.userModal.close()" class="modal">
       <div class="modal-header">
-        <h3 x-text="forms.user.id ? 'Edit User' : 'Add User'" class="modal-title"></h3>
-        <button @click="modals.user = false" class="modal-close"><i data-lucide="x" class="icon-md"></i></button>
+        <h3 x-text="$store.userModal.form.id ? 'Edit User' : 'Add User'" class="modal-title"></h3>
+        <button @click="$store.userModal.close()" class="modal-close"><i data-lucide="x" class="icon-md"></i></button>
       </div>
-      <form @submit.prevent="handleUserSubmit()" class="form-stack">
+      <form @submit.prevent="$store.userModal.submit()" class="form-stack">
         <div>
           <label class="form-label">Full Name *</label>
-          <input type="text" x-model="forms.user.name" required maxlength="30" class="form-control">
+          <input type="text" x-model="$store.userModal.form.name" required maxlength="30" class="form-control">
         </div>
         <div>
           <label class="form-label">Username *</label>
-          <input type="text" x-model="forms.user.username" required maxlength="16" class="form-control">
+          <input type="text" x-model="$store.userModal.form.username" required maxlength="16" class="form-control">
         </div>
         <div>
           <label class="form-label">Password *</label>
-          <input type="password" x-model="forms.user.password" required maxlength="16" class="form-control">
+          <input type="password" x-model="$store.userModal.form.password" required maxlength="16" class="form-control">
         </div>
         <div>
           <label class="form-label">Email Address</label>
-          <input type="email" x-model="forms.user.email" class="form-control">
+          <input type="email" x-model="$store.userModal.form.email" class="form-control">
         </div>
         <div>
           <label class="form-label">Phone Number</label>
-          <input type="text" x-model="forms.user.phone_number" class="form-control">
+          <input type="text" x-model="$store.userModal.form.phone_number" class="form-control">
         </div>
         <div class="form-actions">
-          <button type="button" @click="modals.user = false" class="btn-text">Cancel</button>
+          <button type="button" @click="$store.userModal.close()" class="btn-text">Cancel</button>
           <button type="submit" class="btn-primary">Save User</button>
         </div>
       </form>
@@ -472,31 +471,31 @@
   </div>
 
   <!-- DEVICE MODAL -->
-  <div x-show="modals.device" class="modal-backdrop">
-    <div @click.outside="modals.device = false" class="modal">
+  <div x-show="$store.deviceModal.show" class="modal-backdrop">
+    <div @click.outside="$store.deviceModal.close()" class="modal">
       <div class="modal-header">
         <h3 x-text="'Edit Kiln'" class="modal-title"></h3>
-        <button @click="modals.device = false" class="modal-close"><i data-lucide="x" class="icon-md"></i></button>
+        <button @click="$store.deviceModal.close()" class="modal-close"><i data-lucide="x" class="icon-md"></i></button>
       </div>
-      <form @submit.prevent="handleDeviceSubmit()" class="form-stack">
+      <form @submit.prevent="$store.deviceModal.submit()" class="form-stack">
         <div>
           <label class="form-label">Name *</label>
-          <input type="text" x-model="forms.device.name" required maxlength="30" class="form-control">
+          <input type="text" x-model="$store.deviceModal.form.name" required maxlength="30" class="form-control">
         </div>
         <div>
           <label class="form-label">Operator</label>
-          <select x-model="forms.device.user_id" required class="form-control">
-            <template x-for="u in users" :key="u.id">
+          <select x-model.number="$store.deviceModal.form.user_id" required class="form-control">
+            <template x-for="u in $store.users.items" :key="u.id">
               <option :value="u.id" x-text="`${u.name} (${u.username})`"></option>
             </template>
           </select>
         </div>
         <div>
           <label class="form-label">Description</label>
-          <textarea x-model="forms.device.description" rows="2" class="form-control"></textarea>
+          <textarea x-model="$store.deviceModal.form.description" rows="2" class="form-control"></textarea>
         </div>
         <div class="form-actions">
-          <button type="button" @click="modals.device = false" class="btn-text">Cancel</button>
+          <button type="button" @click="$store.deviceModal.close()" class="btn-text">Cancel</button>
           <button type="submit" class="btn-primary">Save Kiln</button>
         </div>
       </form>
@@ -504,27 +503,28 @@
   </div>
 
   <!-- SCHEDULE MODAL -->
-  <div x-show="modals.schedule" class="modal-backdrop">
-    <div @click.outside="modals.schedule = false" class="modal">
+  <div x-show="$store.scheduleModal.show" class="modal-backdrop">
+    <div @click.outside="$store.scheduleModal.close()" class="modal">
       <div class="modal-header">
-        <h3 x-text="forms.schedule.id ? 'Edit Schedule' : 'Create Schedule'" class="modal-title"></h3>
-        <button @click="modals.schedule = false" class="modal-close"><i data-lucide="x" class="icon-md"></i></button>
+        <h3 x-text="$store.scheduleModal.form.id ? 'Edit Schedule' : 'Create Schedule'" class="modal-title"></h3>
+        <button @click="$store.scheduleModal.close()" class="modal-close"><i data-lucide="x" class="icon-md"></i></button>
       </div>
-      <form @submit.prevent="handleScheduleSubmit()" class="form-stack">
+      <form @submit.prevent="$store.scheduleModal.submit()" class="form-stack">
         <div>
           <label class="form-label">Schedule Name *</label>
-          <input type="text" x-model="forms.schedule.name" required maxlength="30" class="form-control" placeholder="e.g. Cone 6 Glaze Firing">
+          <input type="text" x-model="$store.scheduleModal.form.name" required maxlength="30" class="form-control" placeholder="e.g. Cone 6 Glaze Firing">
         </div>
         <div>
           <label class="form-label">User *</label>
-          <select x-model="forms.schedule.user_id" required class="form-control">
-            <template x-for="u in users" :key="u.id">
+          <select x-model.number="$store.scheduleModal.form.user_id" required class="form-control">
+            <template x-for="u in $store.users.items" :key="u.id">
               <option :value="u.id" x-text="`${u.name} (${u.username})`"></option>
+              <!--<option :value="u.id" x-text="`${u.name} (${u.username})`"" :selected="$store.auth.user?.id == u.id"></option>-->
             </template>
           </select>
         </div>
         <div class="form-actions">
-          <button type="button" @click="modals.schedule = false" class="btn-text">Cancel</button>
+          <button type="button" @click="$store.scheduleModal.close()" class="btn-text">Cancel</button>
           <button type="submit" class="btn-primary">Save Schedule</button>
         </div>
       </form>

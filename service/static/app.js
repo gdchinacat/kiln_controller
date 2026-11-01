@@ -43,8 +43,146 @@ function computeTemperatureProfilePoints(phases) {
   return points;
 }
 
+function createEntityStore(endpoint) {
+  return {
+    items: [],
+    loading: false,
+
+    async refresh() {
+      this.items = await Alpine.store('network').apiRequest(endpoint);
+      return this.items;
+    },
+
+    async create(payload) {
+      try {
+        return await Alpine.store('network').apiRequest(endpoint, 'POST', payload);
+      } finally {
+        await this.refresh();
+      }
+    },
+
+    async save(payload) {
+      try {
+        return await Alpine.store('network').apiRequest(`${endpoint}/${payload.id}`, 'PUT', payload);
+      } finally {
+        await this.refresh();
+      }
+    },
+
+    async delete(id) {
+      try {
+        await Alpine.store('network').apiRequest(`${endpoint}/${id}`, 'DELETE');
+      } finally {
+        await this.refresh();
+      }
+    }
+  };
+}
+
+function createEntityModal(config) {
+  return {
+    show: false,
+
+    open(entity = null) {
+      this.form = entity ? { ...this.model(), ...entity } : this.model();
+      this.show = true;
+    },
+
+    close() {
+      this.show = false;
+      this.form = this.model();
+    },
+
+    async submit() {
+      if (this.form.id != '') {
+        await config.entityStore.save(this.form);
+        Alpine.store('toast').showToast(`${config.entityType} updated successfully!`, "success");
+      } else {
+        await config.entityStore.create(this.form);
+        Alpine.store('toast').showToast(`${config.entityType} created successfully!`, "success");
+      }
+      this.close();
+    },
+
+    async delete(entity) {
+      /*
+      const nameStr = entity.name ? `${entity.name}` : `#${entity.id}`;
+      this.showConfirmDialog(`Are you sure you want to delete ${entityType} "${nameStr}"?`, async () => {
+        await entityStore.delete(entity.id);
+      });
+      */
+
+      await config.entityStore.delete(entity.id);
+      Alpine.store('toast').showToast(`${config.entityType} deleted`, "warning");
+    }
+  };
+}
+
+function UserModal() {
+  const model = () => ({
+    id: '',
+    name: '',
+    id: '',
+    name: '',
+    username: '',
+    password: '',
+    email: '',
+    phone_number: '',
+  });
+
+  return {
+    ...createEntityModal({
+      entityType: 'User',
+      endpoint: '/user',
+      entityStore: Alpine.store('users')}),
+    model: model,
+    form: model()
+  };
+}
+
+function DeviceModal() {
+  const model = () => ({
+    id: '',
+    name: '',
+    user_id: Alpine.store('auth').user?.id || ''});
+
+  return {
+    ...createEntityModal({
+      entityType: 'Kiln',
+      endpoint: '/device',
+      entityStore: Alpine.store('devices')}),
+    model: model,
+    form: model()
+  };
+}
+
+function ScheduleModal() {
+  const model = () => ({
+    id: '',
+    name: '',
+    user_id: Alpine.store('auth').user?.id || ''
+  });
+
+  return {
+    ...createEntityModal({
+      entityType: 'Schedule',
+      endpoint: '/schedule',
+      entityStore: Alpine.store('schedules')}),
+    model: model,
+    form: model()
+  };
+}
+
+
 // --- Alpine.js App ---
 document.addEventListener('alpine:init', () => {
+  Alpine.directive('icon', (el, { expression }) => {
+    // x-icon="..." directive to create a data-lucide="..." on the element and
+    // call lucide.createIcons() to register it.
+    el.setAttribute('data-lucide', expression);
+    lucide.createIcons({ scope: el });
+  }),
+
   Alpine.store('network', {
 
     async apiRequest(endpoint, method = 'GET', body = null) {
@@ -144,30 +282,29 @@ document.addEventListener('alpine:init', () => {
 
   }),
 
+  Alpine.store('users', createEntityStore('/user')),
+  Alpine.store('devices', createEntityStore('/device')),
+  Alpine.store('schedules', createEntityStore('/schedule')),
+  //Alpine.store('schedulePhases', createEntityStore('/schedule/${schedule_id}/phase')),
+
+  Alpine.store('userModal', UserModal()),
+  Alpine.store('deviceModal', DeviceModal()),
+  Alpine.store('scheduleModal', ScheduleModal()),
+
   Alpine.data('kilnApp', () => ({
 
     // App State & Data Collections
     activeTab: window.location.hash.replace("#", "") || "dashboard",
     selectedScheduleId: null,
-    users: [],
-    devices: [],
-    schedules: [],
-    schedulePhases: [],
-    serverOrigin: '',
+    schedulePhases: [], // todo move into store
 
     // Modal Visibility & Form Data
     modals: {
-      user: false,
-      device: false,
-      schedule: false,
       phase: false,
       confirm: false
     },
 
     forms: {
-      user: { id: '', name: '', username: '', email: '', phone_number: '' },
-      device: { id: '', name: '', host: '', port: 5000, user_id: '', url: '', description: '' },
-      schedule: { id: '', name: '', user_id: '' },
       phase: { id: '', name: '', ordinal: 10, phase_type: 'ramp', temperature: '', rate: '', duration: '' }
     },
 
@@ -179,18 +316,15 @@ document.addEventListener('alpine:init', () => {
 
     async refreshCurrentView() {
       if (!await Alpine.store('auth').getUser()) {
-        this.modals.user = this.modals.device = this.modals.schedule = this.modals.phase = this.modals.confirm = false;
         Alpine.store('loginModal').open();
       } else if (this.activeTab === 'dashboard') await this.renderDashboard();
       else if (this.activeTab === 'users') await this.renderUsers();
       else if (this.activeTab === 'devices') await this.renderDevices();
       else if (this.activeTab === 'schedules') await this.renderSchedules();
-      this.$nextTick(() => lucide.createIcons());
     },
 
     init() {
-      this.serverOrigin = `Connected: ${window.location.origin}`;
-      this.switchTab(window.location.hash.replace("#", "") || "dashboard");
+      this.refreshCurrentView();
 
       window.addEventListener('hashchange', () => {
         const tab = window.location.hash.replace("#", "") || "dashboard";
@@ -209,14 +343,10 @@ document.addEventListener('alpine:init', () => {
     // --- Views Rendering ---
     async renderDashboard() {
       const [users, devices, schedules] = await Promise.all([
-        Alpine.store('network').apiRequest('/user/').catch(() => []),
-        Alpine.store('network').apiRequest('/device/').catch(() => []),
-        Alpine.store('network').apiRequest('/schedule/').catch(() => [])
+        Alpine.store('users').refresh(),
+        Alpine.store('devices').refresh(),
+        Alpine.store('schedules').refresh(),
       ]);
-
-      this.users = users;
-      this.devices = devices;
-      this.schedules = schedules;
 
       if (schedules.length > 0 && !this.selectedScheduleId) {
         this.selectedScheduleId = schedules[0].id;
@@ -228,25 +358,21 @@ document.addEventListener('alpine:init', () => {
     },
 
     async renderUsers() {
-      this.users = await Alpine.store('network').apiRequest('/user/').catch(() => []);
+      await Alpine.store('users').refresh();
     },
 
     async renderDevices() {
-      const [devices, users] = await Promise.all([
-        Alpine.store('network').apiRequest('/device/').catch(() => []),
-        Alpine.store('network').apiRequest('/user/').catch(() => [])
+      const [users, devices] = await Promise.all([
+        Alpine.store('users').refresh(),
+        Alpine.store('devices').refresh(),
       ]);
-      this.devices = devices;
-      this.users = users;
     },
 
     async renderSchedules() {
-      const [schedules, users] = await Promise.all([
-        Alpine.store('network').apiRequest('/schedule/').catch(() => []),
-        Alpine.store('network').apiRequest('/user/').catch(() => [])
+      const [users, schedules] = await Promise.all([
+        Alpine.store('users').refresh(),
+        Alpine.store('schedules').refresh(),
       ]);
-      this.schedules = schedules;
-      this.users = users;
 
       if (schedules.length > 0) {
         if (!this.selectedScheduleId || !schedules.some(s => s.id === this.selectedScheduleId)) {
@@ -272,10 +398,10 @@ document.addEventListener('alpine:init', () => {
 
       let datasets = null;
       if (scheduleId) {
-        const [schedules, users, phases] = await Promise.all([
-          Alpine.store('network').apiRequest('/schedule/'),
-          Alpine.store('network').apiRequest('/user/').catch(() => []),
-          Alpine.store('network').apiRequest(`/schedule/${scheduleId}/phase/`).catch(() => [])
+        const [users, schedules, phases] = await Promise.all([
+          Alpine.store('users').refresh(),
+          Alpine.store('schedules').refresh(),
+          Alpine.store('network').apiRequest(`/schedule/${scheduleId}/phase`).catch(() => [])
         ]);
 
         const dataPoints = computeTemperatureProfilePoints(phases);
@@ -326,14 +452,12 @@ document.addEventListener('alpine:init', () => {
 
     async loadScheduleDetail(scheduleId) {
       if (!scheduleId) return;
-      const [schedules, users, phases] = await Promise.all([
-        Alpine.store('network').apiRequest('/schedule/'),
-        Alpine.store('network').apiRequest('/user/').catch(() => []),
-        Alpine.store('network').apiRequest(`/schedule/${scheduleId}/phase/`).catch(() => [])
+      const [users, schedules, phases] = await Promise.all([
+        Alpine.store('users').refresh(),
+        Alpine.store('schedules').refresh(),
+        Alpine.store('network').apiRequest(`/schedule/${scheduleId}/phase`).catch(() => [])
       ]);
 
-      this.schedules = schedules;
-      this.users = users;
       this.schedulePhases = (phases || []).sort((a, b) => a.ordinal - b.ordinal);
 
       const dataPoints = computeTemperatureProfilePoints(this.schedulePhases);
@@ -385,12 +509,12 @@ document.addEventListener('alpine:init', () => {
 
     // --- Computed Properties for Detail View ---
     get currentSchedule() {
-      return this.schedules.find(s => s.id === this.selectedScheduleId) || null;
+      return Alpine.store('schedules').items.find(s => s.id === this.selectedScheduleId) || null;
     },
 
     get currentScheduleOwnerName() {
       if (!this.currentSchedule) return '--';
-      const u = this.users.find(x => x.id === this.currentSchedule.user_id);
+      const u = Alpine.store('users').items.find(x => x.id === this.currentSchedule.user_id);
       return u ? u.name : `User #${this.currentSchedule.user_id}`;
     },
 
@@ -434,124 +558,6 @@ document.addEventListener('alpine:init', () => {
         return hoursToDuration(hours);
       }
       return '--';
-    },
-
-    // --- User Actions ---
-    openUserModal(user = null) {
-      this.forms.user = user ? { ...user } : { id: '', name: '', username: '', password: '', email: '', phone_number: '' };
-      this.modals.user = true;
-    },
-
-    async handleUserSubmit() {
-      const { id, ...payload } = this.forms.user;
-      payload.email = payload.email || null;
-      payload.phone_number = payload.phone_number || null;
-
-      if (id) {
-        await Alpine.store('network').apiRequest(`/user/${id}`, 'PUT', payload);
-        Alpine.store('toast').showToast("User updated successfully!", "success");
-      } else {
-        await Alpine.store('network').apiRequest('/user/', 'POST', payload);
-        Alpine.store('toast').showToast("User created successfully!", "success");
-      }
-      this.modals.user = false;
-      this.refreshCurrentView();
-    },
-
-    deleteUser(user) {
-      const nameStr = user.name ? `${user.name} (${user.username})` : `User #${user.id}`;
-      this.showConfirmDialog(`Are you sure you want to delete user "${nameStr}"?`, async () => {
-        await Alpine.store('network').apiRequest(`/user/${user.id}`, 'DELETE');
-        Alpine.store('toast').showToast("User deleted", "warning");
-        this.refreshCurrentView();
-      });
-    },
-
-    // --- Device Actions ---
-    openDeviceModal(device = null) {
-      if (this.users.length === 0) {
-        Alpine.store('toast').showToast("Cannot edit kiln until users are loaded", "warning");
-        return;
-      }
-      this.forms.device = device
-        ? { ...device, description: device.description || '', url: device.url || '' }
-        : { id: '', name: '', host: '', port: 5000, user_id: this.users[0]?.id || '', url: '', description: '' };
-      this.modals.device = true;
-    },
-
-    async handleDeviceSubmit() {
-      if (!this.forms.device.user_id) {
-        Alpine.store('toast').showToast("Please select a valid user for this device", "error");
-        return;
-      }
-      const { id, ...payload } = this.forms.device;
-      payload.port = parseInt(payload.port);
-      payload.user_id = parseInt(payload.user_id);
-      payload.url = payload.url || null;
-      payload.description = payload.description || null;
-
-      if (id) {
-        await Alpine.store('network').apiRequest(`/device/${id}`, 'PUT', payload);
-        Alpine.store('toast').showToast("Kiln updated successfully!", "success");
-      } else {
-        await Alpine.store('network').apiRequest('/device/', 'POST', payload);
-        Alpine.store('toast').showToast("Kiln added successfully!", "success");
-      }
-      this.modals.device = false;
-      this.refreshCurrentView();
-    },
-
-    deleteDevice(device) {
-      const deviceStr = device.name ? `"${device.name}" (${device.host}:${device.port})` : `Device #${device.id}`;
-      this.showConfirmDialog(`Are you sure you want to delete kiln ${deviceStr}?`, async () => {
-        await Alpine.store('network').apiRequest(`/device/${device.id}`, 'DELETE');
-        Alpine.store('toast').showToast("Kiln removed", "warning");
-        this.refreshCurrentView();
-      });
-    },
-
-    // --- Schedule Actions ---
-    openScheduleModal(schedule = null) {
-      if (this.users.length === 0) {
-        Alpine.store('toast').showToast("Cannot add or edit schedule until users are loaded", "warning");
-        return;
-      }
-      this.forms.schedule = schedule
-        ? { ...schedule }
-        : { id: '', name: '', user_id: this.users[0]?.id || '' };
-      this.modals.schedule = true;
-    },
-
-    async handleScheduleSubmit() {
-      if (!this.forms.schedule.user_id) {
-        Alpine.store('toast').showToast("Please select a user for this schedule", "error");
-        return;
-      }
-      const { id, ...payload } = this.forms.schedule;
-      payload.user_id = parseInt(payload.user_id);
-
-      if (id) {
-        await Alpine.store('network').apiRequest(`/schedule/${id}`, 'PUT', payload);
-        Alpine.store('toast').showToast("Schedule updated!", "success");
-      } else {
-        const created = await Alpine.store('network').apiRequest('/schedule/', 'POST', payload);
-        if (created && created.id) this.selectedScheduleId = created.id;
-        Alpine.store('toast').showToast("Schedule created!", "success");
-      }
-      this.modals.schedule = false;
-      this.refreshCurrentView();
-    },
-
-    deleteSchedule(schedule) {
-      const sch = typeof schedule === 'object' ? schedule : this.schedules.find(s => s.id === schedule);
-      const schStr = sch ? `"${sch.name}"` : `Schedule #${schedule}`;
-      this.showConfirmDialog(`Are you sure you want to delete firing schedule ${schStr} and all its phases?`, async () => {
-        const id = sch ? sch.id : schedule;
-        await Alpine.store('network').apiRequest(`/schedule/${id}`, 'DELETE');
-        this.selectedScheduleId = null;
-        Alpine.store('toast').showToast("Schedule deleted", "warning");
-        this.refreshCurrentView();
-      });
     },
 
     // --- Phase Actions & Calculations ---
@@ -697,7 +703,7 @@ document.addEventListener('alpine:init', () => {
         await Alpine.store('network').apiRequest(`/schedule/${this.selectedScheduleId}/phase/${p.id}`, 'PUT', payload);
         Alpine.store('toast').showToast("Phase updated!", "success");
       } else {
-        await Alpine.store('network').apiRequest(`/schedule/${this.selectedScheduleId}/phase/`, 'POST', payload);
+        await Alpine.store('network').apiRequest(`/schedule/${this.selectedScheduleId}/phase`, 'POST', payload);
         Alpine.store('toast').showToast("Phase added!", "success");
       }
       this.modals.phase = false;

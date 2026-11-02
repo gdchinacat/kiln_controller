@@ -586,18 +586,18 @@
   </div>
 
   <!-- CONFIRM DELETE DIALOG -->
-  <div x-show="modals.confirm" class="modal-backdrop">
-    <div @click.outside="modals.confirm = false" class="modal modal--confirm">
+  <div x-data="$store.confirmModal" x-show="show" class="modal-backdrop">
+    <div @click.outside="dismiss()" class="modal modal--confirm">
       <div class="confirm-header">
         <div class="confirm-icon">
           <i data-lucide="alert-triangle" class="icon-lg"></i>
         </div>
         <h3 class="modal-title">Confirm Deletion</h3>
       </div>
-      <p x-text="confirmDialog.message" class="confirm-message"></p>
+      <p x-text="message" class="confirm-message"></p>
       <div class="form-actions">
-        <button @click="modals.confirm = false" class="btn-text">Cancel</button>
-        <button @click="confirmAction()" class="btn-danger">Delete</button>
+        <button @click="dismiss()" class="btn-text">Cancel</button>
+        <button @click="confirmed()" class="btn-danger">Delete</button>
       </div>
     </div>
   </div>

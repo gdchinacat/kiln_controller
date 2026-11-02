@@ -105,15 +105,12 @@ function createEntityModal(config) {
     },
 
     async delete(entity) {
-      /*
       const nameStr = entity.name ? `${entity.name}` : `#${entity.id}`;
-      this.showConfirmDialog(`Are you sure you want to delete ${entityType} "${nameStr}"?`, async () => {
-        await entityStore.delete(entity.id);
+      Alpine.store('confirmModal').confirm(`Are you sure you want to delete ${config.entityType.toLowerCase()} "${nameStr}"?`, async () => {
+        await config.entityStore.delete(entity.id);
+        Alpine.store('toast').showToast(`${config.entityType} deleted`, "warning");
       });
-      */
 
-      await config.entityStore.delete(entity.id);
-      Alpine.store('toast').showToast(`${config.entityType} deleted`, "warning");
     }
   };
 }
@@ -206,6 +203,28 @@ function LoginModal() {
   };
 }
 
+function ConfirmModal() {
+  return {
+    show: false,
+    message: '',
+    action: null,
+
+    confirm(message, action) {
+      this.message = message;
+      this.action = action;
+      this.show = true;
+    },
+
+    dismiss() {
+      this.show = false;
+    },
+
+    confirmed() {
+      if (this.action) this.action();
+      this.dismiss();
+    }
+  }
+}
 
 // --- Alpine.js App ---
 document.addEventListener('alpine:init', () => {
@@ -312,6 +331,7 @@ document.addEventListener('alpine:init', () => {
   Alpine.store('userModal', UserModal()),
   Alpine.store('deviceModal', DeviceModal()),
   Alpine.store('scheduleModal', ScheduleModal()),
+  Alpine.store('confirmModal', ConfirmModal()),
 
   Alpine.data('kilnApp', () => ({
 
@@ -320,20 +340,19 @@ document.addEventListener('alpine:init', () => {
     selectedScheduleId: null,
     schedulePhases: [], // todo move into store
 
+    loginModal: LoginModal(),
+
     // Modal Visibility & Form Data
     modals: {
       phase: false,
-      confirm: false
     },
 
-    loginModal: LoginModal(),
     forms: {
       phase: { id: '', name: '', ordinal: 10, phase_type: 'ramp', temperature: '', rate: '', duration: '' }
     },
 
     // Ramp/Phase logic states
     activeRampMode: 'rate',
-    confirmDialog: { message: '', action: null },
     dashboardChartInstance: null,
     detailChartInstance: null,
 
@@ -744,17 +763,6 @@ document.addEventListener('alpine:init', () => {
         this.refreshCurrentView();
       });
     },
-
-    showConfirmDialog(message, action) {
-      this.confirmDialog.message = message;
-      this.confirmDialog.action = action;
-      this.modals.confirm = true;
-    },
-
-    confirmAction() {
-      if (this.confirmDialog.action) this.confirmDialog.action();
-      this.modals.confirm = false;
-    }
 
   }))
 

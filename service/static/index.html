@@ -114,7 +114,7 @@
             <h2 class="view-title">System Overview</h2>
             <p class="view-subtitle">Live kiln management metrics and active schedule monitoring</p>
           </div>
-          <button @click="renderDashboard()" class="link-reload">
+          <button @click="tabs.dashboard.render()" class="link-reload">
             <i data-lucide="refresh-cw" class="icon-sm"></i> Reload Dashboard
           </button>
         </div>
@@ -195,7 +195,7 @@
             <h2 class="view-title">Users</h2>
           </div>
           <div class="view-toolbar">
-            <button @click="renderUsers()" class="btn-refresh">
+            <button @click="tabs.users.render()" class="btn-refresh">
               <i data-lucide="refresh-cw" class="icon"></i>
             </button>
             <button @click="modal.open()" class="btn-create">
@@ -282,7 +282,7 @@
             <p class="view-subtitle">Hardware controllers connected to the server ecosystem</p>
           </div>
           <div class="view-toolbar">
-            <button @click="renderDevices()" class="btn-refresh">
+            <button @click="tabs.devices.render()" class="btn-refresh">
               <i data-lucide="refresh-cw" class="icon"></i>
             </button>
           </div>
@@ -361,7 +361,7 @@
             <p class="view-subtitle">Define firing ramp/hold profiles</p>
           </div>
           <div class="view-toolbar">
-            <button @click="renderSchedules()" class="btn-refresh">
+            <button @click="tabs.schedules.render()" class="btn-refresh">
               <i data-lucide="refresh-cw" class="icon"></i>
             </button>
             <button @click="modal.open()" class="btn-create">
@@ -585,7 +585,7 @@
   </div>
 
   <!-- CONFIRM DELETE DIALOG -->
-  <div x-data="$store.confirmModal" x-show="show" class="modal-backdrop">
+  <div x-data="confirmModal" x-show="show" class="modal-backdrop">
     <div @click.outside="dismiss()" class="modal modal--confirm">
       <div class="confirm-header">
         <div class="confirm-icon">

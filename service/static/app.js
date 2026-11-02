@@ -106,7 +106,7 @@ function createEntityModal(config) {
 
     async delete(entity) {
       const nameStr = entity.name ? `${entity.name}` : `#${entity.id}`;
-      Alpine.store('confirmModal').confirm(`Are you sure you want to delete ${config.entityType.toLowerCase()} "${nameStr}"?`, async () => {
+      this.$data.confirmModal.confirm(`Are you sure you want to delete ${config.entityType.toLowerCase()} "${nameStr}"?`, async () => {
         await config.entityStore.delete(entity.id);
         Alpine.store('toast').showToast(`${config.entityType} deleted`, "warning");
       });
@@ -230,36 +230,82 @@ function ConfirmModal() {
 function BaseTab() {
     return {
         show: false,
-        open() { this.show = true; },
+        open() { this.show = true; this.render(); },
         close() { this.show = false; },
+        async render() { },
     }
 }
 
 function DashboardTab() {
-    return { ...BaseTab(),
-             name: "dashboard",
-    }
+  return {
+    ...BaseTab(),
+    name: "dashboard",
+
+    async render() {
+      const [users, devices, schedules] = await Promise.all([
+        Alpine.store('users').refresh(),
+        Alpine.store('devices').refresh(),
+        Alpine.store('schedules').refresh(),
+      ]);
+
+      if (schedules.length > 0 && !this.$data.selectedScheduleId) {
+        this.$data.selectedScheduleId = schedules[0].id;
+      }
+
+      if (this.$data.selectedScheduleId) {
+        await this.$data.loadDashboardScheduleChart(this.$data.selectedScheduleId);
+      }
+    },
+  }
 }
 
 function UserTab() {
-    return { ...BaseTab(),
-             name: "users",
-             modal: UserModal(),
-    }
+  return {
+    ...BaseTab(),
+    name: "users",
+    modal: UserModal(),
+    async render() {
+      await Alpine.store('users').refresh();
+    },
+  }
 }
 
 function DeviceTab() {
-    return { ...BaseTab(),
-             name: "devices",
-             modal: DeviceModal(),
-    }
+  return {
+    ...BaseTab(),
+    name: "devices",
+    modal: DeviceModal(),
+    async render() {
+      const [users, devices] = await Promise.all([
+        Alpine.store('users').refresh(),
+        Alpine.store('devices').refresh(),
+      ]);
+    },
+  }
 }
 
 function ScheduleTab() {
-    return { ...BaseTab(),
-             name: "schedules",
-             modal: ScheduleModal(),
-    }
+  return {
+    ...BaseTab(),
+    name: "schedules",
+    modal: ScheduleModal(),
+    async render() {
+      const [users, schedules] = await Promise.all([
+        Alpine.store('users').refresh(),
+        Alpine.store('schedules').refresh(),
+      ]);
+
+      if (schedules.length > 0) {
+        if (!this.selectedScheduleId || !schedules.some(s => s.id === this.selectedScheduleId)) {
+          this.selectedScheduleId = schedules[0].id;
+        }
+        await this.$data.loadScheduleDetail(this.selectedScheduleId);
+      } else {
+        this.selectedScheduleId = null;
+        this.schedulePhases = [];
+      }
+    },
+  }
 }
 
 // --- Alpine.js App ---
@@ -363,16 +409,14 @@ document.addEventListener('alpine:init', () => {
   Alpine.store('schedules', createEntityStore('/schedule')),
   //Alpine.store('schedulePhases', createEntityStore('/schedule/${schedule_id}/phase')),
 
-  Alpine.store('confirmModal', ConfirmModal()),
-
   Alpine.data('kilnApp', () => ({
 
     // App State & Data Collections
     selectedScheduleId: null,
-    schedulePhases: [], // todo move into store
+    schedulePhases: [], // todo move into tab
 
-    // todo? - why is login in kilnApp and confirm is not, or vice versa?
     loginModal: LoginModal(),
+    confirmModal: ConfirmModal(),
 
     activeTab: null,
     tabs: {
@@ -397,12 +441,7 @@ document.addEventListener('alpine:init', () => {
 
     async refreshCurrentView() {
       try {
-        // todo - these renderEntity() need to move into the tab open().
         if (!await Alpine.store('auth').getUser()) this.loginModal.open();
-        else if (this.activeTab === this.tabs.dashboard) await this.renderDashboard();
-        else if (this.activeTab === this.tabs.users) await this.renderUsers();
-        else if (this.activeTab === this.tabs.devices) await this.renderDevices();
-        else if (this.activeTab === this.tabs.schedules) await this.renderSchedules();
       } catch (err) {
         Alpine.store('toast').showToast(err, "error");
       }
@@ -429,51 +468,6 @@ document.addEventListener('alpine:init', () => {
     // --- Navigation ---
     switchTab(tab) {
       window.location.hash = `#${tab}`
-    },
-
-    // --- Views Rendering ---
-    async renderDashboard() {
-      const [users, devices, schedules] = await Promise.all([
-        Alpine.store('users').refresh(),
-        Alpine.store('devices').refresh(),
-        Alpine.store('schedules').refresh(),
-      ]);
-
-      if (schedules.length > 0 && !this.selectedScheduleId) {
-        this.selectedScheduleId = schedules[0].id;
-      }
-
-      if (this.selectedScheduleId) {
-        await this.loadDashboardScheduleChart(this.selectedScheduleId);
-      }
-    },
-
-    async renderUsers() {
-      await Alpine.store('users').refresh();
-    },
-
-    async renderDevices() {
-      const [users, devices] = await Promise.all([
-        Alpine.store('users').refresh(),
-        Alpine.store('devices').refresh(),
-      ]);
-    },
-
-    async renderSchedules() {
-      const [users, schedules] = await Promise.all([
-        Alpine.store('users').refresh(),
-        Alpine.store('schedules').refresh(),
-      ]);
-
-      if (schedules.length > 0) {
-        if (!this.selectedScheduleId || !schedules.some(s => s.id === this.selectedScheduleId)) {
-          this.selectedScheduleId = schedules[0].id;
-        }
-        await this.loadScheduleDetail(this.selectedScheduleId);
-      } else {
-        this.selectedScheduleId = null;
-        this.schedulePhases = [];
-      }
     },
 
     async selectSchedule(id) {

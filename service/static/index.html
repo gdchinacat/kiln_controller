@@ -94,7 +94,7 @@
 
       <!-- Right Side Controls -->
       <div class="header-actions">
-        <button x-data x-show="$store.auth.isAuthenticated" @click="$store.auth.logout()" title="Logout" class="header-button">
+        <button x-data x-show="$store.auth.isAuthenticated" @click="loginModal.logout()" title="Logout" class="header-button">
           <i data-lucide="log-out" class="icon"></i>
           <span class="header-button-label">Logout</span>
         </button>
@@ -414,11 +414,9 @@
     </main>
 
   <!-- LOGIN MODAL -->
-  <div x-show="$store.loginModal.show"
-       x-data="ResettingForm('$store.loginModal.show', {username: '', password: ''}, ['password'])"
-       class="modal-backdrop">
+  <div x-show="show" x-data="loginModal" class="modal-backdrop">
     <div class="modal">
-      <form @submit.prevent="await $store.auth.login(form)" class="form-stack">
+      <form @submit.prevent="login()" class="form-stack">
         <div>
           <label class="form-label">Username *</label>
           <input type="text" x-model="form.username" required maxlength="16" class="form-control">

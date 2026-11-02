@@ -144,7 +144,7 @@ function DeviceModal() {
   const model = () => ({
     id: '',
     name: '',
-    user_id: Alpine.store('auth').user?.id || ''});
+    user_id: Alpine.store('auth').user?.id || ''});  // default to current user
 
   return {
     ...createEntityModal({
@@ -160,8 +160,7 @@ function ScheduleModal() {
   const model = () => ({
     id: '',
     name: '',
-    user_id: Alpine.store('auth').user?.id || ''
-  });
+    user_id: Alpine.store('auth').user?.id || ''});  // default to current user
 
   return {
     ...createEntityModal({
@@ -170,6 +169,40 @@ function ScheduleModal() {
       entityStore: Alpine.store('schedules')}),
     model: model,
     form: model()
+  };
+}
+
+function LoginModal() {
+  return {
+    show: false,
+    form: { username: '', password:'' },
+    open() { this.show = true; },
+    close() {
+        this.show = false;
+        this.form.password = '';
+    },
+
+    async login() {
+      try {
+        await Alpine.store('auth').login(this.form);
+        Alpine.store('toast').showToast('Login success.', 'success');
+        this.close();
+      } catch (err) {
+        Alpine.store('toast').showToast(`Login failed: ${err.message}`, "error");
+      } finally {
+        window.dispatchEvent(new CustomEvent('refresh-view'));
+      }
+    },
+
+    async logout() {
+      try {
+        await Alpine.store('auth').logout();
+        Alpine.store('toast').showToast("Logout success.", "success");
+      } finally {
+        window.dispatchEvent(new CustomEvent('refresh-view'));
+      }
+    },
+
   };
 }
 
@@ -200,9 +233,9 @@ document.addEventListener('alpine:init', () => {
 
       if (!res.ok) {
         if (res.status == 401) {
-          Alpine.store('auth').logout()
+          Alpine.store('auth').unauthorized();
         }
-        let errorMsg = `Server error (${status})`;
+        let errorMsg = `Error (${status})`;
         if (data && data.detail) {
           if (Array.isArray(data.detail)) {
             errorMsg = data.detail.map(e => `${e.loc ? e.loc.join('.') + ': ' : ''}${e.msg}: ${e.input}`).join(', ');
@@ -228,18 +261,11 @@ document.addEventListener('alpine:init', () => {
     }
   }),
 
-  Alpine.store('loginModal', {
-    show: false,
-    open() { this.show = true; },
-    close() { this.show = false; },
-  }),
-
   Alpine.store('auth', {
     user: null,
-    initializePromise: false,
-
+    initialized: false,
     init() {
-        this.initializePromise = this.initialize();
+        this.initialized = this.initialize();
     },
 
     async initialize() {
@@ -255,38 +281,34 @@ document.addEventListener('alpine:init', () => {
     get isAuthenticated() { return this.user !== null; },
 
     async getUser() {
-      await this.initializePromise;
+      await this.initialized;
       return this.user;
     },
 
     async login(payload) {
-      try {
-        const response = await Alpine.store('network').apiRequest("/auth/login", 'POST', payload);
-        this.user = response;
-        Alpine.store('toast').showToast('Login success.', 'success');
-        Alpine.store('loginModal').close();
-        window.dispatchEvent(new CustomEvent('refresh-view'));
-      } catch (err) {
-        Alpine.store('toast').showToast(`Login failed: ${err.message}`, "error");
-      }
+      const response = await Alpine.store('network').apiRequest("/auth/login", 'POST', payload);
+      this.user = response;
     },
 
     async logout() {
       await Alpine.store('network').apiRequest("/auth/logout").catch(() => []);
-      this.userPromise = this.user = null;
-      // todo - when user enters invalid credentials this toast is shown which
-      //        is confusing since they tried to log in, not log out.
-      Alpine.store('toast').showToast("Logout success.", "success");
-      window.dispatchEvent(new CustomEvent('refresh-view'));
+      this.user = null;
     },
+
+    unauthorized() {
+      this.user = null;
+      window.dispatchEvent(new CustomEvent('refresh-view'));
+    }
 
   }),
 
+  // todo? - move the entity stores onto kilnApp
   Alpine.store('users', createEntityStore('/user')),
   Alpine.store('devices', createEntityStore('/device')),
   Alpine.store('schedules', createEntityStore('/schedule')),
   //Alpine.store('schedulePhases', createEntityStore('/schedule/${schedule_id}/phase')),
 
+  // todo? - move the entity modals onto the entity tabs
   Alpine.store('userModal', UserModal()),
   Alpine.store('deviceModal', DeviceModal()),
   Alpine.store('scheduleModal', ScheduleModal()),
@@ -304,6 +326,7 @@ document.addEventListener('alpine:init', () => {
       confirm: false
     },
 
+    loginModal: LoginModal(),
     forms: {
       phase: { id: '', name: '', ordinal: 10, phase_type: 'ramp', temperature: '', rate: '', duration: '' }
     },
@@ -315,12 +338,15 @@ document.addEventListener('alpine:init', () => {
     detailChartInstance: null,
 
     async refreshCurrentView() {
-      if (!await Alpine.store('auth').getUser()) {
-        Alpine.store('loginModal').open();
-      } else if (this.activeTab === 'dashboard') await this.renderDashboard();
-      else if (this.activeTab === 'users') await this.renderUsers();
-      else if (this.activeTab === 'devices') await this.renderDevices();
-      else if (this.activeTab === 'schedules') await this.renderSchedules();
+      try {
+        if (!await Alpine.store('auth').getUser()) this.loginModal.open();
+        else if (this.activeTab === 'dashboard') await this.renderDashboard();
+        else if (this.activeTab === 'users') await this.renderUsers();
+        else if (this.activeTab === 'devices') await this.renderDevices();
+        else if (this.activeTab === 'schedules') await this.renderSchedules();
+      } catch (err) {
+        Alpine.store('toast').showToast(err, "error");
+      }
     },
 
     init() {
@@ -730,16 +756,6 @@ document.addEventListener('alpine:init', () => {
       this.modals.confirm = false;
     }
 
-  })),
-
-  Alpine.data('ResettingForm', (showPath, form, resetFields=[]) => ({
-    form: { ...form },
-
-    init() {
-        this.$watch(showPath, value => { if (!value) { this.resetForm(); } });
-    },
-
-    resetForm() { resetFields.forEach(field => { this.form[field] =''; }) }
   }))
 
 });

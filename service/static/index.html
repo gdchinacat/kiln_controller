@@ -198,7 +198,7 @@
             <button @click="renderUsers()" class="btn-refresh">
               <i data-lucide="refresh-cw" class="icon"></i>
             </button>
-            <button @click="$store.userModal.open()" class="btn-create">
+            <button @click="modal.open()" class="btn-create">
               <i data-lucide="user-plus" class="icon"></i> Add User
             </button>
           </div>
@@ -227,13 +227,49 @@
                     <td x-text="u.email || '--'" class="cell-muted"></td>
                     <td x-text="u.phone_number || '--'" class="cell-muted"></td>
                     <td class="cell-actions">
-                      <button @click="$store.userModal.open(u)" class="row-action"><i x-icon="edit-2" class="icon"></i></button>
-                      <button @click="$store.userModal.delete(u)" class="row-action-danger"><i x-icon="trash-2" class="icon"></i></button>
+                      <button @click="modal.open(u)" class="row-action"><i x-icon="edit-2" class="icon"></i></button>
+                      <button @click="modal.delete(u)" class="row-action-danger"><i x-icon="trash-2" class="icon"></i></button>
                     </td>
                   </tr>
                 </template>
               </tbody>
             </table>
+          </div>
+        </div>
+
+        <!-- USER MODAL -->
+        <div x-data="modal" x-show="show" class="modal-backdrop">
+          <div @click.outside="close()" class="modal">
+            <div class="modal-header">
+              <h3 x-text="form.id ? 'Edit User' : 'Add User'" class="modal-title"></h3>
+              <button @click="close()" class="modal-close"><i data-lucide="x" class="icon-md"></i></button>
+            </div>
+            <form @submit.prevent="submit()" class="form-stack">
+              <div>
+                <label class="form-label">Full Name *</label>
+                <input type="text" x-model="form.name" required maxlength="30" class="form-control">
+              </div>
+              <div>
+                <label class="form-label">Username *</label>
+                <input type="text" x-model="form.username" required maxlength="16" class="form-control">
+              </div>
+              <div>
+                <label class="form-label">Password *</label>
+                <input type="password" x-model="form.password" required maxlength="16" class="form-control">
+              </div>
+              <div>
+                <label class="form-label">Email Address</label>
+                <input type="email" x-model="form.email" class="form-control">
+              </div>
+              <div>
+                <label class="form-label">Phone Number</label>
+                <input type="text" x-model="form.phone_number" class="form-control">
+              </div>
+              <div class="form-actions">
+                <button type="button" @click="close()" class="btn-text">Cancel</button>
+                <button type="submit" class="btn-primary">Save User</button>
+              </div>
+            </form>
           </div>
         </div>
       </section>
@@ -267,8 +303,8 @@
                     <h3 x-text="d.name" class="kiln-card-title"></h3>
                   </div>
                   <div class="card-actions">
-                    <button @click="$store.deviceModal.open(d)" class="row-action"><i x-icon="edit-2" class="icon"></i></button>
-                    <button @click="$store.deviceModal.delete(d)" class="row-action-danger"><i x-icon="trash-2" class="icon"></i></button>
+                    <button @click="modal.open(d)" class="row-action"><i x-icon="edit-2" class="icon"></i></button>
+                    <button @click="modal.delete(d)" class="row-action-danger"><i x-icon="trash-2" class="icon"></i></button>
                   </div>
                 </div>
                 <p x-text="d.description || 'No device description provided.'" class="kiln-card-description"></p>
@@ -283,6 +319,38 @@
             </div>
           </template>
         </div>
+
+        <!-- DEVICE MODAL -->
+        <div x-data="modal" x-show="show" class="modal-backdrop">
+          <div @click.outside="close()" class="modal">
+            <div class="modal-header">
+              <h3 x-text="'Edit Kiln'" class="modal-title"></h3>
+              <button @click="close()" class="modal-close"><i data-lucide="x" class="icon-md"></i></button>
+            </div>
+            <form @submit.prevent="submit()" class="form-stack">
+              <div>
+                <label class="form-label">Name *</label>
+                <input type="text" x-model="form.name" required maxlength="30" class="form-control">
+              </div>
+              <div>
+                <label class="form-label">Operator</label>
+                <select x-model.number="form.user_id" required class="form-control">
+                  <template x-for="u in $store.users.items" :key="u.id">
+                    <option :value="u.id" x-text="`${u.name} (${u.username})`"></option>
+                  </template>
+                </select>
+              </div>
+              <div>
+                <label class="form-label">Description</label>
+                <textarea x-model="form.description" rows="2" class="form-control"></textarea>
+              </div>
+              <div class="form-actions">
+                <button type="button" @click="close()" class="btn-text">Cancel</button>
+                <button type="submit" class="btn-primary">Save Kiln</button>
+              </div>
+            </form>
+          </div>
+        </div>
       </section>
 
       <!-- SCHEDULES VIEW -->
@@ -296,7 +364,7 @@
             <button @click="renderSchedules()" class="btn-refresh">
               <i data-lucide="refresh-cw" class="icon"></i>
             </button>
-            <button @click="$store.scheduleModal.open()" class="btn-create">
+            <button @click="modal.open()" class="btn-create">
               <i data-lucide="calendar-plus" class="icon"></i> Create Schedule
             </button>
           </div>
@@ -341,10 +409,10 @@
                     <button @click="openPhaseModal()" class="btn-outline-accent">
                       <i data-lucide="plus-circle" class="icon"></i> Add Phase
                     </button>
-                    <button @click="$store.scheduleModal.open(currentSchedule)" class="btn-tool">
+                    <button @click="modal.open(currentSchedule)" class="btn-tool">
                       <i data-lucide="edit-3" class="icon"></i>
                     </button>
-                    <button @click="$store.scheduleModal.delete(currentSchedule)" class="btn-tool-danger">
+                    <button @click="modal.delete(currentSchedule)" class="btn-tool-danger">
                       <i data-lucide="trash-2" class="icon"></i>
                     </button>
                   </div>
@@ -409,6 +477,34 @@
             </div>
           </div>
         </div>
+
+        <!-- SCHEDULE MODAL -->
+        <div x-data="modal" x-show="show" class="modal-backdrop">
+          <div @click.outside="close()" class="modal">
+            <div class="modal-header">
+              <h3 x-text="form.id ? 'Edit Schedule' : 'Create Schedule'" class="modal-title"></h3>
+              <button @click="close()" class="modal-close"><i data-lucide="x" class="icon-md"></i></button>
+            </div>
+            <form @submit.prevent="submit()" class="form-stack">
+              <div>
+                <label class="form-label">Schedule Name *</label>
+                <input type="text" x-model="form.name" required maxlength="30" class="form-control" placeholder="e.g. Cone 6 Glaze Firing">
+              </div>
+              <div>
+                <label class="form-label">User *</label>
+                <select x-model.number="form.user_id" required class="form-control">
+                  <template x-for="u in $store.users.items" :key="u.id">
+                    <option :value="u.id" x-text="`${u.name} (${u.username})`"></option>
+                  </template>
+                </select>
+              </div>
+              <div class="form-actions">
+                <button type="button" @click="close()" class="btn-text">Cancel</button>
+                <button type="submit" class="btn-primary">Save Schedule</button>
+              </div>
+            </form>
+          </div>
+        </div>
       </section>
 
     </main>
@@ -427,103 +523,6 @@
         </div>
         <div class="form-actions">
           <button type="submit" class="btn-primary">Login</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- USER MODAL -->
-  <div x-show="$store.userModal.show" class="modal-backdrop">
-    <div @click.outside="$store.userModal.close()" class="modal">
-      <div class="modal-header">
-        <h3 x-text="$store.userModal.form.id ? 'Edit User' : 'Add User'" class="modal-title"></h3>
-        <button @click="$store.userModal.close()" class="modal-close"><i data-lucide="x" class="icon-md"></i></button>
-      </div>
-      <form @submit.prevent="$store.userModal.submit()" class="form-stack">
-        <div>
-          <label class="form-label">Full Name *</label>
-          <input type="text" x-model="$store.userModal.form.name" required maxlength="30" class="form-control">
-        </div>
-        <div>
-          <label class="form-label">Username *</label>
-          <input type="text" x-model="$store.userModal.form.username" required maxlength="16" class="form-control">
-        </div>
-        <div>
-          <label class="form-label">Password *</label>
-          <input type="password" x-model="$store.userModal.form.password" required maxlength="16" class="form-control">
-        </div>
-        <div>
-          <label class="form-label">Email Address</label>
-          <input type="email" x-model="$store.userModal.form.email" class="form-control">
-        </div>
-        <div>
-          <label class="form-label">Phone Number</label>
-          <input type="text" x-model="$store.userModal.form.phone_number" class="form-control">
-        </div>
-        <div class="form-actions">
-          <button type="button" @click="$store.userModal.close()" class="btn-text">Cancel</button>
-          <button type="submit" class="btn-primary">Save User</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- DEVICE MODAL -->
-  <div x-show="$store.deviceModal.show" class="modal-backdrop">
-    <div @click.outside="$store.deviceModal.close()" class="modal">
-      <div class="modal-header">
-        <h3 x-text="'Edit Kiln'" class="modal-title"></h3>
-        <button @click="$store.deviceModal.close()" class="modal-close"><i data-lucide="x" class="icon-md"></i></button>
-      </div>
-      <form @submit.prevent="$store.deviceModal.submit()" class="form-stack">
-        <div>
-          <label class="form-label">Name *</label>
-          <input type="text" x-model="$store.deviceModal.form.name" required maxlength="30" class="form-control">
-        </div>
-        <div>
-          <label class="form-label">Operator</label>
-          <select x-model.number="$store.deviceModal.form.user_id" required class="form-control">
-            <template x-for="u in $store.users.items" :key="u.id">
-              <option :value="u.id" x-text="`${u.name} (${u.username})`"></option>
-            </template>
-          </select>
-        </div>
-        <div>
-          <label class="form-label">Description</label>
-          <textarea x-model="$store.deviceModal.form.description" rows="2" class="form-control"></textarea>
-        </div>
-        <div class="form-actions">
-          <button type="button" @click="$store.deviceModal.close()" class="btn-text">Cancel</button>
-          <button type="submit" class="btn-primary">Save Kiln</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- SCHEDULE MODAL -->
-  <div x-show="$store.scheduleModal.show" class="modal-backdrop">
-    <div @click.outside="$store.scheduleModal.close()" class="modal">
-      <div class="modal-header">
-        <h3 x-text="$store.scheduleModal.form.id ? 'Edit Schedule' : 'Create Schedule'" class="modal-title"></h3>
-        <button @click="$store.scheduleModal.close()" class="modal-close"><i data-lucide="x" class="icon-md"></i></button>
-      </div>
-      <form @submit.prevent="$store.scheduleModal.submit()" class="form-stack">
-        <div>
-          <label class="form-label">Schedule Name *</label>
-          <input type="text" x-model="$store.scheduleModal.form.name" required maxlength="30" class="form-control" placeholder="e.g. Cone 6 Glaze Firing">
-        </div>
-        <div>
-          <label class="form-label">User *</label>
-          <select x-model.number="$store.scheduleModal.form.user_id" required class="form-control">
-            <template x-for="u in $store.users.items" :key="u.id">
-              <option :value="u.id" x-text="`${u.name} (${u.username})`"></option>
-              <!--<option :value="u.id" x-text="`${u.name} (${u.username})`"" :selected="$store.auth.user?.id == u.id"></option>-->
-            </template>
-          </select>
-        </div>
-        <div class="form-actions">
-          <button type="button" @click="$store.scheduleModal.close()" class="btn-text">Cancel</button>
-          <button type="submit" class="btn-primary">Save Schedule</button>
         </div>
       </form>
     </div>

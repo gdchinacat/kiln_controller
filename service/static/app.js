@@ -137,38 +137,6 @@ function UserModal() {
   };
 }
 
-function DeviceModal() {
-  const model = () => ({
-    id: '',
-    name: '',
-    user_id: Alpine.store('auth').user?.id || ''});  // default to current user
-
-  return {
-    ...createEntityModal({
-      entityType: 'Kiln',
-      endpoint: '/device',
-      entityStore: Alpine.store('devices')}),
-    model: model,
-    form: model()
-  };
-}
-
-function ScheduleModal() {
-  const model = () => ({
-    id: '',
-    name: '',
-    user_id: Alpine.store('auth').user?.id || ''});  // default to current user
-
-  return {
-    ...createEntityModal({
-      entityType: 'Schedule',
-      endpoint: '/schedule',
-      entityStore: Alpine.store('schedules')}),
-    model: model,
-    form: model()
-  };
-}
-
 function LoginModal() {
   return {
     show: false,
@@ -203,6 +171,39 @@ function LoginModal() {
   };
 }
 
+function DeviceModal() {
+  const model = () => ({
+    id: '',
+    name: '',
+    user_id: Alpine.store('auth').user?.id || ''});  // default to current user
+
+  return {
+    ...createEntityModal({
+      entityType: 'Kiln',
+      endpoint: '/device',
+      entityStore: Alpine.store('devices')}),
+    model: model,
+    form: model()
+  };
+}
+
+function ScheduleModal() {
+  const model = () => ({
+    id: '',
+    name: '',
+    user_id: Alpine.store('auth').user?.id || ''});  // default to current user
+
+  return {
+    ...createEntityModal({
+      entityType: 'Schedule',
+      endpoint: '/schedule',
+      entityStore: Alpine.store('schedules')}),
+    model: model,
+    form: model()
+  };
+}
+
+
 function ConfirmModal() {
   return {
     show: false,
@@ -229,38 +230,35 @@ function ConfirmModal() {
 function BaseTab() {
     return {
         show: false,
-
-        open() {
-            this.show = true;
-        }
+        open() { this.show = true; },
+        close() { this.show = false; },
     }
 }
 
 function DashboardTab() {
-    return {
-        ...BaseTab(),
-        name: "dashboard",
+    return { ...BaseTab(),
+             name: "dashboard",
     }
 }
 
 function UserTab() {
-    return {
-        ...BaseTab(),
-        name: "users",
+    return { ...BaseTab(),
+             name: "users",
+             modal: UserModal(),
     }
 }
 
 function DeviceTab() {
-    return {
-        ...BaseTab(),
-        name: "devices",
+    return { ...BaseTab(),
+             name: "devices",
+             modal: DeviceModal(),
     }
 }
 
 function ScheduleTab() {
-    return {
-        ...BaseTab(),
-        name: "schedules",
+    return { ...BaseTab(),
+             name: "schedules",
+             modal: ScheduleModal(),
     }
 }
 
@@ -365,10 +363,6 @@ document.addEventListener('alpine:init', () => {
   Alpine.store('schedules', createEntityStore('/schedule')),
   //Alpine.store('schedulePhases', createEntityStore('/schedule/${schedule_id}/phase')),
 
-  // todo? - move the entity modals onto the entity tabs
-  Alpine.store('userModal', UserModal()),
-  Alpine.store('deviceModal', DeviceModal()),
-  Alpine.store('scheduleModal', ScheduleModal()),
   Alpine.store('confirmModal', ConfirmModal()),
 
   Alpine.data('kilnApp', () => ({
@@ -403,6 +397,7 @@ document.addEventListener('alpine:init', () => {
 
     async refreshCurrentView() {
       try {
+        // todo - these renderEntity() need to move into the tab open().
         if (!await Alpine.store('auth').getUser()) this.loginModal.open();
         else if (this.activeTab === this.tabs.dashboard) await this.renderDashboard();
         else if (this.activeTab === this.tabs.users) await this.renderUsers();
@@ -415,16 +410,16 @@ document.addEventListener('alpine:init', () => {
 
     init() {
       this.activeTab = this.tabs[window.location.hash.replace("#", "")] || this.tabs.dashboard;
-      this.activeTab.show = true;
+      this.activeTab.open();
       this.refreshCurrentView();
 
       window.addEventListener('hashchange', () => {
         const tabname = window.location.hash.replace("#", "") || "dashboard";
         if (tabname != this.activeTab?.name) {
-          if (this.activeTab) this.activeTab.show = false;
+          if (this.activeTab) this.activeTab.close();
           this.activeTab = this.tabs[tabname];
           if (this.activeTab) {
-            this.activeTab.show = true;
+            this.activeTab.open();
             this.refreshCurrentView();
           }
         }

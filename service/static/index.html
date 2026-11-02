@@ -75,19 +75,19 @@
 
       <!-- Center Nav Tabs -->
       <nav class="nav-tabs">
-        <button @click="switchTab('dashboard')" :class="{ 'is-active': activeTab === 'dashboard' }" class="nav-tab">
+        <button @click="switchTab('dashboard')" :class="{ 'is-active': activeTab === tabs.dashboard }" class="nav-tab">
           <i data-lucide="layout-dashboard" class="icon"></i> Dashboard
         </button>
-        <button @click="switchTab('users')" :class="{ 'is-active': activeTab === 'users' }" class="nav-tab">
+        <button @click="switchTab('users')" :class="{ 'is-active': activeTab === tabs.users }" class="nav-tab">
           <i data-lucide="users" class="icon"></i> Users
         </button>
-        <button @click="switchTab('devices')" :class="{ 'is-active': activeTab === 'devices' }" class="nav-tab">
+        <button @click="switchTab('devices')" :class="{ 'is-active': activeTab === tabs.devices }" class="nav-tab">
           <i data-lucide="cpu" class="icon"></i> Kilns
         </button>
-        <button @click="switchTab('schedules')" :class="{ 'is-active': activeTab === 'schedules' }" class="nav-tab">
+        <button @click="switchTab('schedules')" :class="{ 'is-active': activeTab === tabs.schedules }" class="nav-tab">
           <i data-lucide="calendar" class="icon"></i> Schedules
         </button>
-        <button @click="switchTab('firings')" :class="{ 'is-active': activeTab === 'firings' }" class="nav-tab">
+        <button @click="switchTab('firings')" :class="{ 'is-active': activeTab === tabs.firings }" class="nav-tab">
           <i data-lucide="calendar" class="icon"></i> Firings
         </button>
       </nav>
@@ -108,7 +108,7 @@
     <main class="app-main">
 
       <!-- DASHBOARD VIEW -->
-      <section x-show="activeTab === 'dashboard'" class="view">
+      <section x-data="tabs.dashboard" x-show="show" class="view">
         <div class="view-header">
           <div>
             <h2 class="view-title">System Overview</h2>
@@ -189,7 +189,7 @@
       </section>
 
       <!-- USERS VIEW -->
-      <section x-show="activeTab === 'users'" class="view">
+      <section x-data="tabs.users" x-show="show" class="view">
         <div class="view-header">
           <div>
             <h2 class="view-title">Users</h2>
@@ -239,7 +239,7 @@
       </section>
 
       <!-- DEVICES VIEW -->
-      <section x-show="activeTab === 'devices'" class="view">
+      <section x-data="tabs.devices" x-show="show" class="view">
         <div class="view-header">
           <div>
             <h2 class="view-title">Kilns</h2>
@@ -286,7 +286,7 @@
       </section>
 
       <!-- SCHEDULES VIEW -->
-      <section x-show="activeTab === 'schedules'" class="view">
+      <section x-data="tabs.schedules" x-show="show" class="view">
         <div class="view-header">
           <div>
             <h2 class="view-title">Firing Schedules &amp; Curves</h2>

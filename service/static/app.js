@@ -226,6 +226,44 @@ function ConfirmModal() {
   }
 }
 
+function BaseTab() {
+    return {
+        show: false,
+
+        open() {
+            this.show = true;
+        }
+    }
+}
+
+function DashboardTab() {
+    return {
+        ...BaseTab(),
+        name: "dashboard",
+    }
+}
+
+function UserTab() {
+    return {
+        ...BaseTab(),
+        name: "users",
+    }
+}
+
+function DeviceTab() {
+    return {
+        ...BaseTab(),
+        name: "devices",
+    }
+}
+
+function ScheduleTab() {
+    return {
+        ...BaseTab(),
+        name: "schedules",
+    }
+}
+
 // --- Alpine.js App ---
 document.addEventListener('alpine:init', () => {
   Alpine.directive('icon', (el, { expression }) => {
@@ -336,17 +374,24 @@ document.addEventListener('alpine:init', () => {
   Alpine.data('kilnApp', () => ({
 
     // App State & Data Collections
-    activeTab: window.location.hash.replace("#", "") || "dashboard",
     selectedScheduleId: null,
     schedulePhases: [], // todo move into store
 
+    // todo? - why is login in kilnApp and confirm is not, or vice versa?
     loginModal: LoginModal(),
+
+    activeTab: null,
+    tabs: {
+        dashboard: DashboardTab(),
+        users: UserTab(),
+        devices: DeviceTab(),
+        schedules: ScheduleTab(),
+    },
 
     // Modal Visibility & Form Data
     modals: {
       phase: false,
     },
-
     forms: {
       phase: { id: '', name: '', ordinal: 10, phase_type: 'ramp', temperature: '', rate: '', duration: '' }
     },
@@ -359,23 +404,29 @@ document.addEventListener('alpine:init', () => {
     async refreshCurrentView() {
       try {
         if (!await Alpine.store('auth').getUser()) this.loginModal.open();
-        else if (this.activeTab === 'dashboard') await this.renderDashboard();
-        else if (this.activeTab === 'users') await this.renderUsers();
-        else if (this.activeTab === 'devices') await this.renderDevices();
-        else if (this.activeTab === 'schedules') await this.renderSchedules();
+        else if (this.activeTab === this.tabs.dashboard) await this.renderDashboard();
+        else if (this.activeTab === this.tabs.users) await this.renderUsers();
+        else if (this.activeTab === this.tabs.devices) await this.renderDevices();
+        else if (this.activeTab === this.tabs.schedules) await this.renderSchedules();
       } catch (err) {
         Alpine.store('toast').showToast(err, "error");
       }
     },
 
     init() {
+      this.activeTab = this.tabs[window.location.hash.replace("#", "")] || this.tabs.dashboard;
+      this.activeTab.show = true;
       this.refreshCurrentView();
 
       window.addEventListener('hashchange', () => {
-        const tab = window.location.hash.replace("#", "") || "dashboard";
-        if (tab != this.activeTab) {
-          this.activeTab = tab;
-          this.refreshCurrentView();
+        const tabname = window.location.hash.replace("#", "") || "dashboard";
+        if (tabname != this.activeTab?.name) {
+          if (this.activeTab) this.activeTab.show = false;
+          this.activeTab = this.tabs[tabname];
+          if (this.activeTab) {
+            this.activeTab.show = true;
+            this.refreshCurrentView();
+          }
         }
       });
     },

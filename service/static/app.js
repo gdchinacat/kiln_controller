@@ -89,6 +89,63 @@ function createEntityStore(endpoint) {
   };
 }
 
+function LoginModal() {
+  return {
+    show: false,
+    form: { username: '', password:'' },
+    open() { this.show = true; },
+    close() {
+        this.show = false;
+        this.form.password = '';
+    },
+
+    async login() {
+      try {
+        await Alpine.store('auth').login(this.form);
+        Alpine.store('toast').showToast('Login success.', 'success');
+        this.close();
+      } catch (err) {
+        Alpine.store('toast').showToast(`Login failed: ${err.message}`, "error");
+      } finally {
+        window.dispatchEvent(new CustomEvent('refresh-view'));
+      }
+    },
+
+    async logout() {
+      try {
+        await Alpine.store('auth').logout();
+        Alpine.store('toast').showToast("Logout success.", "success");
+      } finally {
+        window.dispatchEvent(new CustomEvent('refresh-view'));
+      }
+    },
+
+  };
+}
+
+function ConfirmModal() {
+  return {
+    show: false,
+    message: '',
+    action: null,
+
+    confirm(message, action) {
+      this.message = message;
+      this.action = action;
+      this.show = true;
+    },
+
+    dismiss() {
+      this.show = false;
+    },
+
+    confirmed() {
+      if (this.action) this.action();
+      this.dismiss();
+    }
+  }
+}
+
 function createEntityModal(config) {
   return {
     show: false,
@@ -147,40 +204,6 @@ function UserModal() {
   };
 }
 
-function LoginModal() {
-  return {
-    show: false,
-    form: { username: '', password:'' },
-    open() { this.show = true; },
-    close() {
-        this.show = false;
-        this.form.password = '';
-    },
-
-    async login() {
-      try {
-        await Alpine.store('auth').login(this.form);
-        Alpine.store('toast').showToast('Login success.', 'success');
-        this.close();
-      } catch (err) {
-        Alpine.store('toast').showToast(`Login failed: ${err.message}`, "error");
-      } finally {
-        window.dispatchEvent(new CustomEvent('refresh-view'));
-      }
-    },
-
-    async logout() {
-      try {
-        await Alpine.store('auth').logout();
-        Alpine.store('toast').showToast("Logout success.", "success");
-      } finally {
-        window.dispatchEvent(new CustomEvent('refresh-view'));
-      }
-    },
-
-  };
-}
-
 function DeviceModal() {
   const model = () => ({
     id: '',
@@ -213,36 +236,11 @@ function ScheduleModal() {
   };
 }
 
-
-function ConfirmModal() {
-  return {
-    show: false,
-    message: '',
-    action: null,
-
-    confirm(message, action) {
-      this.message = message;
-      this.action = action;
-      this.show = true;
-    },
-
-    dismiss() {
-      this.show = false;
-    },
-
-    confirmed() {
-      if (this.action) this.action();
-      this.dismiss();
-    }
-  }
-}
-
 function BaseTab() {
     return {
         show: false,
-        open() { this.show = true; this.render(); },
+        open() { this.show = true; },
         close() { this.show = false; },
-        async render() { },
     }
 }
 
@@ -428,8 +426,6 @@ function SchedulesTab() {
         }
       });
     },
-
-
   }
 }
 

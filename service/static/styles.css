@@ -95,7 +95,7 @@
   .firing-monitor-tags     { @apply flex items-center gap-2; }
   .firing-monitor-badge    { @apply px-2.5 py-0.5 rounded-full text-xs font-semibold bg-orange-500/20 text-orange-400 border border-orange-500/30; }
   .firing-monitor-owner    { @apply text-xs text-slate-400; }
-  .firing-monitor-title    { @apply text-2xl font-bold text-white mt-1; }
+  .firing-monitor-title    { @apply inline text-2xl font-bold text-white mt-1; }
   .firing-monitor-controls { @apply flex items-center gap-3; }
   .firing-select           { @apply bg-slate-900 border border-slate-700 text-sm rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-orange-500; }
   .firing-chart            { @apply w-full h-72 relative; }

@@ -45,11 +45,18 @@ function computeTemperatureProfilePoints(phases) {
 
 function createEntityStore(endpoint) {
   return {
-    items: [],
+    items: null,
     loading: false,
 
     async refresh() {
       this.items = await Alpine.store('network').apiRequest(endpoint);
+      return this.items;
+    },
+
+    async get() {
+      if (this.items === null) {
+        await this.refresh();
+      }
       return this.items;
     },
 
@@ -241,70 +248,197 @@ function DashboardTab() {
     ...BaseTab(),
     name: "dashboard",
 
-    async render() {
+    async init() {
       const [users, devices, schedules] = await Promise.all([
-        Alpine.store('users').refresh(),
-        Alpine.store('devices').refresh(),
-        Alpine.store('schedules').refresh(),
+        Alpine.store('users').get(),
+        Alpine.store('devices').get(),
+        Alpine.store('schedules').get(),
+      ]);
+    },
+
+    async loadDashboardScheduleChart() {
+      const ctx = document.getElementById('dashboardChart')?.getContext('2d');
+      if (!ctx) return;
+
+      if (!this.$data.tabs.schedules.selectedSchedule) return;
+
+      let datasets = null;
+      const [users, schedules, phases] = await Promise.all([
+        Alpine.store('users').get(),
+        Alpine.store('schedules').get(),
+        Alpine.store('network').apiRequest(`/schedule/${this.$data.tabs.schedules.selectedSchedule.id}/phase`).catch(() => [])
       ]);
 
-      if (schedules.length > 0 && !this.$data.selectedScheduleId) {
-        this.$data.selectedScheduleId = schedules[0].id;
+      const dataPoints = computeTemperatureProfilePoints(phases);
+
+      datasets = [{
+        label: 'Temperature (°C)',
+        data: dataPoints.map(p => ({ x: p.x, y: p.temp })),
+        borderColor: '#f97316',
+        backgroundColor: 'rgba(249, 115, 22, 0.15)',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.0,
+        pointBackgroundColor: '#ea580c',
+        pointRadius: 4,
+        pointHoverRadius: 7
+      }];
+
+      if (this.dashboardChartInstance) {
+        this.dashboardChartInstance.destroy();
       }
 
-      if (this.$data.selectedScheduleId) {
-        await this.$data.loadDashboardScheduleChart(this.$data.selectedScheduleId);
-      }
+      this.dashboardChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: { datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              type: 'linear',
+              title: { display: true, text: 'Time (Hours)', color: '#94a3b8' },
+              grid: { color: '#1e293b' },
+              ticks: { color: '#64748b', callback: (val) => hoursToDuration(val) }
+            },
+            y: {
+              title: { display: true, text: 'Target Temp (°C)', color: '#94a3b8' },
+              grid: { color: '#1e293b' },
+              ticks: { color: '#64748b' },
+              beginAtZero: true
+            }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: (ctx) => ` Temp: ${ctx.parsed.y}°C (${hoursToDuration(ctx.parsed.x)})` } }
+          }
+        }
+      });
     },
+
   }
 }
 
-function UserTab() {
+function UsersTab() {
   return {
     ...BaseTab(),
     name: "users",
     modal: UserModal(),
     async render() {
-      await Alpine.store('users').refresh();
+      await Alpine.store('users').get();
     },
   }
 }
 
-function DeviceTab() {
+function DevicesTab() {
   return {
     ...BaseTab(),
     name: "devices",
     modal: DeviceModal(),
     async render() {
       const [users, devices] = await Promise.all([
-        Alpine.store('users').refresh(),
-        Alpine.store('devices').refresh(),
+        Alpine.store('users').get(),
+        Alpine.store('devices').get(),
       ]);
     },
   }
 }
 
-function ScheduleTab() {
+function SchedulesTab() {
   return {
     ...BaseTab(),
     name: "schedules",
     modal: ScheduleModal(),
-    async render() {
+    selectedSchedule: null,
+    async init() {
       const [users, schedules] = await Promise.all([
-        Alpine.store('users').refresh(),
-        Alpine.store('schedules').refresh(),
+        Alpine.store('users').get(),
+        Alpine.store('schedules').get(),
       ]);
+      this.selectSchedule();
+    },
 
-      if (schedules.length > 0) {
-        if (!this.selectedScheduleId || !schedules.some(s => s.id === this.selectedScheduleId)) {
-          this.selectedScheduleId = schedules[0].id;
-        }
-        await this.$data.loadScheduleDetail(this.selectedScheduleId);
-      } else {
-        this.selectedScheduleId = null;
-        this.schedulePhases = [];
+    async selectSchedule(schedule = null) {
+      const schedules = await Alpine.store('schedules').get();
+
+      selectedSchedule = schedule ?? this.selectedSchedule;
+
+      if (selectedSchedule && !schedules.some(s => s.id === selectedSchedule.id)) {
+        selectedSchedule = null;
+      }
+
+      if (!selectedSchedule && schedules.length > 0) {
+        selectedSchedule = schedules[0];
+      }
+
+      if (selectedSchedule != this.selectedSchedule) {
+        this.selectedSchedule = selectedSchedule;
       }
     },
+
+    get selectedScheduleOwnerName() {
+      if (!this.selectedSchedule) return '--';
+      const u = Alpine.store('users').items.find(x => x.id === this.selectedSchedule.user_id);
+      return u ? u.name : `User #${this.selectedSchedule.user_id}`;
+    },
+
+    async loadScheduleDetail() {
+      if (!this.selectedSchedule) return;
+      const ctx = document.getElementById('scheduleDetailChart')?.getContext('2d');
+      if (!ctx) return;
+
+      const phases = await Alpine.store('network').apiRequest(`/schedule/${this.selectedSchedule.id}/phase`);
+
+      this.schedulePhases = (phases || []).sort((a, b) => a.ordinal - b.ordinal);
+
+      const dataPoints = computeTemperatureProfilePoints(this.schedulePhases);
+
+      if (this.detailChartInstance) {
+        this.detailChartInstance.destroy();
+      }
+
+      this.detailChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          datasets: [{
+            label: 'Temperature (°C)',
+            data: dataPoints.map(p => ({ x: p.x, y: p.temp })),
+            borderColor: '#f97316',
+            backgroundColor: 'rgba(249, 115, 22, 0.15)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.0,
+            pointBackgroundColor: '#ea580c',
+            pointRadius: 4,
+            pointHoverRadius: 7
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              type: 'linear',
+              title: { display: true, text: 'Time (Hours)', color: '#94a3b8' },
+              grid: { color: '#1e293b' },
+              ticks: { color: '#64748b', font: { size: 10 }, callback: (val) => hoursToDuration(val) }
+            },
+            y: {
+              title: { display: true, text: 'Temperature (°C)', color: '#94a3b8' },
+              grid: { color: '#1e293b' },
+              ticks: { color: '#64748b', font: { size: 10 } },
+              beginAtZero: true
+            }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: (ctx) => ` Temp: ${ctx.parsed.y}°C (${hoursToDuration(ctx.parsed.x)})` } }
+          }
+        }
+      });
+    },
+
+
   }
 }
 
@@ -333,7 +467,7 @@ document.addEventListener('alpine:init', () => {
       }
 
       if (!res.ok) {
-        if (res.status == 401) {
+        if (res.status === 401) {
           Alpine.store('auth').unauthorized();
         }
         let errorMsg = `Error (${status})`;
@@ -412,7 +546,6 @@ document.addEventListener('alpine:init', () => {
   Alpine.data('kilnApp', () => ({
 
     // App State & Data Collections
-    selectedScheduleId: null,
     schedulePhases: [], // todo move into tab
 
     loginModal: LoginModal(),
@@ -421,9 +554,9 @@ document.addEventListener('alpine:init', () => {
     activeTab: null,
     tabs: {
         dashboard: DashboardTab(),
-        users: UserTab(),
-        devices: DeviceTab(),
-        schedules: ScheduleTab(),
+        users: UsersTab(),
+        devices: DevicesTab(),
+        schedules: SchedulesTab(),
     },
 
     // Modal Visibility & Form Data
@@ -470,139 +603,7 @@ document.addEventListener('alpine:init', () => {
       window.location.hash = `#${tab}`
     },
 
-    async selectSchedule(id) {
-      this.selectedScheduleId = id;
-      await this.loadScheduleDetail(id);
-    },
-
-    async loadDashboardScheduleChart(scheduleId) {
-      const ctx = document.getElementById('dashboardChart')?.getContext('2d');
-      if (!ctx) return;
-
-      this.selectedScheduleId = parseInt(scheduleId);
-
-      let datasets = null;
-      if (scheduleId) {
-        const [users, schedules, phases] = await Promise.all([
-          Alpine.store('users').refresh(),
-          Alpine.store('schedules').refresh(),
-          Alpine.store('network').apiRequest(`/schedule/${scheduleId}/phase`).catch(() => [])
-        ]);
-
-        const dataPoints = computeTemperatureProfilePoints(phases);
-
-        datasets = [{
-          label: 'Temperature (°C)',
-          data: dataPoints.map(p => ({ x: p.x, y: p.temp })),
-          borderColor: '#f97316',
-          backgroundColor: 'rgba(249, 115, 22, 0.15)',
-          borderWidth: 2,
-          fill: true,
-          tension: 0.0,
-          pointBackgroundColor: '#ea580c',
-          pointRadius: 4,
-          pointHoverRadius: 7
-        }];
-      }
-
-      if (this.dashboardChartInstance) this.dashboardChartInstance.destroy();
-
-      this.dashboardChartInstance = new Chart(ctx, {
-        type: 'line',
-        data: { datasets },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            x: {
-              type: 'linear',
-              title: { display: true, text: 'Time (Hours)', color: '#94a3b8' },
-              grid: { color: '#1e293b' },
-              ticks: { color: '#64748b', callback: (val) => hoursToDuration(val) }
-            },
-            y: {
-              title: { display: true, text: 'Target Temp (°C)', color: '#94a3b8' },
-              grid: { color: '#1e293b' },
-              ticks: { color: '#64748b' },
-              beginAtZero: true
-            }
-          },
-          plugins: {
-            legend: { display: false },
-            tooltip: { callbacks: { label: (ctx) => ` Temp: ${ctx.parsed.y}°C (${hoursToDuration(ctx.parsed.x)})` } }
-          }
-        }
-      });
-    },
-
-    async loadScheduleDetail(scheduleId) {
-      if (!scheduleId) return;
-      const [users, schedules, phases] = await Promise.all([
-        Alpine.store('users').refresh(),
-        Alpine.store('schedules').refresh(),
-        Alpine.store('network').apiRequest(`/schedule/${scheduleId}/phase`).catch(() => [])
-      ]);
-
-      this.schedulePhases = (phases || []).sort((a, b) => a.ordinal - b.ordinal);
-
-      const dataPoints = computeTemperatureProfilePoints(this.schedulePhases);
-      const ctx = document.getElementById('scheduleDetailChart')?.getContext('2d');
-      if (!ctx) return;
-
-      if (this.detailChartInstance) this.detailChartInstance.destroy();
-
-      this.detailChartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-          datasets: [{
-            label: 'Temperature (°C)',
-            data: dataPoints.map(p => ({ x: p.x, y: p.temp })),
-            borderColor: '#f97316',
-            backgroundColor: 'rgba(249, 115, 22, 0.15)',
-            borderWidth: 2,
-            fill: true,
-            tension: 0.0,
-            pointBackgroundColor: '#ea580c',
-            pointRadius: 4,
-            pointHoverRadius: 7
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            x: {
-              type: 'linear',
-              title: { display: true, text: 'Time (Hours)', color: '#94a3b8' },
-              grid: { color: '#1e293b' },
-              ticks: { color: '#64748b', font: { size: 10 }, callback: (val) => hoursToDuration(val) }
-            },
-            y: {
-              title: { display: true, text: 'Temperature (°C)', color: '#94a3b8' },
-              grid: { color: '#1e293b' },
-              ticks: { color: '#64748b', font: { size: 10 } },
-              beginAtZero: true
-            }
-          },
-          plugins: {
-            legend: { display: false },
-            tooltip: { callbacks: { label: (ctx) => ` Temp: ${ctx.parsed.y}°C (${hoursToDuration(ctx.parsed.x)})` } }
-          }
-        }
-      });
-    },
-
     // --- Computed Properties for Detail View ---
-    get currentSchedule() {
-      return Alpine.store('schedules').items.find(s => s.id === this.selectedScheduleId) || null;
-    },
-
-    get currentScheduleOwnerName() {
-      if (!this.currentSchedule) return '--';
-      const u = Alpine.store('users').items.find(x => x.id === this.currentSchedule.user_id);
-      return u ? u.name : `User #${this.currentSchedule.user_id}`;
-    },
-
     // Helper calculations for Phase Table
     getPrecedingTemperature(editingOrdinal = null) {
       let targetList = [...this.schedulePhases];
@@ -647,7 +648,7 @@ document.addEventListener('alpine:init', () => {
 
     // --- Phase Actions & Calculations ---
     openPhaseModal(phaseToEdit = null, insertBeforePhase = null) {
-      if (!this.selectedScheduleId) {
+      if (!this.selectedSchedule) {
         Alpine.store('toast').showToast("Select a schedule first", "warning");
         return;
       }
@@ -746,6 +747,10 @@ document.addEventListener('alpine:init', () => {
       }
     },
 
+    get selectedSchedule() { // todo - shim until things are fully refactored
+        return this.tabs.schedules.selectedSchedule;
+    },
+
     async handlePhaseSubmit() {
       const p = this.forms.phase;
       if (p.phase_type === 'ramp' && !p.rate && !p.duration) {
@@ -765,7 +770,7 @@ document.addEventListener('alpine:init', () => {
           let nextMinGapOrdinal = targetOrdinal + (sortedSubsequent.length * 10);
           for (const phaseToUpdate of sortedSubsequent) {
             await Alpine.store('network').apiRequest(
-              `/schedule/${this.selectedScheduleId}/phase/${phaseToUpdate.id}`,
+              `/schedule/${this.selectedSchedule.id}/phase/${phaseToUpdate.id}`,
               'PUT',
               { ...phaseToUpdate, ordinal: nextMinGapOrdinal }
             );
@@ -778,17 +783,17 @@ document.addEventListener('alpine:init', () => {
         name: p.name,
         ordinal: targetOrdinal,
         phase_type: p.phase_type,
-        schedule_id: parseInt(this.selectedScheduleId),
+        schedule_id: parseInt(this.selectedSchedule.id),
         temperature: p.temperature !== "" ? parseInt(p.temperature) : null,
         rate: p.phase_type === 'constant' ? null : (p.rate !== "" ? parseInt(p.rate) : null),
         duration: p.duration || null
       };
 
       if (p.id) {
-        await Alpine.store('network').apiRequest(`/schedule/${this.selectedScheduleId}/phase/${p.id}`, 'PUT', payload);
+        await Alpine.store('network').apiRequest(`/schedule/${this.selectedSchedule.id}/phase/${p.id}`, 'PUT', payload);
         Alpine.store('toast').showToast("Phase updated!", "success");
       } else {
-        await Alpine.store('network').apiRequest(`/schedule/${this.selectedScheduleId}/phase`, 'POST', payload);
+        await Alpine.store('network').apiRequest(`/schedule/${this.selectedSchedule.id}/phase`, 'POST', payload);
         Alpine.store('toast').showToast("Phase added!", "success");
       }
       this.modals.phase = false;

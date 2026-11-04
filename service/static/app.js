@@ -285,7 +285,10 @@ function DashboardTab() {
       }];
 
       if (this.dashboardChartInstance) {
-        this.dashboardChartInstance.destroy();
+        const chart = Alpine.raw(this.dashboardChartInstance);
+        chart.data = { datasets };
+        chart.update();
+        return;
       }
 
       this.dashboardChartInstance = new Chart(ctx, {
@@ -394,7 +397,10 @@ function SchedulesTab() {
       const dataPoints = computeTemperatureProfilePoints(this.schedulePhases);
 
       if (this.detailChartInstance) {
-        this.detailChartInstance.destroy();
+        const chart = Alpine.raw(this.detailChartInstance);
+        chart.data.datasets[0].data = dataPoints.map(p => ({ x: p.x, y: p.temp })),
+        chart.update();
+        return;
       }
 
       this.detailChartInstance = new Chart(ctx, {

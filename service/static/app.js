@@ -249,14 +249,18 @@ function DashboardTab() {
     ...BaseTab(),
     name: "dashboard",
 
+    get selectedSchedule() {
+        return this.$data.tabs.schedules.selectedSchedule;
+    },
+
     async loadDashboardScheduleChart() {
       const ctx = document.getElementById('dashboardChart')?.getContext('2d');
       if (!ctx) return;
 
-      if (!this.$data.tabs.schedules.selectedSchedule) return;
+      if (!this.selectedSchedule) return;
 
       let datasets = null;
-      phases = await Alpine.store('network').apiRequest(`/schedule/${this.$data.tabs.schedules.selectedSchedule.id}/phase`);
+      phases = await Alpine.store('network').apiRequest(`/schedule/${this.selectedSchedule.id}/phase`);
 
       const dataPoints = computeTemperatureProfilePoints(phases);
 
@@ -585,10 +589,14 @@ document.addEventListener('alpine:init', () => {
       });
     },
 
-    // --- Navigation ---
     switchTab(tab) {
       window.location.hash = `#${tab}`
     },
+
+    get selectedSchedule() { // todo - shim until things are fully refactored
+        return this.tabs.schedules.selectedSchedule;
+    },
+
 
     // --- Computed Properties for Detail View ---
     // Helper calculations for Phase Table
@@ -732,10 +740,6 @@ document.addEventListener('alpine:init', () => {
       } else {
         this.recalculateRampValues();
       }
-    },
-
-    get selectedSchedule() { // todo - shim until things are fully refactored
-        return this.tabs.schedules.selectedSchedule;
     },
 
     async handlePhaseSubmit() {

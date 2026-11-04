@@ -219,7 +219,7 @@
                 </tr>
               </thead>
               <tbody class="data-table-body">
-                <template x-if="$store.users.items?.length  ?? 0 === 0">
+                <template x-if="!$store.users.items?.length">
                   <tr><td colspan="5" class="table-empty">No users found on server. Click "Add User" above.</td></tr>
                 </template>
                 <template x-for="u in $store.users.items ?? []" :key="u.id">

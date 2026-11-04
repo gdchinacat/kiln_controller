@@ -48,15 +48,18 @@ function createEntityStore(endpoint) {
     items: null,
     loading: false,
 
-    async refresh() {
-      this.items = await Alpine.store('network').apiRequest(endpoint);
-      return this.items;
+    init() {
+      Alpine.effect(() => {
+        if (Alpine.store('auth').user) {
+          this.refresh();
+        } else {
+            this.items  = null;
+        }
+      });
     },
 
-    async get() {
-      if (this.items === null) {
-        await this.refresh();
-      }
+    async refresh() {
+      this.items = await Alpine.store('network').apiRequest(endpoint);
       return this.items;
     },
 
@@ -248,14 +251,6 @@ function DashboardTab() {
     ...BaseTab(),
     name: "dashboard",
 
-    async init() {
-      const [users, devices, schedules] = await Promise.all([
-        Alpine.store('users').get(),
-        Alpine.store('devices').get(),
-        Alpine.store('schedules').get(),
-      ]);
-    },
-
     async loadDashboardScheduleChart() {
       const ctx = document.getElementById('dashboardChart')?.getContext('2d');
       if (!ctx) return;
@@ -263,11 +258,7 @@ function DashboardTab() {
       if (!this.$data.tabs.schedules.selectedSchedule) return;
 
       let datasets = null;
-      const [users, schedules, phases] = await Promise.all([
-        Alpine.store('users').get(),
-        Alpine.store('schedules').get(),
-        Alpine.store('network').apiRequest(`/schedule/${this.$data.tabs.schedules.selectedSchedule.id}/phase`).catch(() => [])
-      ]);
+      phases = await Alpine.store('network').apiRequest(`/schedule/${this.$data.tabs.schedules.selectedSchedule.id}/phase`);
 
       const dataPoints = computeTemperatureProfilePoints(phases);
 
@@ -327,9 +318,6 @@ function UsersTab() {
     ...BaseTab(),
     name: "users",
     modal: UserModal(),
-    async render() {
-      await Alpine.store('users').get();
-    },
   }
 }
 
@@ -338,12 +326,6 @@ function DevicesTab() {
     ...BaseTab(),
     name: "devices",
     modal: DeviceModal(),
-    async render() {
-      const [users, devices] = await Promise.all([
-        Alpine.store('users').get(),
-        Alpine.store('devices').get(),
-      ]);
-    },
   }
 }
 
@@ -354,15 +336,18 @@ function SchedulesTab() {
     modal: ScheduleModal(),
     selectedSchedule: null,
     async init() {
-      const [users, schedules] = await Promise.all([
-        Alpine.store('users').get(),
-        Alpine.store('schedules').get(),
-      ]);
-      this.selectSchedule();
+      Alpine.effect(() => {
+        if (Alpine.store('schedules').items?.length) {
+            this.selectSchedule();
+        } else {
+            this.selectedSchedule = null;
+        }
+      });
     },
 
     async selectSchedule(schedule = null) {
-      const schedules = await Alpine.store('schedules').get();
+      const schedules = Alpine.store('schedules').items;
+      if (!schedules) return;
 
       selectedSchedule = schedule ?? this.selectedSchedule;
 
@@ -381,7 +366,7 @@ function SchedulesTab() {
 
     get selectedScheduleOwnerName() {
       if (!this.selectedSchedule) return '--';
-      const u = Alpine.store('users').items.find(x => x.id === this.selectedSchedule.user_id);
+      const u = Alpine.store('users').items?.find(x => x.id === this.selectedSchedule.user_id);
       return u ? u.name : `User #${this.selectedSchedule.user_id}`;
     },
 

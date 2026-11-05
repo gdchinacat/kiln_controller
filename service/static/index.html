@@ -114,9 +114,6 @@
             <h2 class="view-title">System Overview</h2>
             <p class="view-subtitle">Live kiln management metrics and active schedule monitoring</p>
           </div>
-          <button @click="tabs.dashboard.render()" class="link-reload">
-            <i data-lucide="refresh-cw" class="icon-sm"></i> Reload Dashboard
-          </button>
         </div>
 
         <!-- Overview Stats Cards -->
@@ -197,9 +194,6 @@
             <h2 class="view-title">Users</h2>
           </div>
           <div class="view-toolbar">
-            <button @click="tabs.users.render()" class="btn-refresh">
-              <i data-lucide="refresh-cw" class="icon"></i>
-            </button>
             <button @click="modal.open()" class="btn-create">
               <i data-lucide="user-plus" class="icon"></i> Add User
             </button>
@@ -284,9 +278,6 @@
             <p class="view-subtitle">Hardware controllers connected to the server ecosystem</p>
           </div>
           <div class="view-toolbar">
-            <button @click="tabs.devices.render()" class="btn-refresh">
-              <i data-lucide="refresh-cw" class="icon"></i>
-            </button>
           </div>
         </div>
 
@@ -363,9 +354,6 @@
             <p class="view-subtitle">Define firing ramp/hold profiles</p>
           </div>
           <div class="view-toolbar">
-            <button @click="tabs.schedules.render()" class="btn-refresh">
-              <i data-lucide="refresh-cw" class="icon"></i>
-            </button>
             <button @click="modal.open()" class="btn-create">
               <i data-lucide="calendar-plus" class="icon"></i> Create Schedule
             </button>

@@ -45,7 +45,6 @@
   /* ------------------------------------------------------------------ */
   /* Buttons                                                            */
   /* ------------------------------------------------------------------ */
-  .btn-refresh       { @apply p-2 text-slate-400 hover:text-white bg-slate-900 border border-slate-800 rounded-xl text-xs flex items-center gap-1; }
   .btn-create        { @apply bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 shadow-lg shadow-orange-600/20; }
   .btn-primary       { @apply px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-xs font-semibold; }
   .btn-danger        { @apply px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-semibold; }

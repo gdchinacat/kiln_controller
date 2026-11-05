@@ -408,7 +408,7 @@
                     <p class="schedule-detail-meta">Operator: <span x-text="selectedScheduleOwnerName" class="schedule-detail-owner">--</span></p>
                   </div>
                   <div class="view-toolbar">
-                    <button @click="openPhaseModal()" class="btn-outline-accent">
+                    <button @click="phaseModal.open()" class="btn-outline-accent">
                       <i data-lucide="plus-circle" class="icon"></i> Add Phase
                     </button>
                     <button @click="modal.open(selectedSchedule)" class="btn-tool">
@@ -459,14 +459,14 @@
                             <td x-text="getDisplayRateForDurationPhase(p)" class="cell-numeric"></td>
                             <td x-text="getDisplayDurationForRatePhase(p)" class="cell-numeric"></td>
                             <td class="cell-actions">
-                              <button @click="openPhaseModal(null, p)" title="Insert phase before this one" class="row-action">
-                                <i data-lucide="list-plus" class="icon-sm"></i>
+                              <button @click="phaseModal.open(null, p)" title="Insert phase before this one" class="row-action">
+                                <i x-icon="list-plus" class="icon-sm"></i>
                               </button>
-                              <button @click="openPhaseModal(p)" title="Edit phase" class="row-action">
-                                <i data-lucide="edit-2" class="icon-sm"></i>
+                              <button @click="phaseModal.open(p)" title="Edit phase" class="row-action">
+                                <i x-icon="edit-2" class="icon-sm"></i>
                               </button>
-                              <button @click="deletePhase(selectedSchedule.id, p)" title="Delete phase" class="row-action-danger">
-                                <i data-lucide="trash-2" class="icon-sm"></i>
+                              <button @click="phaseModal.delete(selectedSchedule.id, p)" title="Delete phase" class="row-action-danger">
+                                <i x-icon="trash-2" class="icon-sm"></i>
                               </button>
                             </td>
                           </tr>
@@ -507,6 +507,63 @@
             </form>
           </div>
         </div>
+
+        <!-- PHASE MODAL -->
+        <div x-data="phaseModal" x-show="show" class="modal-backdrop">
+          <div @click.outside="close()" class="modal">
+            <div class="modal-header">
+              <h3 x-text="form.id ? 'Edit Phase' : 'Add Phase'" class="modal-title"></h3>
+              <button @click="close()" class="modal-close"><i data-lucide="x" class="icon-md"></i></button>
+            </div>
+            <form @submit.prevent="submit()" class="form-stack">
+              <div>
+                <label class="form-label">Phase Name *</label>
+                <input type="text" x-model="form.name" required maxlength="30" class="form-control" placeholder="e.g. Ramp to Cone">
+              </div>
+
+              <div>
+                <label class="form-label">Phase Type *</label>
+                <select x-model="form.phase_type" @change="onPhaseTypeChange()" required class="form-control">
+                  <option value="ramp">Ramp</option>
+                  <option value="constant">Constant (Hold)</option>
+                </select>
+              </div>
+
+              <!-- Temperature Input -->
+              <div>
+                <label class="form-label">Target Temp (°C) *</label>
+                <input type="number" x-model="form.temperature" @input="recalculateRampValues()" :readonly="form.phase_type === 'constant'" :class="{ 'is-readonly': form.phase_type === 'constant' }" required placeholder="e.g. 1220" class="form-control">
+                <span x-show="form.phase_type === 'constant'" class="form-hint">Holds preceding phase temperature (Read-Only)</span>
+              </div>
+
+              <div class="form-row">
+                <!-- Rate Input container -->
+                <div x-show="form.phase_type === 'ramp'">
+                  <div class="form-label-row">
+                    <label class="form-label">Rate (°/h)</label>
+                    <span x-show="activeRampMode === 'duration'" class="tag-calculated">Calculated</span>
+                  </div>
+                  <input type="number" x-model="form.rate" @focus="setActiveRampMode('rate')" @input="recalculateRampValues()" :class="{ 'is-calculated': activeRampMode === 'duration' }" placeholder="150" class="form-control">
+                </div>
+
+                <!-- Duration Input container -->
+                <div>
+                  <div class="form-label-row">
+                    <label class="form-label">Duration (HH:MM)</label>
+                    <span x-show="form.phase_type === 'ramp' && activeRampMode === 'rate'" class="tag-calculated">Calculated</span>
+                  </div>
+                  <input type="text" x-model="form.duration" @focus="setActiveRampMode('duration')" @input="recalculateRampValues()" :class="{ 'is-calculated': form.phase_type === 'ramp' && activeRampMode === 'rate' }" placeholder="01:30" class="form-control">
+                </div>
+              </div>
+
+              <div class="form-actions">
+                <button type="button" @click="close()" class="btn-text">Cancel</button>
+                <button type="submit" class="btn-primary">Save Phase</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
       </section>
 
     </main>
@@ -525,62 +582,6 @@
         </div>
         <div class="form-actions">
           <button type="submit" class="btn-primary">Login</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- PHASE MODAL -->
-  <div x-show="modals.phase" class="modal-backdrop">
-    <div @click.outside="modals.phase = false" class="modal">
-      <div class="modal-header">
-        <h3 x-text="forms.phase.id ? 'Edit Phase' : 'Add Phase'" class="modal-title"></h3>
-        <button @click="modals.phase = false" class="modal-close"><i data-lucide="x" class="icon-md"></i></button>
-      </div>
-      <form @submit.prevent="handlePhaseSubmit()" class="form-stack">
-        <div>
-          <label class="form-label">Phase Name *</label>
-          <input type="text" x-model="forms.phase.name" required maxlength="30" class="form-control" placeholder="e.g. Ramp to Cone">
-        </div>
-
-        <div>
-          <label class="form-label">Phase Type *</label>
-          <select x-model="forms.phase.phase_type" @change="onPhaseTypeChange()" required class="form-control">
-            <option value="ramp">Ramp</option>
-            <option value="constant">Constant (Hold)</option>
-          </select>
-        </div>
-
-        <!-- Temperature Input -->
-        <div>
-          <label class="form-label">Target Temp (°C) *</label>
-          <input type="number" x-model="forms.phase.temperature" @input="recalculateRampValues()" :readonly="forms.phase.phase_type === 'constant'" :class="{ 'is-readonly': forms.phase.phase_type === 'constant' }" required placeholder="e.g. 1220" class="form-control">
-          <span x-show="forms.phase.phase_type === 'constant'" class="form-hint">Holds preceding phase temperature (Read-Only)</span>
-        </div>
-
-        <div class="form-row">
-          <!-- Rate Input container -->
-          <div x-show="forms.phase.phase_type === 'ramp'">
-            <div class="form-label-row">
-              <label class="form-label">Rate (°/h)</label>
-              <span x-show="activeRampMode === 'duration'" class="tag-calculated">Calculated</span>
-            </div>
-            <input type="number" x-model="forms.phase.rate" @focus="setActiveRampMode('rate')" @input="recalculateRampValues()" :class="{ 'is-calculated': activeRampMode === 'duration' }" placeholder="150" class="form-control">
-          </div>
-
-          <!-- Duration Input container -->
-          <div>
-            <div class="form-label-row">
-              <label class="form-label">Duration (HH:MM)</label>
-              <span x-show="forms.phase.phase_type === 'ramp' && activeRampMode === 'rate'" class="tag-calculated">Calculated</span>
-            </div>
-            <input type="text" x-model="forms.phase.duration" @focus="setActiveRampMode('duration')" @input="recalculateRampValues()" :class="{ 'is-calculated': forms.phase.phase_type === 'ramp' && activeRampMode === 'rate' }" placeholder="01:30" class="form-control">
-          </div>
-        </div>
-
-        <div class="form-actions">
-          <button type="button" @click="modals.phase = false" class="btn-text">Cancel</button>
-          <button type="submit" class="btn-primary">Save Phase</button>
         </div>
       </form>
     </div>

@@ -236,6 +236,198 @@ function ScheduleModal() {
   };
 }
 
+function PhaseModal() {
+  return {
+    show: false,
+    name: '',
+    activeRampMode: 'rate',
+    form: {
+      id: '',
+      name: '',
+      ordinal: 10,
+      phase_type: 'ramp',
+      temperature: '',
+      rate: '',
+      duration: ''
+    },
+
+    open(phase = null, insertBefore = null) {
+      if (!this.$data.selectedSchedule) {
+        Alpine.store('toast').showToast("Select a schedule first", "warning");
+        return;
+      }
+
+      let calculatedOrdinal;
+
+      // todo - extract this ordinal calculation
+      // todo - handle cases where the gap is full and ordinals need to be shifted.
+      if (phase) {
+        calculatedOrdinal = phase.ordinal;
+      } else if (insertBefore) {
+        // todo - phases should already be sorted, don't think this is necessary
+        //const sorted = [...this.$data.schedulePhases].sort((a, b) => a.ordinal - b.ordinal);
+        const targetIdx = this.$data.schedulePhases.findIndex(p => p.id === insertBefore.id);
+        const prevPhase = targetIdx > 0 ? this.$data.schedulePhases[targetIdx - 1] : null;
+
+        if (prevPhase) {
+          calculatedOrdinal = Math.floor((prevPhase.ordinal + insertBefore.ordinal) / 2);
+        } else {
+          calculatedOrdinal = Math.floor(insertBefore.ordinal / 2);
+        }
+      } else {
+        if (this.$data.schedulePhases.length === 0) {
+          calculatedOrdinal = 10;
+        } else {
+          const maxOrdinal = Math.max(...this.$data.schedulePhases.map(p => p.ordinal));
+          calculatedOrdinal = maxOrdinal + 10;
+        }
+      }
+
+      this.form = phase? {
+        id: phase.id,
+        name: phase.name,
+        ordinal: phase.ordinal,
+        phase_type: phase.phase_type,
+        temperature: phase.temperature ?? '',
+        rate: phase.rate ?? '',
+        duration: phase.duration || ''
+      } : {
+        id: '',
+        name: '',
+        ordinal: calculatedOrdinal,
+        phase_type: 'ramp',
+        temperature: '',
+        rate: '',
+        duration: ''
+      };
+
+      this.setActiveRampMode((phase && !phase.rate && phase.duration) ? 'duration' : 'rate');
+      this.onPhaseTypeChange();
+      this.show = true;
+    },
+
+    close() { this.show = false; },
+
+    async submit() {
+      if (this.form.phase_type === 'ramp' && !this.form.rate && !this.form.duration) {
+        Alpine.store('toast').showToast("Please enter either a Rate or Duration for Ramp phases.", "error");
+        return;
+      }
+
+      const ordinal = parseInt(this.form.ordinal);
+      const p = this.form;
+
+      if (!this.form.id) {
+        // todo - only reassign ordinals if there is a need.
+        const existingOrdinals = new Set(this.$data.schedulePhases.map(p => p.ordinal));
+        if (ordinal <= 0 || existingOrdinals.has(ordinal)) {
+          const sortedSubsequent = [...this.$data.schedulePhases]
+            .filter(phase => phase.ordinal >= ordinal)
+            .sort((a, b) => b.ordinal - a.ordinal);
+
+          let nextMinGapOrdinal = ordinal + (sortedSubsequent.length * 10);
+          for (const phaseToUpdate of sortedSubsequent) {
+            await Alpine.store('network').apiRequest(
+              `/schedule/${this.selectedSchedule.id}/phase/${phaseToUpdate.id}`,
+              'PUT',
+              { ...phaseToUpdate, ordinal: nextMinGapOrdinal }
+            );
+            nextMinGapOrdinal -= 10;
+          }
+        }
+      }
+
+      const payload = {
+        name: p.name,
+        ordinal: ordinal,
+        phase_type: p.phase_type,
+        schedule_id: parseInt(this.selectedSchedule.id),
+        temperature: p.temperature !== "" ? parseInt(p.temperature) : null,
+        rate: p.phase_type === 'constant' ? null : (p.rate !== "" ? parseInt(p.rate) : null),
+        duration: p.duration || null
+      };
+
+      try {
+        if (p.id) {
+          await Alpine.store('network').apiRequest(`/schedule/${this.selectedSchedule.id}/phase/${p.id}`, 'PUT', payload);
+          Alpine.store('toast').showToast("Phase updated!", "success");
+        } else {
+          await Alpine.store('network').apiRequest(`/schedule/${this.selectedSchedule.id}/phase`, 'POST', payload);
+          Alpine.store('toast').showToast("Phase added!", "success");
+        }
+        this.show = false;
+      } finally {
+        this.$data.loadScheduleDetail();
+      }
+    },
+
+    delete(scheduleId, phase) {
+      const phStr = phase.name ? `"${phase.name}"` : `Phase #${phase.id}`;
+      this.$data.confirmModal.confirm(`Delete phase ${phStr} from the schedule?`, async () => {
+        try {
+          await Alpine.store('network').apiRequest(`/schedule/${scheduleId}/phase/${phase.id}`, 'DELETE');
+          Alpine.store('toast').showToast("Phase removed", "warning");
+        } catch (error) {
+          Alpine.store('toast').showToast(`Phase delete failed: ${error.message}`, "error");
+        } finally {
+          this.$data.loadScheduleDetail();
+        }
+      });
+    },
+
+    setActiveRampMode(mode) {
+      if (this.form.phase_type !== 'ramp') return;
+      this.activeRamMode = mode;
+    },
+
+    onPhaseTypeChange() {
+      const currentOrdinal = parseInt(this.form.ordinal);
+      if (this.form.phase_type === 'constant') {
+        //todo - phases should already be sorted, don't think this is necessary
+        //const sorted = [...this.schedulePhases].sort((a, b) => a.ordinal - b.ordinal);
+        const precedingPhases = this.$data.schedulePhases.filter(p => p.ordinal < currentOrdinal);
+        const relativePrev = precedingPhases.length > 0 ? precedingPhases[precedingPhases.length - 1] : null;
+
+        if (!relativePrev || relativePrev.phase_type !== 'ramp') {
+          Alpine.store('toast').showToast("Constant phases must immediately follow a Ramp phase.", "error");
+          this.form.phase_type = 'ramp';
+          return;
+        }
+
+        this.form.temperature = this.$data.getPrecedingTemperature(currentOrdinal);
+        this.form.rate = '';
+      } else {
+        this.recalculateRampValues();
+      }
+    },
+
+    recalculateRampValues() {
+      if (this.form.phase_type !== 'ramp') return;
+      const targetTemp = parseFloat(this.form.temperature);
+      const currentOrdinal = parseInt(this.form.ordinal);
+      const startTemp = this.$data.getPrecedingTemperature(currentOrdinal);
+
+      if (isNaN(targetTemp)) return;
+      const tempDiff = Math.abs(targetTemp - startTemp);
+
+      if (this.activeRampMode === 'rate') {
+        const rate = parseFloat(this.form.rate);
+        if (!isNaN(rate) && rate > 0) {
+          const hours = tempDiff / rate;
+          this.form.duration = hoursToDuration(hours);
+        }
+      } else if (this.activeRampMode === 'duration') {
+        const hours = durationToHours(this.form.duration);
+        if (hours > 0) {
+          this.form.rate = Math.round(tempDiff / hours);
+        }
+      }
+    },
+
+
+  }
+}
+
 function BaseTab() {
     return {
         show: false,
@@ -337,6 +529,7 @@ function SchedulesTab() {
     ...BaseTab(),
     name: "schedules",
     modal: ScheduleModal(),
+    phaseModal: PhaseModal(),
     selectedSchedule: null,
     chart: null,
 
@@ -433,6 +626,48 @@ function SchedulesTab() {
         }
       });
     },
+
+    getDisplayRateForDurationPhase(p) {
+      if (p.phase_type === 'constant') return '';
+      if (p.rate !== null && p.rate !== undefined && p.rate > 0) return `${p.rate}°/h`;
+
+      if (p.duration) {
+        const startTemp = this.getPrecedingTemperature(p.ordinal);
+        const targetTemp = p.temperature !== null && p.temperature !== undefined ? p.temperature : startTemp;
+        const tempDiff = Math.abs(targetTemp - startTemp);
+        const hours = durationToHours(p.duration);
+        if (hours != 0) {
+          return `~${Math.round(tempDiff / hours)}°/h`;
+        } else {
+          return "ASAP";
+        }
+      }
+      alert("shouldn't ever happen");
+      return '--';
+    },
+
+    getDisplayDurationForRatePhase(p) {
+      if (p.duration) return p.duration;
+      if (p.phase_type === 'ramp' && p.rate && p.rate > 0) {
+        const startTemp = this.getPrecedingTemperature(p.ordinal);
+        const targetTemp = p.temperature !== null && p.temperature !== undefined ? p.temperature : startTemp;
+        const tempDiff = Math.abs(targetTemp - startTemp);
+        const hours = tempDiff / p.rate;
+        return hoursToDuration(hours);
+      }
+      return '--';
+    },
+
+    getPrecedingTemperature(editingOrdinal = null) {
+      let targetList = [...this.$data.schedulePhases];
+      if (editingOrdinal !== null) {
+        targetList = targetList.filter(p => p.ordinal < editingOrdinal);
+      }
+      if (targetList.length === 0) return DEFAULT_ROOM_TEMP;
+      const lastPhase = targetList[targetList.length - 1];
+      return (lastPhase.temperature !== null && lastPhase.temperature !== undefined) ? lastPhase.temperature : DEFAULT_ROOM_TEMP;
+    },
+
   }
 }
 
@@ -535,7 +770,6 @@ document.addEventListener('alpine:init', () => {
   Alpine.store('users', createEntityStore('/user')),
   Alpine.store('devices', createEntityStore('/device')),
   Alpine.store('schedules', createEntityStore('/schedule')),
-  //Alpine.store('schedulePhases', createEntityStore('/schedule/${schedule_id}/phase')),
 
   Alpine.data('kilnApp', () => ({
 
@@ -552,17 +786,6 @@ document.addEventListener('alpine:init', () => {
         devices: DevicesTab(),
         schedules: SchedulesTab(),
     },
-
-    // Modal Visibility & Form Data
-    modals: {
-      phase: false,
-    },
-    forms: {
-      phase: { id: '', name: '', ordinal: 10, phase_type: 'ramp', temperature: '', rate: '', duration: '' }
-    },
-
-    // Ramp/Phase logic states
-    activeRampMode: 'rate',
 
     async refreshCurrentView() {
       try {
@@ -592,213 +815,6 @@ document.addEventListener('alpine:init', () => {
 
     switchTab(tab) {
       window.location.hash = `#${tab}`
-    },
-
-    get selectedSchedule() { // todo - shim until things are fully refactored
-        return this.tabs.schedules.selectedSchedule;
-    },
-
-
-    // --- Computed Properties for Detail View ---
-    // Helper calculations for Phase Table
-    getPrecedingTemperature(editingOrdinal = null) {
-      let targetList = [...this.schedulePhases];
-      if (editingOrdinal !== null) {
-        targetList = targetList.filter(p => p.ordinal < editingOrdinal);
-      }
-      if (targetList.length === 0) return DEFAULT_ROOM_TEMP;
-      const lastPhase = targetList[targetList.length - 1];
-      return (lastPhase.temperature !== null && lastPhase.temperature !== undefined) ? lastPhase.temperature : DEFAULT_ROOM_TEMP;
-    },
-
-    getDisplayRateForDurationPhase(p) {
-      if (p.phase_type === 'constant') return '';
-      if (p.rate !== null && p.rate !== undefined && p.rate > 0) return `${p.rate}°/h`;
-
-      if (p.duration) {
-        const startTemp = this.getPrecedingTemperature(p.ordinal);
-        const targetTemp = p.temperature !== null && p.temperature !== undefined ? p.temperature : startTemp;
-        const tempDiff = Math.abs(targetTemp - startTemp);
-        const hours = durationToHours(p.duration);
-        if (hours != 0) {
-          return `~${Math.round(tempDiff / hours)}°/h`;
-        } else {
-          return "ASAP";
-        }
-      }
-      alert("shouldn't ever happen");
-      return '--';
-    },
-
-    getDisplayDurationForRatePhase(p) {
-      if (p.duration) return p.duration;
-      if (p.phase_type === 'ramp' && p.rate && p.rate > 0) {
-        const startTemp = this.getPrecedingTemperature(p.ordinal);
-        const targetTemp = p.temperature !== null && p.temperature !== undefined ? p.temperature : startTemp;
-        const tempDiff = Math.abs(targetTemp - startTemp);
-        const hours = tempDiff / p.rate;
-        return hoursToDuration(hours);
-      }
-      return '--';
-    },
-
-    // --- Phase Actions & Calculations ---
-    openPhaseModal(phaseToEdit = null, insertBeforePhase = null) {
-      if (!this.selectedSchedule) {
-        Alpine.store('toast').showToast("Select a schedule first", "warning");
-        return;
-      }
-
-      let calculatedOrdinal;
-
-      if (phaseToEdit) {
-        calculatedOrdinal = phaseToEdit.ordinal;
-      } else if (insertBeforePhase) {
-        const sorted = [...this.schedulePhases].sort((a, b) => a.ordinal - b.ordinal);
-        const targetIdx = sorted.findIndex(p => p.id === insertBeforePhase.id);
-        const prevPhase = targetIdx > 0 ? sorted[targetIdx - 1] : null;
-
-        if (prevPhase) {
-          calculatedOrdinal = Math.floor((prevPhase.ordinal + insertBeforePhase.ordinal) / 2);
-        } else {
-          calculatedOrdinal = Math.floor(insertBeforePhase.ordinal / 2);
-        }
-      } else {
-        if (this.schedulePhases.length === 0) {
-          calculatedOrdinal = 10;
-        } else {
-          const maxOrdinal = Math.max(...this.schedulePhases.map(p => p.ordinal));
-          calculatedOrdinal = maxOrdinal + 10;
-        }
-      }
-
-      this.forms.phase = phaseToEdit ? {
-        id: phaseToEdit.id,
-        name: phaseToEdit.name,
-        ordinal: phaseToEdit.ordinal,
-        phase_type: phaseToEdit.phase_type,
-        temperature: phaseToEdit.temperature ?? '',
-        rate: phaseToEdit.rate ?? '',
-        duration: phaseToEdit.duration || ''
-      } : {
-        id: '',
-        name: '',
-        ordinal: calculatedOrdinal,
-        phase_type: 'ramp',
-        temperature: '',
-        rate: '',
-        duration: ''
-      };
-
-      this.activeRampMode = (phaseToEdit && !phaseToEdit.rate && phaseToEdit.duration) ? 'duration' : 'rate';
-      this.onPhaseTypeChange();
-      this.modals.phase = true;
-    },
-
-    setActiveRampMode(mode) {
-      if (this.forms.phase.phase_type !== 'ramp') return;
-      this.activeRampMode = mode;
-    },
-
-    recalculateRampValues() {
-      if (this.forms.phase.phase_type !== 'ramp') return;
-      const targetTemp = parseFloat(this.forms.phase.temperature);
-      const currentOrdinal = parseInt(this.forms.phase.ordinal);
-      const startTemp = this.getPrecedingTemperature(currentOrdinal);
-
-      if (isNaN(targetTemp)) return;
-      const tempDiff = Math.abs(targetTemp - startTemp);
-
-      if (this.activeRampMode === 'rate') {
-        const rate = parseFloat(this.forms.phase.rate);
-        if (!isNaN(rate) && rate > 0) {
-          const hours = tempDiff / rate;
-          this.forms.phase.duration = hoursToDuration(hours);
-        }
-      } else if (this.activeRampMode === 'duration') {
-        const hours = durationToHours(this.forms.phase.duration);
-        if (hours > 0) {
-          this.forms.phase.rate = Math.round(tempDiff / hours);
-        }
-      }
-    },
-
-    onPhaseTypeChange() {
-      const currentOrdinal = parseInt(this.forms.phase.ordinal);
-      if (this.forms.phase.phase_type === 'constant') {
-        const sorted = [...this.schedulePhases].sort((a, b) => a.ordinal - b.ordinal);
-        const precedingPhases = sorted.filter(p => p.ordinal < currentOrdinal);
-        const relativePrev = precedingPhases.length > 0 ? precedingPhases[precedingPhases.length - 1] : null;
-
-        if (!relativePrev || relativePrev.phase_type !== 'ramp') {
-          Alpine.store('toast').showToast("Constant phases must immediately follow a Ramp phase.", "error");
-          this.forms.phase.phase_type = 'ramp';
-          return;
-        }
-
-        this.forms.phase.temperature = this.getPrecedingTemperature(currentOrdinal);
-        this.forms.phase.rate = '';
-      } else {
-        this.recalculateRampValues();
-      }
-    },
-
-    async handlePhaseSubmit() {
-      const p = this.forms.phase;
-      if (p.phase_type === 'ramp' && !p.rate && !p.duration) {
-        Alpine.store('toast').showToast("Please enter either a Rate or Duration for Ramp phases.", "error");
-        return;
-      }
-
-      let targetOrdinal = parseInt(p.ordinal);
-
-      if (!p.id) {
-        const existingOrdinals = new Set(this.schedulePhases.map(phase => phase.ordinal));
-        if (targetOrdinal <= 0 || existingOrdinals.has(targetOrdinal)) {
-          const sortedSubsequent = [...this.schedulePhases]
-            .filter(phase => phase.ordinal >= targetOrdinal)
-            .sort((a, b) => b.ordinal - a.ordinal);
-
-          let nextMinGapOrdinal = targetOrdinal + (sortedSubsequent.length * 10);
-          for (const phaseToUpdate of sortedSubsequent) {
-            await Alpine.store('network').apiRequest(
-              `/schedule/${this.selectedSchedule.id}/phase/${phaseToUpdate.id}`,
-              'PUT',
-              { ...phaseToUpdate, ordinal: nextMinGapOrdinal }
-            );
-            nextMinGapOrdinal -= 10;
-          }
-        }
-      }
-
-      const payload = {
-        name: p.name,
-        ordinal: targetOrdinal,
-        phase_type: p.phase_type,
-        schedule_id: parseInt(this.selectedSchedule.id),
-        temperature: p.temperature !== "" ? parseInt(p.temperature) : null,
-        rate: p.phase_type === 'constant' ? null : (p.rate !== "" ? parseInt(p.rate) : null),
-        duration: p.duration || null
-      };
-
-      if (p.id) {
-        await Alpine.store('network').apiRequest(`/schedule/${this.selectedSchedule.id}/phase/${p.id}`, 'PUT', payload);
-        Alpine.store('toast').showToast("Phase updated!", "success");
-      } else {
-        await Alpine.store('network').apiRequest(`/schedule/${this.selectedSchedule.id}/phase`, 'POST', payload);
-        Alpine.store('toast').showToast("Phase added!", "success");
-      }
-      this.modals.phase = false;
-      this.refreshCurrentView();
-    },
-
-    deletePhase(scheduleId, phase) {
-      const phStr = phase.name ? `"${phase.name}"` : `Phase #${phase.id}`;
-      this.showConfirmDialog(`Delete phase ${phStr} from the schedule?`, async () => {
-        await Alpine.store('network').apiRequest(`/schedule/${scheduleId}/phase/${phase.id}`, 'DELETE');
-        Alpine.store('toast').showToast("Phase removed", "warning");
-        this.refreshCurrentView();
-      });
     },
 
   }))

@@ -571,29 +571,29 @@ function SchedulesTab() {
 
       const dataPoints = computeTemperatureProfilePoints(this.schedulePhases);
 
+      datasets = [{
+        label: 'Temperature (°C)',
+        data: dataPoints.map(p => ({ x: p.x, y: p.temp })),
+        borderColor: '#f97316',
+        backgroundColor: 'rgba(249, 115, 22, 0.15)',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.0,
+        pointBackgroundColor: '#ea580c',
+        pointRadius: 4,
+        pointHoverRadius: 7
+      }];
+
       if (this.chart) {
         const chart = Alpine.raw(this.chart);
-        chart.data.datasets[0].data = dataPoints.map(p => ({ x: p.x, y: p.temp })),
+        chart.data = { datasets };
         chart.update();
         return;
       }
 
       this.chart = new Chart(ctx, {
         type: 'line',
-        data: {
-          datasets: [{
-            label: 'Temperature (°C)',
-            data: dataPoints.map(p => ({ x: p.x, y: p.temp })),
-            borderColor: '#f97316',
-            backgroundColor: 'rgba(249, 115, 22, 0.15)',
-            borderWidth: 2,
-            fill: true,
-            tension: 0.0,
-            pointBackgroundColor: '#ea580c',
-            pointRadius: 4,
-            pointHoverRadius: 7
-          }]
-        },
+        data: { datasets },
         options: {
           responsive: true,
           maintainAspectRatio: false,

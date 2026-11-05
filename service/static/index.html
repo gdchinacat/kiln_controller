@@ -392,9 +392,6 @@
                     <p class="schedule-detail-meta">Operator: <span x-text="selectedScheduleOwnerName" class="schedule-detail-owner">--</span></p>
                   </div>
                   <div class="view-toolbar">
-                    <button @click="phaseModal.open()" class="btn-outline-accent">
-                      <i data-lucide="plus-circle" class="icon"></i> Add Phase
-                    </button>
                     <button @click="modal.open(selectedSchedule)" class="btn-tool">
                       <i data-lucide="edit-3" class="icon"></i>
                     </button>
@@ -416,6 +413,9 @@
                 <div>
                   <div class="subsection-header">
                     <h4 class="subsection-title">Sequential Firing Phases</h4>
+                    <button @click="phaseModal.open()" class="btn-outline-accent">
+                      <i data-lucide="plus-circle" class="icon"></i> Append Phase
+                    </button>
                   </div>
                   <div class="table-frame">
                     <table class="phase-table">

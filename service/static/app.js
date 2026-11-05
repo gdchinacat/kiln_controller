@@ -22,12 +22,11 @@ function computeTemperatureProfilePoints(phases) {
   if (!phases || phases.length === 0) {
     return [{ x: 0, temp: 20 }, { x: 1, temp: 20 }];
   }
-  const sorted = [...phases].sort((a, b) => a.ordinal - b.ordinal);
   let points = [{ x: 0, temp: 20 }];
   let currentTemp = 20;
   let totalHours = 0;
 
-  sorted.forEach((p) => {
+  phases.forEach((p) => {
     const targetTemp = p.temperature !== null && p.temperature !== undefined ? p.temperature : currentTemp;
     let durationHours = 0;
     if (p.duration) {
@@ -264,8 +263,6 @@ function PhaseModal() {
       if (phase) {
         calculatedOrdinal = phase.ordinal;
       } else if (insertBefore) {
-        // todo - phases should already be sorted, don't think this is necessary
-        //const sorted = [...this.$data.schedulePhases].sort((a, b) => a.ordinal - b.ordinal);
         const targetIdx = this.$data.schedulePhases.findIndex(p => p.id === insertBefore.id);
         const prevPhase = targetIdx > 0 ? this.$data.schedulePhases[targetIdx - 1] : null;
 
@@ -321,12 +318,12 @@ function PhaseModal() {
         // todo - only reassign ordinals if there is a need.
         const existingOrdinals = new Set(this.$data.schedulePhases.map(p => p.ordinal));
         if (ordinal <= 0 || existingOrdinals.has(ordinal)) {
-          const sortedSubsequent = [...this.$data.schedulePhases]
+          const subsequentPhases = [...this.$data.schedulePhases]
             .filter(phase => phase.ordinal >= ordinal)
-            .sort((a, b) => b.ordinal - a.ordinal);
+            .toReversed();
 
-          let nextMinGapOrdinal = ordinal + (sortedSubsequent.length * 10);
-          for (const phaseToUpdate of sortedSubsequent) {
+          let nextMinGapOrdinal = ordinal + (subsequentPhases.length * 10);
+          for (const phaseToUpdate of subsequentPhases) {
             await Alpine.store('network').apiRequest(
               `/schedule/${this.selectedSchedule.id}/phase/${phaseToUpdate.id}`,
               'PUT',
@@ -383,8 +380,6 @@ function PhaseModal() {
     onPhaseTypeChange() {
       const currentOrdinal = parseInt(this.form.ordinal);
       if (this.form.phase_type === 'constant') {
-        //todo - phases should already be sorted, don't think this is necessary
-        //const sorted = [...this.schedulePhases].sort((a, b) => a.ordinal - b.ordinal);
         const precedingPhases = this.$data.schedulePhases.filter(p => p.ordinal < currentOrdinal);
         const relativePrev = precedingPhases.length > 0 ? precedingPhases[precedingPhases.length - 1] : null;
 
@@ -450,10 +445,8 @@ function DashboardTab() {
       const ctx = document.getElementById('dashboardChart')?.getContext('2d');
       if (!ctx) return;
 
-      if (!this.selectedSchedule) return;
-
       let datasets = null;
-      phases = await Alpine.store('network').apiRequest(`/schedule/${this.selectedSchedule.id}/phase`);
+      phases = this.tabs.schedules.schedulePhases;
 
       const dataPoints = computeTemperatureProfilePoints(phases);
 
@@ -531,21 +524,15 @@ function SchedulesTab() {
     modal: ScheduleModal(),
     phaseModal: PhaseModal(),
     selectedSchedule: null,
+    schedulePhases: [],
     chart: null,
 
     async init() {
-      Alpine.effect(() => {
-        if (Alpine.store('schedules').items?.length) {
-            this.selectSchedule();
-        } else {
-            this.selectedSchedule = null;
-        }
-      });
+      Alpine.effect(() => this.selectSchedule());
     },
 
     async selectSchedule(schedule = null) {
       const schedules = Alpine.store('schedules').items;
-      if (!schedules) return;
 
       selectedSchedule = schedule ?? this.selectedSchedule;
 
@@ -553,12 +540,13 @@ function SchedulesTab() {
         selectedSchedule = null;
       }
 
-      if (!selectedSchedule && schedules.length > 0) {
+      if (!selectedSchedule && schedules?.length > 0) {
         selectedSchedule = schedules[0];
       }
 
       if (selectedSchedule != this.selectedSchedule) {
         this.selectedSchedule = selectedSchedule;
+        this.loadScheduleDetail();
       }
     },
 
@@ -569,7 +557,11 @@ function SchedulesTab() {
     },
 
     async loadScheduleDetail() {
-      if (!this.selectedSchedule) return;
+      if (!this.selectedSchedule) {
+        this.schedulePhases = [];
+        return;
+      }
+
       const ctx = document.getElementById('scheduleDetailChart')?.getContext('2d');
       if (!ctx) return;
 
@@ -772,9 +764,6 @@ document.addEventListener('alpine:init', () => {
   Alpine.store('schedules', createEntityStore('/schedule')),
 
   Alpine.data('kilnApp', () => ({
-
-    // App State & Data Collections
-    schedulePhases: [], // todo move into tab
 
     loginModal: LoginModal(),
     confirmModal: ConfirmModal(),

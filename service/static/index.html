@@ -58,7 +58,7 @@
 
   <script src="/static/app.js"></script>
 </head>
-<body x-data="kilnApp" x-on:refresh-view.window="refreshCurrentView()" class="app-body">
+<body x-data="kilnApp" x-on:show-login.window="maybeShowLogin()" class="app-body">
 
   <div id="app" class="app-shell">
 
@@ -97,10 +97,6 @@
         <button x-data x-show="$store.auth.isAuthenticated" @click="loginModal.logout()" title="Logout" class="header-button">
           <i data-lucide="log-out" class="icon"></i>
           <span class="header-button-label">Logout</span>
-        </button>
-        <button @click="refreshCurrentView()" title="Refresh Data" class="header-button">
-          <i data-lucide="refresh-cw" class="icon"></i>
-          <span class="header-button-label">Refresh</span>
         </button>
       </div>
     </header>

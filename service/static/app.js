@@ -50,14 +50,14 @@ function createEntityStore(endpoint) {
     init() {
       Alpine.effect(() => {
         if (Alpine.store('auth').user) {
-          this.refresh();
+          this.reload();
         } else {
             this.items  = null;
         }
       });
     },
 
-    async refresh() {
+    async reload() {
       this.items = await Alpine.store('network').apiRequest(endpoint);
       return this.items;
     },
@@ -66,7 +66,7 @@ function createEntityStore(endpoint) {
       try {
         return await Alpine.store('network').apiRequest(endpoint, 'POST', payload);
       } finally {
-        await this.refresh();
+        await this.reload();
       }
     },
 
@@ -74,7 +74,7 @@ function createEntityStore(endpoint) {
       try {
         return await Alpine.store('network').apiRequest(`${endpoint}/${payload.id}`, 'PUT', payload);
       } finally {
-        await this.refresh();
+        await this.reload();
       }
     },
 
@@ -82,7 +82,7 @@ function createEntityStore(endpoint) {
       try {
         await Alpine.store('network').apiRequest(`${endpoint}/${id}`, 'DELETE');
       } finally {
-        await this.refresh();
+        await this.reload();
       }
     }
   };
@@ -106,7 +106,7 @@ function LoginModal() {
       } catch (err) {
         Alpine.store('toast').showToast(`Login failed: ${err.message}`, "error");
       } finally {
-        window.dispatchEvent(new CustomEvent('refresh-view'));
+        window.dispatchEvent(new CustomEvent('show-login'));
       }
     },
 
@@ -115,7 +115,7 @@ function LoginModal() {
         await Alpine.store('auth').logout();
         Alpine.store('toast').showToast("Logout success.", "success");
       } finally {
-        window.dispatchEvent(new CustomEvent('refresh-view'));
+        window.dispatchEvent(new CustomEvent('show-login'));
       }
     },
 
@@ -536,7 +536,7 @@ function SchedulesTab() {
 
       selectedSchedule = schedule ?? this.selectedSchedule;
 
-      if (selectedSchedule && !schedules.some(s => s.id === selectedSchedule.id)) {
+      if (selectedSchedule && (!schedules || !schedules.some(s => s.id === selectedSchedule.id))) {
         selectedSchedule = null;
       }
 
@@ -753,7 +753,7 @@ document.addEventListener('alpine:init', () => {
 
     unauthorized() {
       this.user = null;
-      window.dispatchEvent(new CustomEvent('refresh-view'));
+      window.dispatchEvent(new CustomEvent('show-login'));
     }
 
   }),
@@ -776,7 +776,7 @@ document.addEventListener('alpine:init', () => {
         schedules: SchedulesTab(),
     },
 
-    async refreshCurrentView() {
+    async maybeShowLogin() {
       try {
         if (!await Alpine.store('auth').getUser()) this.loginModal.open();
       } catch (err) {
@@ -787,7 +787,7 @@ document.addEventListener('alpine:init', () => {
     init() {
       this.activeTab = this.tabs[window.location.hash.replace("#", "")] || this.tabs.dashboard;
       this.activeTab.open();
-      this.refreshCurrentView();
+      this.maybeShowLogin();
 
       window.addEventListener('hashchange', () => {
         const tabname = window.location.hash.replace("#", "") || "dashboard";
@@ -796,7 +796,7 @@ document.addEventListener('alpine:init', () => {
           this.activeTab = this.tabs[tabname];
           if (this.activeTab) {
             this.activeTab.open();
-            this.refreshCurrentView();
+            this.maybeShowLogin();
           }
         }
       });

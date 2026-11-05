@@ -248,6 +248,7 @@ function DashboardTab() {
   return {
     ...BaseTab(),
     name: "dashboard",
+    chart: null,
 
     get selectedSchedule() {
         return this.$data.tabs.schedules.selectedSchedule;
@@ -277,14 +278,14 @@ function DashboardTab() {
         pointHoverRadius: 7
       }];
 
-      if (this.dashboardChartInstance) {
-        const chart = Alpine.raw(this.dashboardChartInstance);
+      if (this.chart) {
+        const chart = Alpine.raw(this.chart);
         chart.data = { datasets };
         chart.update();
         return;
       }
 
-      this.dashboardChartInstance = new Chart(ctx, {
+      this.chart = new Chart(ctx, {
         type: 'line',
         data: { datasets },
         options: {
@@ -337,6 +338,8 @@ function SchedulesTab() {
     name: "schedules",
     modal: ScheduleModal(),
     selectedSchedule: null,
+    chart: null,
+
     async init() {
       Alpine.effect(() => {
         if (Alpine.store('schedules').items?.length) {
@@ -383,14 +386,14 @@ function SchedulesTab() {
 
       const dataPoints = computeTemperatureProfilePoints(this.schedulePhases);
 
-      if (this.detailChartInstance) {
-        const chart = Alpine.raw(this.detailChartInstance);
+      if (this.chart) {
+        const chart = Alpine.raw(this.chart);
         chart.data.datasets[0].data = dataPoints.map(p => ({ x: p.x, y: p.temp })),
         chart.update();
         return;
       }
 
-      this.detailChartInstance = new Chart(ctx, {
+      this.chart = new Chart(ctx, {
         type: 'line',
         data: {
           datasets: [{
@@ -560,8 +563,6 @@ document.addEventListener('alpine:init', () => {
 
     // Ramp/Phase logic states
     activeRampMode: 'rate',
-    dashboardChartInstance: null,
-    detailChartInstance: null,
 
     async refreshCurrentView() {
       try {

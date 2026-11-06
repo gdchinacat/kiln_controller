@@ -1,6 +1,61 @@
 const DEFAULT_ROOM_TEMP = 20;
 
 // --- Helper Functions ---
+
+async function refreshChart(canvas, schedulePhases) {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  const dataPoints = computeTemperatureProfilePoints(schedulePhases);
+
+  datasets = [{
+    label: 'Temperature (°C)',
+    data: dataPoints.map(p => ({ x: p.x, y: p.temp })),
+    borderColor: '#f97316',
+    backgroundColor: 'rgba(249, 115, 22, 0.15)',
+    borderWidth: 2,
+    fill: true,
+    tension: 0.0,
+    pointBackgroundColor: '#ea580c',
+    pointRadius: 4,
+    pointHoverRadius: 7
+  }];
+
+  if (canvas.chart) {
+    const chart = Alpine.raw(canvas.chart);
+    chart.data = { datasets };
+    chart.update();
+    return;
+  }
+
+  canvas.chart = new Chart(ctx, {
+    type: 'line',
+    data: { datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          type: 'linear',
+          title: { display: true, text: 'Time (Hours)', color: '#94a3b8' },
+          grid: { color: '#1e293b' },
+          ticks: { color: '#64748b', callback: (val) => hoursToDuration(val) }
+        },
+        y: {
+          title: { display: true, text: 'Temperature (°C)', color: '#94a3b8' },
+          grid: { color: '#1e293b' },
+          ticks: { color: '#64748b' },
+          beginAtZero: true
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: (ctx) => ` Temp: ${ctx.parsed.y}°C (${hoursToDuration(ctx.parsed.x)})` } }
+      }
+    }
+  });
+}
+
 function durationToHours(durationStr) {
   if (!durationStr) return 0;
   const parts = durationStr.split(':').map(Number);
@@ -354,7 +409,7 @@ function PhaseModal() {
         }
         this.show = false;
       } finally {
-        this.$data.loadScheduleDetail();
+        this.$data.reloadSelectedSchedulePhases();
       }
     },
 
@@ -367,7 +422,7 @@ function PhaseModal() {
         } catch (error) {
           Alpine.store('toast').showToast(`Phase delete failed: ${error.message}`, "error");
         } finally {
-          this.$data.loadScheduleDetail();
+          this.$data.reloadSelectedSchedulePhases();
         }
       });
     },
@@ -418,8 +473,6 @@ function PhaseModal() {
         }
       }
     },
-
-
   }
 }
 
@@ -435,69 +488,6 @@ function DashboardTab() {
   return {
     ...BaseTab(),
     name: "dashboard",
-    chart: null,
-
-    get selectedSchedule() {
-        return this.$data.tabs.schedules.selectedSchedule;
-    },
-
-    async loadDashboardScheduleChart() {
-      const ctx = document.getElementById('dashboardChart')?.getContext('2d');
-      if (!ctx) return;
-
-      let datasets = null;
-      phases = this.tabs.schedules.schedulePhases;
-
-      const dataPoints = computeTemperatureProfilePoints(phases);
-
-      datasets = [{
-        label: 'Temperature (°C)',
-        data: dataPoints.map(p => ({ x: p.x, y: p.temp })),
-        borderColor: '#f97316',
-        backgroundColor: 'rgba(249, 115, 22, 0.15)',
-        borderWidth: 2,
-        fill: true,
-        tension: 0.0,
-        pointBackgroundColor: '#ea580c',
-        pointRadius: 4,
-        pointHoverRadius: 7
-      }];
-
-      if (this.chart) {
-        const chart = Alpine.raw(this.chart);
-        chart.data = { datasets };
-        chart.update();
-        return;
-      }
-
-      this.chart = new Chart(ctx, {
-        type: 'line',
-        data: { datasets },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            x: {
-              type: 'linear',
-              title: { display: true, text: 'Time (Hours)', color: '#94a3b8' },
-              grid: { color: '#1e293b' },
-              ticks: { color: '#64748b', callback: (val) => hoursToDuration(val) }
-            },
-            y: {
-              title: { display: true, text: 'Target Temp (°C)', color: '#94a3b8' },
-              grid: { color: '#1e293b' },
-              ticks: { color: '#64748b' },
-              beginAtZero: true
-            }
-          },
-          plugins: {
-            legend: { display: false },
-            tooltip: { callbacks: { label: (ctx) => ` Temp: ${ctx.parsed.y}°C (${hoursToDuration(ctx.parsed.x)})` } }
-          }
-        }
-      });
-    },
-
   }
 }
 
@@ -525,7 +515,6 @@ function SchedulesTab() {
     phaseModal: PhaseModal(),
     selectedSchedule: null,
     schedulePhases: [],
-    chart: null,
 
     async init() {
       Alpine.effect(() => this.selectSchedule());
@@ -546,7 +535,15 @@ function SchedulesTab() {
 
       if (selectedSchedule != this.selectedSchedule) {
         this.selectedSchedule = selectedSchedule;
-        this.loadScheduleDetail();
+        this.reloadSelectedSchedulePhases();
+      }
+    },
+
+    async reloadSelectedSchedulePhases() {
+      if (this.selectedSchedule) {
+        this.schedulePhases = await Alpine.store('network').apiRequest(`/schedule/${this.selectedSchedule.id}/phase`);
+      } else {
+        this.schedulePhases = [];
       }
     },
 
@@ -554,69 +551,6 @@ function SchedulesTab() {
       if (!this.selectedSchedule) return '--';
       const u = Alpine.store('users').items?.find(x => x.id === this.selectedSchedule.user_id);
       return u ? u.name : `User #${this.selectedSchedule.user_id}`;
-    },
-
-    async loadScheduleDetail() {
-      if (!this.selectedSchedule) {
-        this.schedulePhases = [];
-        return;
-      }
-
-      const ctx = document.getElementById('scheduleDetailChart')?.getContext('2d');
-      if (!ctx) return;
-
-      const phases = await Alpine.store('network').apiRequest(`/schedule/${this.selectedSchedule.id}/phase`);
-
-      this.schedulePhases = (phases || []).sort((a, b) => a.ordinal - b.ordinal);
-
-      const dataPoints = computeTemperatureProfilePoints(this.schedulePhases);
-
-      datasets = [{
-        label: 'Temperature (°C)',
-        data: dataPoints.map(p => ({ x: p.x, y: p.temp })),
-        borderColor: '#f97316',
-        backgroundColor: 'rgba(249, 115, 22, 0.15)',
-        borderWidth: 2,
-        fill: true,
-        tension: 0.0,
-        pointBackgroundColor: '#ea580c',
-        pointRadius: 4,
-        pointHoverRadius: 7
-      }];
-
-      if (this.chart) {
-        const chart = Alpine.raw(this.chart);
-        chart.data = { datasets };
-        chart.update();
-        return;
-      }
-
-      this.chart = new Chart(ctx, {
-        type: 'line',
-        data: { datasets },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            x: {
-              type: 'linear',
-              title: { display: true, text: 'Time (Hours)', color: '#94a3b8' },
-              grid: { color: '#1e293b' },
-              ticks: { color: '#64748b', font: { size: 10 }, callback: (val) => hoursToDuration(val) }
-            },
-            y: {
-              title: { display: true, text: 'Temperature (°C)', color: '#94a3b8' },
-              grid: { color: '#1e293b' },
-              ticks: { color: '#64748b', font: { size: 10 } },
-              beginAtZero: true
-            }
-          },
-          plugins: {
-            legend: { display: false },
-            tooltip: { callbacks: { label: (ctx) => ` Temp: ${ctx.parsed.y}°C (${hoursToDuration(ctx.parsed.x)})` } }
-          }
-        }
-      });
     },
 
     getDisplayRateForDurationPhase(p) {

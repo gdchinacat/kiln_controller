@@ -166,7 +166,7 @@
               <span x-text="tabs.schedules.selectedSchedule ? '(' + tabs.schedules.selectedScheduleOwnerName + ')' : ''" class="firing-monitor-owner"></span>
             </div>
             <div class="firing-monitor-controls">
-              <select :value="selectedSchedule?.id ?? ''"
+              <select :value="tabs.schedules.selectedSchedule?.id ?? ''"
                       @change="tabs.schedules.selectSchedule($store.schedules.items.find(s => s.id == $event.target.value))"
                       class="firing-select">
                 <option value="">Select Firing...</option>
@@ -177,8 +177,8 @@
             </div>
           </div>
 
-          <div class="firing-chart" x-effect="tabs.schedules.selectedSchedule; loadDashboardScheduleChart()">
-            <canvas id="dashboardChart"></canvas>
+          <div class="firing-chart">
+            <canvas id="dashboardChart" x-data="{ chart: null }" x-effect="refreshChart($el, tabs.schedules.schedulePhases)"/>
           </div>
         </div>
       </section>
@@ -404,8 +404,8 @@
                 <!-- Temperature Chart -->
                 <div class="chart-section">
                   <h4 class="subsection-title">Temperature (°C)</h4>
-                  <div class="chart-frame" x-effect="selectedSchedule; loadScheduleDetail()">
-                    <canvas id="scheduleDetailChart"></canvas>
+                  <div class="chart-frame">
+                    <canvas id="scheduleChart" x-data="{ chart: null }" x-effect="refreshChart($el, schedulePhases)"/>
                   </div>
                 </div>
 

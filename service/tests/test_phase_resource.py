@@ -11,9 +11,12 @@ from itertools import count
 from typing import Any, cast
 
 import httpx2
+import pydantic
+import pytest
 from fixtures import kwargs
 
 from kiln_controller.client import Phase, PhaseType, Schedule
+from kiln_controller.service.models import PhaseCreate, PhaseUpdate
 
 from ._fixtures import (
     assert_http_status_error,
@@ -237,3 +240,20 @@ def test_phase_order(schedule: Schedule, **_: Any) -> None:
 
     schedule.phases += (phase2, phase1)
     assert [phase1, phase2] == schedule.phases
+
+
+@pytest.mark.parametrize("model", (PhaseCreate, PhaseUpdate))
+def test_phase_rate_duration_exclusive(
+    model: PhaseCreate | PhaseUpdate,
+) -> None:
+    with pytest.raises(pydantic.ValidationError):
+        model.model_validate(
+            {
+                "id": 1,
+                "name": "name",
+                "ordinal": 0,
+                "phase_type": "ramp",
+                "duration": "00:50:00",
+                "rate": 125,
+            }
+        )

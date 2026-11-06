@@ -3,7 +3,7 @@ Schedule related ORMs
 """
 
 from datetime import time
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Self
 
 import pydantic
 import sqlmodel
@@ -67,7 +67,18 @@ class ScheduleORM(ScheduleValidator, ORMType, table=True):
     )
 
 
-class PhaseCreate(pydantic.BaseModel):
+class PhaseRateDurationValidator:
+
+    @pydantic.model_validator(mode="after")
+    def __validate(self) -> Self:
+        if all(getattr(self, f) is not None for f in ("rate", "duration")):
+            raise ValueError(
+                "You must provide exactly one of 'rate' or 'duration'."
+            )
+        return self
+
+
+class PhaseCreate(PhaseRateDurationValidator, pydantic.BaseModel):
     name: str = pydantic.Field(max_length=NAME_LENGTH)
     ordinal: int
     phase_type: PhaseType
@@ -76,7 +87,7 @@ class PhaseCreate(pydantic.BaseModel):
     temperature: int | None = None
 
 
-class PhaseUpdate(pydantic.BaseModel):
+class PhaseUpdate(PhaseRateDurationValidator, pydantic.BaseModel):
     name: str | None = pydantic.Field(max_length=NAME_LENGTH)
     ordinal: int | None
     """

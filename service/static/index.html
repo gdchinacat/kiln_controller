@@ -421,6 +421,7 @@
                     <table class="phase-table">
                       <thead>
                         <tr class="phase-table-head-row">
+                          <th x-show="$store.auth.admin">Ordinal</thx>
                           <th>Phase Name</th>
                           <th>Type</th>
                           <th>Target Temp</th>
@@ -435,6 +436,7 @@
                         </template>
                         <template x-for="p in schedulePhases" :key="p.id">
                           <tr class="phase-table-row">
+                            <td x-show="$store.auth.admin" x-text="p.ordinal" class="cell-numeric"></td>
                             <td x-text="p.name" class="cell-strong"></td>
                             <td>
                               <span :class="p.phase_type === 'ramp' ? 'phase-badge--ramp' : 'phase-badge--constant'" class="phase-badge" x-text="p.phase_type"></span>
@@ -534,7 +536,7 @@
                 <div>
                   <div class="form-label-row">
                     <label class="form-label">Duration (HH:MM)</label>
-                    <span x-show="form.phase_type === 'ramp' && activeRampMode === 'rate'" class="tag-calculated">Calculated</span>
+                    <span x-show="activeRampMode === 'rate'" class="tag-calculated">Calculated</span>
                   </div>
                   <input type="text" x-model="form.duration" @focus="setActiveRampMode('duration')" @input="recalculateRampValues()" :class="{ 'is-calculated': form.phase_type === 'ramp' && activeRampMode === 'rate' }" placeholder="01:30" class="form-control">
                 </div>

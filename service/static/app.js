@@ -1,6 +1,11 @@
 const DEFAULT_ROOM_TEMP = 20;
 
 // --- Helper Functions ---
+function assert (condition, message) {
+  if (!condition) {
+    throw new Error(message);
+  }
+}
 
 async function refreshChart(canvas, schedulePhases) {
   const ctx = canvas.getContext('2d');
@@ -306,35 +311,7 @@ function PhaseModal() {
     },
 
     open(phase = null, insertBefore = null) {
-      if (!this.$data.selectedSchedule) {
-        Alpine.store('toast').showToast("Select a schedule first", "warning");
-        return;
-      }
-
-      let calculatedOrdinal;
-
-      // todo - extract this ordinal calculation
-      // todo - handle cases where the gap is full and ordinals need to be shifted.
-      if (phase) {
-        calculatedOrdinal = phase.ordinal;
-      } else if (insertBefore) {
-        const targetIdx = this.$data.schedulePhases.findIndex(p => p.id === insertBefore.id);
-        const prevPhase = targetIdx > 0 ? this.$data.schedulePhases[targetIdx - 1] : null;
-
-        if (prevPhase) {
-          calculatedOrdinal = Math.floor((prevPhase.ordinal + insertBefore.ordinal) / 2);
-        } else {
-          calculatedOrdinal = Math.floor(insertBefore.ordinal / 2);
-        }
-      } else {
-        if (this.$data.schedulePhases.length === 0) {
-          calculatedOrdinal = 10;
-        } else {
-          const maxOrdinal = Math.max(...this.$data.schedulePhases.map(p => p.ordinal));
-          calculatedOrdinal = maxOrdinal + 10;
-        }
-      }
-
+      this.insertBefore = insertBefore;
       this.form = phase? {
         id: phase.id,
         name: phase.name,
@@ -346,7 +323,7 @@ function PhaseModal() {
       } : {
         id: '',
         name: '',
-        ordinal: calculatedOrdinal,
+        ordinal: null,
         phase_type: 'ramp',
         temperature: '',
         rate: '',
@@ -358,26 +335,30 @@ function PhaseModal() {
       this.show = true;
     },
 
-    close() { this.show = false; },
+    close() {
+      this.show = false;
+      this.insertBefore = null;
+    },
 
-    async submit() {
-      if (this.form.phase_type === 'ramp' && !this.form.rate && !this.form.duration) {
-        Alpine.store('toast').showToast("Please enter either a Rate or Duration for Ramp phases.", "error");
-        return;
-      }
+    async assignOrdinal() {
+      let ordinal;
+      const phases = this.$data.schedulePhases;
 
-      const ordinal = parseInt(this.form.ordinal);
-      const p = this.form;
+      if (this.insertBefore) {
+        const targetIdx = phases.findIndex(p => p.id === this.insertBefore.id);
+        const prevPhase = targetIdx > 0 ? phases[targetIdx - 1] : null;
 
-      if (!this.form.id) {
-        // todo - only reassign ordinals if there is a need.
-        const existingOrdinals = new Set(this.$data.schedulePhases.map(p => p.ordinal));
-        if (ordinal <= 0 || existingOrdinals.has(ordinal)) {
+        if (prevPhase) {
+          ordinal = Math.floor((prevPhase.ordinal + this.insertBefore.ordinal) / 2);
+        } else {
+          ordinal = Math.floor(this.insertBefore.ordinal / 2);
+        }
+        if (ordinal <= 0 || this.$data.schedulePhases.some(p => p.ordinal === ordinal)) {
           const subsequentPhases = [...this.$data.schedulePhases]
-            .filter(phase => phase.ordinal >= ordinal)
+            .filter(p => p.ordinal > ordinal)
             .toReversed();
 
-          let nextMinGapOrdinal = ordinal + (subsequentPhases.length * 10);
+          let nextMinGapOrdinal = ordinal + ((subsequentPhases.length + 1) * 10);
           for (const phaseToUpdate of subsequentPhases) {
             await Alpine.store('network').apiRequest(
               `/schedule/${this.selectedSchedule.id}/phase/${phaseToUpdate.id}`,
@@ -386,17 +367,34 @@ function PhaseModal() {
             );
             nextMinGapOrdinal -= 10;
           }
+          ordinal = nextMinGapOrdinal;
         }
+      } else {
+        ordinal = (phases[phases.length - 1]?.ordinal || 0) + 10;
       }
 
+      this.form.ordinal = ordinal;
+    },
+
+    async submit() {
+      if (this.form.phase_type === 'ramp' && !this.form.rate && !this.form.duration) {
+        Alpine.store('toast').showToast("Please enter either a Rate or Duration for Ramp phases.", "error");
+        return;
+      }
+
+      if (!this.form.id) {
+        await this.assignOrdinal();
+      }
+
+      const p = this.form;
       const payload = {
         name: p.name,
-        ordinal: ordinal,
+        ordinal: parseInt(this.form.ordinal),
         phase_type: p.phase_type,
         schedule_id: parseInt(this.selectedSchedule.id),
         temperature: p.temperature !== "" ? parseInt(p.temperature) : null,
-        rate: p.phase_type === 'constant' ? null : (p.rate !== "" ? parseInt(p.rate) : null),
-        duration: p.duration || null
+        rate: p.phase_type === 'constant' ? null : ((this.activeRampMode=='rate' && p.rate !== "") ? parseInt(p.rate) : null),
+        duration: (this.activeRampMode === 'duration') ? (p.duration || null) : null,
       };
 
       try {
@@ -407,7 +405,7 @@ function PhaseModal() {
           await Alpine.store('network').apiRequest(`/schedule/${this.selectedSchedule.id}/phase`, 'POST', payload);
           Alpine.store('toast').showToast("Phase added!", "success");
         }
-        this.show = false;
+        this.close();
       } finally {
         this.$data.reloadSelectedSchedulePhases();
       }
@@ -429,7 +427,7 @@ function PhaseModal() {
 
     setActiveRampMode(mode) {
       if (this.form.phase_type !== 'ramp') return;
-      this.activeRamMode = mode;
+      this.activeRampMode = mode;
     },
 
     onPhaseTypeChange() {
@@ -568,7 +566,6 @@ function SchedulesTab() {
           return "ASAP";
         }
       }
-      alert("shouldn't ever happen");
       return '--';
     },
 
@@ -669,6 +666,8 @@ document.addEventListener('alpine:init', () => {
     },
 
     get isAuthenticated() { return this.user !== null; },
+
+    get admin() { return this.user?.username === 'admin'; },
 
     async getUser() {
       await this.initialized;

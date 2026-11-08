@@ -331,6 +331,7 @@ function PhaseModal() {
     },
 
     open(phase = null, insertBefore = null) {
+      this.phase = phase;
       this.insertBefore = insertBefore;
       this.form = phase? {
         id: phase.id,
@@ -359,6 +360,7 @@ function PhaseModal() {
 
     close() {
       this.show = false;
+      this.phase = null;
       this.insertBefore = null;
     },
 
@@ -457,25 +459,15 @@ function PhaseModal() {
       this.activeRampMode = mode;
     },
 
-    previousPhase() {
-      const phases = this.$data.schedulePhases;
-      let previous = null;
-      if (this.insertBefore) {
-        const beforeIdx = phases.findIndex(p => p.id === this.insertBefore.id);
-        if (beforeIdx > 0) {
-          previous = phases[beforeIdx - 1];
-        }
-      } else if (phases.length > 1) {
-        previous = phases[phases.length - 1];
-      }
-      return previous;
-    },
-
     onPhaseTypeChange() {
       if (this.form.phase_type === 'constant') {
-        const previous = this.previousPhase();
+        let { previous, next } = this.$data.surroundingPhases(this.phase || this.insertBefore);
+        if (this.insertBefore) {
+            next = this.insertBefore;
+        }
 
-        if (!previous || previous.phase_type !== 'ramp') {
+        if (   (!previous || previous.phase_type !== 'ramp')
+            || (next && next.phase_type === 'constant')) {
           Alpine.store('toast').showToast("Constant phases must immediately follow a Ramp phase.", "error");
           this.form.phase_type = 'ramp';
           return;
@@ -620,7 +612,23 @@ function SchedulesTab() {
       return '--';
     },
 
+    surroundingPhases(phase) {
+      const phases = this.schedulePhases;
+      if (phase && phases) {
+        let phaseIdx = phases.findIndex(p => p.id === phase.id);
+        if (phaseIdx === -1) {
+          throw new Error('phase is not in schedulePhases');
+        }
+        return {
+          previous: phaseIdx >= 1 ? phases[phaseIdx - 1] : null,
+          next: phaseIdx < phases.length - 1 ? phases[phaseIdx + 1] : null,
+        };
+      }
+      return { previous: null, next: null};
+    },
+
     getPrecedingTemperature(editingOrdinal = null) {
+      // todo use surroundingPhases
       let targetList = [...this.$data.schedulePhases];
       if (editingOrdinal !== null) {
         targetList = targetList.filter(p => p.ordinal < editingOrdinal);
@@ -630,6 +638,15 @@ function SchedulesTab() {
       return (lastPhase.temperature !== null && lastPhase.temperature !== undefined) ? lastPhase.temperature : DEFAULT_ROOM_TEMP;
     },
 
+    isPhaseDeletable(phase) {
+      let { previous, next } = this.surroundingPhases(phase);
+
+      if (phase.phase_type === 'ramp' && next?.phase_type === 'constant') {
+        // constant phases must be preceeded by ramp
+        return false;
+      }
+      return true;
+    },
   }
 }
 

@@ -107,7 +107,10 @@
                               <button @click="phaseModal.open(p)" title="Edit phase" class="row-action">
                                 <i x-icon="edit-2" class="icon-sm"></i>
                               </button>
-                              <button @click="phaseModal.delete(selectedSchedule.id, p)" title="Delete phase" class="row-action-danger">
+                              <button :disabled="!isPhaseDeletable(p)"
+                                      @click="phaseModal.delete(selectedSchedule.id, p)"
+                                      :title="isPhaseDeletable(p) ? 'Delete phase' : 'Phase cannot be deleted'"
+                                      class="row-action-danger">
                                 <i x-icon="trash-2" class="icon-sm"></i>
                               </button>
                             </td>

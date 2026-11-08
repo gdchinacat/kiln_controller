@@ -40,6 +40,11 @@ class Client(RestClient):
         ).raise_for_status()
         return User.model_validate(response.json())
 
+    @property
+    def me(self) -> User:
+        response = self._http_client.get("/auth/me").raise_for_status()
+        return User.model_validate(response.json())
+
     def logout(
         self, method: Callable[..., httpx2.Response] = httpx2.Client.post
     ) -> None:

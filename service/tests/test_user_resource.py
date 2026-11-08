@@ -62,6 +62,19 @@ def test_user_get_has_no_password(user: User, **_: Any) -> None:
 
 
 @ kwargs["user"] << user_fixture()
+@ kwargs["client"] << user_client()
+def test_user_list_has_no_password(client: Client, **_: Any) -> None:
+    assert not any(user.password for user in client.expire().users)
+    assert not any(user.password for user in client.users.refresh())
+
+
+@ kwargs["user"] << user_fixture()
+@ kwargs["client"] << user_client()
+def test_auth_me_has_no_password(client: Client, **_: Any) -> None:
+    assert not client.me.password
+
+
+@ kwargs["user"] << user_fixture()
 def test_user_not_found(user: User, **_: Any) -> None:
     user_id = user.id
     user.delete()

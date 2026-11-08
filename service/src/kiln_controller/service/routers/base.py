@@ -90,7 +90,10 @@ def create_router(
     )
 
     @router.get(
-        "", openapi_extra=openapi_extra, operation_id=f"list_{url_path}"
+        "",
+        openapi_extra=openapi_extra,
+        operation_id=f"list_{url_path}",
+        response_model=list[resource_type],
     )
     @_apply_resource_type(resource_type=resource_type.__name__)
     async def _list(

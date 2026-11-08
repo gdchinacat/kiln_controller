@@ -209,9 +209,8 @@ function ConfirmModal() {
       this.show = false;
     },
 
-    confirmed() {
-      if (this.action) this.action();
-      this.dismiss();
+    async confirmed() {
+      if (!this.action || await this.action()) this.dismiss();
     }
   }
 }
@@ -244,8 +243,14 @@ function createEntityModal(config) {
     async delete(entity) {
       const nameStr = entity.name ? `${entity.name}` : `#${entity.id}`;
       this.$data.confirmModal.confirm(`Are you sure you want to delete ${config.entityType.toLowerCase()} "${nameStr}"?`, async () => {
-        await config.entityStore.delete(entity.id);
-        Alpine.store('toast').showToast(`${config.entityType} deleted`, "warning");
+        try {
+          await config.entityStore.delete(entity.id);
+          Alpine.store('toast').showToast(`${config.entityType} deleted`, "warning");
+          return true;
+        } catch (error) {
+          Alpine.store('toast').showToast(`${config.entityType} deleted failed: ${error.message}`, "error");
+        }
+        return false;
       });
     },
 
@@ -436,9 +441,11 @@ function PhaseModal() {
       this.$data.confirmModal.confirm(`Delete phase ${phStr} from the schedule?`, async () => {
         try {
           await Alpine.store('network').apiRequest(`/schedule/${scheduleId}/phase/${phase.id}`, 'DELETE');
-          Alpine.store('toast').showToast("Phase removed", "warning");
+          Alpine.store('toast').showToast("Phase deleted", "warning");
+          return true;
         } catch (error) {
           Alpine.store('toast').showToast(`Phase delete failed: ${error.message}`, "error");
+          return false;
         } finally {
           this.$data.reloadSelectedSchedulePhases();
         }

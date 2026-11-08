@@ -2,7 +2,7 @@ const DEFAULT_ROOM_TEMP = 20;
 
 // --- Helper Functions ---
 async function initTab(element, tabName) {
-    const response = await fetch(`/static/tabs/${tabName}.html`);
+    const response = await fetch(`/static/tabs/${tabName}/${tabName}.html`);
 
     if (!response.ok) {
         throw new Error(`Failed to load tab ${tabName}: ${response.status}`);

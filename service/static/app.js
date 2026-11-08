@@ -418,7 +418,7 @@ function PhaseModal() {
         phase_type: p.phase_type,
         schedule_id: parseInt(this.selectedSchedule.id),
         temperature: p.temperature !== "" ? parseInt(p.temperature) : null,
-        rate: p.phase_type === 'constant' ? null : ((this.activeRampMode=='rate' && p.rate !== "") ? parseInt(p.rate) : null),
+        rate: (p.phase_type === 'constant') ? null : ((this.activeRampMode=='rate' && p.rate !== "") ? parseInt(p.rate) : null),
         duration: (this.activeRampMode === 'duration') ? (p.duration || null) : null,
       };
 
@@ -475,6 +475,7 @@ function PhaseModal() {
 
         this.form.temperature = previous.temperature;
         this.form.rate = '';
+        this.activeRampMode = 'duration';
       } else {
         this.recalculateRampValues();
       }

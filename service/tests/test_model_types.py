@@ -12,6 +12,7 @@ from kiln_controller.service.models import (
 def test_phase_type_roundtrip() -> None:
     phase = Phase(
         id=1,
+        version=1,
         name="name",
         phase_type=PhaseType.RAMP,
         duration=time(),

@@ -143,6 +143,7 @@ def _test_put(
     if not skip_put_create:
         # test put create success
         resource.id = next(IDS)
+        resource.version = 1
         resource.put(client)
         assert resource.id is not None, "put failed to assign id to resource"
 
@@ -153,6 +154,7 @@ def _test_put(
     del resource_dict["id"]
     resp = client._http_client.put(url, json=resource_dict).raise_for_status()
     assert resp.json()["id"] == resource.id
+    resource.refresh()  # get updated version
 
     # test put with resource.id succeeds, attribute changes
     name = resource.name * 2
@@ -185,6 +187,23 @@ def test_put_device(device: Device, client: Client, **_: Any) -> None:
 @ kwargs["schedule"] << schedule_fixture(skip_create=True)
 def test_put_schedule(schedule: Schedule, client: Client, **_: Any) -> None:
     return _test_put(schedule, client)
+
+
+@pytest.mark.parametrize(
+    "entity_name", ("device", "user", "schedule", "phase")
+)
+@ kwargs["user"] << user_fixture()
+@ kwargs["client"] << user_client()
+@ kwargs["device"] << device_fixture()
+@ kwargs["schedule"] << schedule_fixture()
+@ kwargs["phase"] << phase_fixture()
+def test_stale_entity_update_fails(entity_name: str, **kwargs: Any) -> None:
+    resource = kwargs[entity_name]
+    stale_resource = resource._testing_shadow()
+
+    resource.put()
+    with assert_http_status_error(httpx2.codes.CONFLICT):
+        stale_resource.put()
 
 
 @contextmanager

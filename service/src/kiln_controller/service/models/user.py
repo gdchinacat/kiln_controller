@@ -38,6 +38,7 @@ class UserCreate(pydantic.BaseModel):
 
 
 class UserUpdate(pydantic.BaseModel):
+    version: int
     name: str | None = pydantic.Field(default=None, max_length=NAME_LENGTH)
     username: str | None = pydantic.Field(
         default=None, max_length=USERNAME_LENGTH
@@ -53,6 +54,7 @@ class UserUpdate(pydantic.BaseModel):
 
 class User(pydantic.BaseModel):
     id: int
+    version: int
     name: str = pydantic.Field(max_length=NAME_LENGTH)
     username: str = pydantic.Field(max_length=USERNAME_LENGTH)
     email: str | None = pydantic.Field(default=None, max_length=EMAIL_LENGTH)
@@ -65,7 +67,6 @@ class UserORM(UserValidator, ORMType, table=True):
     __tablename__ = "users"  # type: ignore[bad-override]
     __table_args__: ClassVar[dict[str, bool]] = {"sqlite_autoincrement": True}
 
-    id: int | None = sqlmodel.Field(default=None, primary_key=True)
     name: str = sqlmodel.Field(max_length=NAME_LENGTH)
     username: str = sqlmodel.Field(max_length=USERNAME_LENGTH, unique=True)
     password: str = sqlmodel.Field(max_length=PASSWORD_LENGTH)

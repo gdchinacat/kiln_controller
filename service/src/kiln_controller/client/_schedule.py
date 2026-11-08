@@ -14,6 +14,7 @@ class PhaseType(str, Enum):
 class Phase(Resource["Schedule"]):
     _URL = "/phase"
 
+    version: int | None = None
     name: str
     schedule_id: int | None = None
     ordinal: int
@@ -26,6 +27,7 @@ class Phase(Resource["Schedule"]):
 class Schedule(Resource[RestClient]):
     _URL = "/schedule"
 
+    version: int | None = None
     phases = ResourceListDescriptor(Phase)
     name: str
     user_id: int

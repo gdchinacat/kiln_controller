@@ -7,13 +7,29 @@ from http import HTTPStatus
 from logging import getLogger
 from typing import Any
 
-import pydantic
 from fastapi import APIRouter, HTTPException, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from ..dependencies import current_user, sessionmaker
-from ..models import ORMType, SessionMaker, User, UserORM
+from ..models import (
+    Device,
+    DeviceCreate,
+    DeviceCreateResponse,
+    DeviceUpdate,
+    ORMType,
+    Phase,
+    PhaseCreate,
+    PhaseUpdate,
+    Schedule,
+    ScheduleCreate,
+    ScheduleUpdate,
+    SessionMaker,
+    User,
+    UserCreate,
+    UserORM,
+    UserUpdate,
+)
 
 logger = getLogger("resource/base.py")
 
@@ -32,14 +48,26 @@ def _apply_resource_type[**P, R](
     return dec
 
 
+type ResourceType = type[User | Device | Schedule | Phase]
+type ResourceCreateType = type[
+    UserCreate | DeviceCreate | ScheduleCreate | PhaseCreate
+]
+type ResourceCreateResponseType = type[
+    User | DeviceCreateResponse | Schedule | Phase
+]
+type ResourceUpdateType = type[
+    UserUpdate | DeviceUpdate | ScheduleUpdate | PhaseUpdate
+]
+
+
 def create_router(
     url_path: str,
-    resource_type: type[pydantic.BaseModel],
+    resource_type: ResourceType,
     orm_type: type[ORMType],
     url_prefix: str = "",
-    resource_create_type: type[pydantic.BaseModel] | None = None,
-    resource_create_response_type: type[pydantic.BaseModel] | None = None,
-    resource_update_type: type[pydantic.BaseModel] | None = None,
+    resource_create_type: ResourceCreateType | None = None,
+    resource_create_response_type: ResourceCreateResponseType | None = None,
+    resource_update_type: ResourceUpdateType | None = None,
     openapi_extra: dict[Any, Any] | None = None,
 ) -> APIRouter:
     """
@@ -52,11 +80,11 @@ def create_router(
     get(), post(), put(), and delete() endpoint methods to implement the CRUD
     operations for resource_type.
     """
-    resource_create_type = resource_create_type or resource_type
-    resource_create_response_type = (
+    _resource_create_type = resource_create_type or resource_type
+    _resource_create_response_type = (
         resource_create_response_type or resource_type
     )
-    resource_update_type = resource_update_type or resource_type
+    _resource_update_type = resource_update_type or resource_type
     router = APIRouter(
         prefix=f"{url_prefix}/{url_path}", tags=[resource_type.__name__]
     )
@@ -69,7 +97,7 @@ def create_router(
         request: Request,
         user: User = current_user,
         sessionmaker: SessionMaker = sessionmaker,
-    ) -> list[resource_type]:
+    ) -> list[orm_type]:
         """get the list of {resource_type}s"""
         query = select(orm_type)
         if request.path_params:  # schedule_id in '/schedule/{request_id}/phase
@@ -81,13 +109,14 @@ def create_router(
         "/{id}",
         openapi_extra=openapi_extra,
         operation_id=f"get_{url_path}",
+        response_model=resource_type,
     )
     @_apply_resource_type(resource_type=resource_type.__name__)
     async def _get(
         id: int,
         user: User = current_user,
         sessionmaker: SessionMaker = sessionmaker,
-    ) -> resource_type:
+    ) -> orm_type:
         """get a {resource_type}"""
         async with sessionmaker() as session:
             orm = await session.get(orm_type, id)
@@ -99,17 +128,17 @@ def create_router(
     @router.post(
         "",
         status_code=HTTPStatus.CREATED,
-        response_model=resource_create_response_type,
+        response_model=_resource_create_response_type,
         openapi_extra=openapi_extra,
         operation_id=f"create_{url_path}",
     )
     @_apply_resource_type(resource_type=resource_type.__name__)
     async def _create(
         request: Request,
-        resource_create: resource_create_type,
+        resource_create: _resource_create_type,
         user: User = current_user,
         sessionmaker: SessionMaker = sessionmaker,
-    ) -> resource_create_response_type:
+    ) -> orm_type:
         """create a {resource_type}"""
         orm = orm_type.model_validate(
             resource_create, context=request.path_params
@@ -136,14 +165,15 @@ def create_router(
         "/{id}",
         openapi_extra=openapi_extra,
         operation_id=f"update_{url_path}",
+        response_model=resource_type,
     )
     @_apply_resource_type(resource_type=resource_type.__name__)
     async def _update(
         id: int,
-        resource: resource_update_type,
+        resource: _resource_update_type,
         user: User = current_user,
         sessionmaker: SessionMaker = sessionmaker,
-    ) -> resource_type:
+    ) -> orm_type:
         """Update the {resource_type}."""
         """
         There is some debate in the REST community as to whether or not clients
@@ -192,7 +222,10 @@ def create_router(
                 orm = orm_type.model_validate(resource_dict)
                 session.add(orm)
             else:
+                if resource.version != orm.version:
+                    raise HTTPException(status_code=status.HTTP_409_CONFLICT)
                 orm.sqlmodel_update(resource.model_dump(exclude_unset=True))
+                orm.version += 1
         return orm
 
     @router.delete(

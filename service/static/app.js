@@ -244,6 +244,7 @@ function createEntityModal(config) {
 function UserModal() {
   const model = () => ({
     id: '',
+    version: null,
     name: '',
     id: '',
     name: '',
@@ -266,6 +267,7 @@ function UserModal() {
 function DeviceModal() {
   const model = () => ({
     id: '',
+    version: null,
     name: '',
     user_id: Alpine.store('auth').user?.id || ''});  // default to current user
 
@@ -282,6 +284,7 @@ function DeviceModal() {
 function ScheduleModal() {
   const model = () => ({
     id: '',
+    version: null,
     name: '',
     user_id: Alpine.store('auth').user?.id || ''});  // default to current user
 
@@ -302,6 +305,7 @@ function PhaseModal() {
     activeRampMode: 'rate',
     form: {
       id: '',
+      version: null,
       name: '',
       ordinal: 10,
       phase_type: 'ramp',
@@ -314,6 +318,7 @@ function PhaseModal() {
       this.insertBefore = insertBefore;
       this.form = phase? {
         id: phase.id,
+        version: phase.version,
         name: phase.name,
         ordinal: phase.ordinal,
         phase_type: phase.phase_type,
@@ -322,6 +327,7 @@ function PhaseModal() {
         duration: phase.duration || ''
       } : {
         id: '',
+        version: null,
         name: '',
         ordinal: null,
         phase_type: 'ramp',
@@ -389,6 +395,7 @@ function PhaseModal() {
       const p = this.form;
       const payload = {
         name: p.name,
+        version: p.version,
         ordinal: parseInt(this.form.ordinal),
         phase_type: p.phase_type,
         schedule_id: parseInt(this.selectedSchedule.id),
@@ -406,6 +413,8 @@ function PhaseModal() {
           Alpine.store('toast').showToast("Phase added!", "success");
         }
         this.close();
+      } catch (error) {
+          Alpine.store('toast').showToast(`Phase ${p.id ? 'edit' : 'create'} failed: ${error.message}`, "error");
       } finally {
         this.$data.reloadSelectedSchedulePhases();
       }

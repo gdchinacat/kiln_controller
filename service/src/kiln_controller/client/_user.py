@@ -4,6 +4,7 @@ from rest_client import Resource, RestClient
 class User(Resource[RestClient]):
     _URL = "/user"
 
+    version: int | None = None
     name: str
     username: str
     password: str | None = (

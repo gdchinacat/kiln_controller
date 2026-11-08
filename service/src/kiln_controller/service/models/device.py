@@ -73,6 +73,7 @@ class DeviceCreate(pydantic.BaseModel):
 
 class DeviceCreateResponse(pydantic.BaseModel):
     id: int
+    version: int
     name: str
     auth_token: str = pydantic.Field(max_length=_DeviceAuth.AUTH_TOKEN_LENGTH)
     user_id: int
@@ -89,6 +90,7 @@ class DeviceCreateResponse(pydantic.BaseModel):
 class DeviceUpdate(pydantic.BaseModel):
     """REST update model for Device."""
 
+    version: int
     name: str | None = pydantic.Field(default=None, max_length=NAME_LENGTH)
     user_id: int | None
     description: str | None
@@ -98,6 +100,7 @@ class Device(pydantic.BaseModel):
     """Rest model for Device."""
 
     id: int
+    version: int
     name: str
     user_id: int
     description: str | None = pydantic.Field(default=None)
@@ -107,7 +110,6 @@ class DeviceORM(DeviceValidator, ORMType, _DeviceAuth, table=True):
     __tablename__ = "devices"  # type: ignore
     __table_args__: ClassVar[dict[str, bool]] = {"sqlite_autoincrement": True}
 
-    id: int | None = sqlmodel.Field(default=None, primary_key=True)
     name: str = sqlmodel.Field(max_length=NAME_LENGTH)
     auth_token: str = sqlmodel.Field(
         nullable=False, max_length=_DeviceAuth.AUTH_TOKEN_LENGTH

@@ -33,12 +33,14 @@ class ScheduleCreate(pydantic.BaseModel):
 
 
 class ScheduleUpdate(pydantic.BaseModel):
+    version: int
     name: str = pydantic.Field(max_length=NAME_LENGTH)
     user_id: int
 
 
 class Schedule(ScheduleUpdate):
     id: int
+    version: int
     name: str = pydantic.Field(max_length=NAME_LENGTH)
     user_id: int
 
@@ -47,8 +49,6 @@ class ScheduleORM(ScheduleValidator, ORMType, table=True):
 
     __tablename__ = "schedules"  # type: ignore[bad-override]
     __table_args__: ClassVar[dict[str, bool]] = {"sqlite_autoincrement": True}
-
-    id: int | None = sqlmodel.Field(default=None, primary_key=True)
 
     name: str = sqlmodel.Field(max_length=NAME_LENGTH)
     user: UserORM = sqlmodel.Relationship(
@@ -88,6 +88,7 @@ class PhaseCreate(PhaseRateDurationValidator, pydantic.BaseModel):
 
 
 class PhaseUpdate(PhaseRateDurationValidator, pydantic.BaseModel):
+    version: int
     name: str | None = pydantic.Field(max_length=NAME_LENGTH)
     ordinal: int | None
     """
@@ -144,6 +145,7 @@ class PhaseUpdate(PhaseRateDurationValidator, pydantic.BaseModel):
 
 class Phase(pydantic.BaseModel):
     id: int
+    version: int
     name: str
     ordinal: int
     phase_type: PhaseType
@@ -161,7 +163,6 @@ class PhaseORM(PhaseValidator, ORMType, table=True):
         {"sqlite_autoincrement": True},
     )
 
-    id: int | None = sqlmodel.Field(default=None, primary_key=True)
     name: str = sqlmodel.Field(default=None, max_length=NAME_LENGTH)
     ordinal: int
     phase_type: PhaseType

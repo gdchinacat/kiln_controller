@@ -457,19 +457,31 @@ function PhaseModal() {
       this.activeRampMode = mode;
     },
 
-    onPhaseTypeChange() {
-      const currentOrdinal = parseInt(this.form.ordinal);
-      if (this.form.phase_type === 'constant') {
-        const precedingPhases = this.$data.schedulePhases.filter(p => p.ordinal < currentOrdinal);
-        const relativePrev = precedingPhases.length > 0 ? precedingPhases[precedingPhases.length - 1] : null;
+    previousPhase() {
+      const phases = this.$data.schedulePhases;
+      let previous = null;
+      if (this.insertBefore) {
+        const beforeIdx = phases.findIndex(p => p.id === this.insertBefore.id);
+        if (beforeIdx > 0) {
+          previous = phases[beforeIdx - 1];
+        }
+      } else if (phases.length > 1) {
+        previous = phases[phases.length - 1];
+      }
+      return previous;
+    },
 
-        if (!relativePrev || relativePrev.phase_type !== 'ramp') {
+    onPhaseTypeChange() {
+      if (this.form.phase_type === 'constant') {
+        const previous = this.previousPhase();
+
+        if (!previous || previous.phase_type !== 'ramp') {
           Alpine.store('toast').showToast("Constant phases must immediately follow a Ramp phase.", "error");
           this.form.phase_type = 'ramp';
           return;
         }
 
-        this.form.temperature = this.$data.getPrecedingTemperature(currentOrdinal);
+        this.form.temperature = previous.temperature;
         this.form.rate = '';
       } else {
         this.recalculateRampValues();

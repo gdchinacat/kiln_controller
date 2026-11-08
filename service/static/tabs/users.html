@@ -1,0 +1,82 @@
+      <!-- USERS VIEW -->
+      <section x-data="tabs.users" x-show="show" class="view">
+        <div class="view-header">
+          <div>
+            <h2 class="view-title">Users</h2>
+          </div>
+          <div class="view-toolbar">
+            <button @click="modal.open()" class="btn-create">
+              <i data-lucide="user-plus" class="icon"></i> Add User
+            </button>
+          </div>
+        </div>
+
+        <div class="panel table-panel">
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead>
+                <tr class="data-table-head-row">
+                  <th>Name</th>
+                  <th>Username</th>
+                  <th>Email</th>
+                  <th>Phone Number</th>
+                  <th class="col-actions">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="data-table-body">
+                <template x-if="!$store.users.items?.length">
+                  <tr><td colspan="5" class="table-empty">No users found on server. Click "Add User" above.</td></tr>
+                </template>
+                <template x-for="u in $store.users.items ?? []" :key="u.id">
+                  <tr class="data-table-row">
+                    <td x-text="u.name" class="cell-primary"></td>
+                    <td x-text="`${u.username}`" class="cell-username"></td>
+                    <td x-text="u.email || '--'" class="cell-muted"></td>
+                    <td x-text="u.phone_number || '--'" class="cell-muted"></td>
+                    <td class="cell-actions">
+                      <button @click="modal.open(u)" class="row-action"><i x-icon="edit-2" class="icon"></i></button>
+                      <button @click="modal.delete(u)" class="row-action-danger"><i x-icon="trash-2" class="icon"></i></button>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- USER MODAL -->
+        <div x-data="modal" x-show="show" class="modal-backdrop">
+          <div @click.outside="close()" class="modal">
+            <div class="modal-header">
+              <h3 x-text="form.id ? 'Edit User' : 'Add User'" class="modal-title"></h3>
+              <button @click="close()" class="modal-close"><i data-lucide="x" class="icon-md"></i></button>
+            </div>
+            <form @submit.prevent="submit()" class="form-stack">
+              <div>
+                <label class="form-label">Full Name *</label>
+                <input type="text" x-model="form.name" required maxlength="30" class="form-control">
+              </div>
+              <div>
+                <label class="form-label">Username *</label>
+                <input type="text" x-model="form.username" required maxlength="16" class="form-control">
+              </div>
+              <div>
+                <label class="form-label">Password *</label>
+                <input type="password" x-model="form.password" required maxlength="16" class="form-control">
+              </div>
+              <div>
+                <label class="form-label">Email Address</label>
+                <input type="email" x-model="form.email" class="form-control">
+              </div>
+              <div>
+                <label class="form-label">Phone Number</label>
+                <input type="text" x-model="form.phone_number" class="form-control">
+              </div>
+              <div class="form-actions">
+                <button type="button" @click="close()" class="btn-text">Cancel</button>
+                <button type="submit" class="btn-primary">Save User</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>

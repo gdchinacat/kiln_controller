@@ -1,0 +1,79 @@
+      <!-- DASHBOARD VIEW -->
+      <section x-data="tabs.dashboard" x-show="show" class="view">
+        <div class="view-header">
+          <div>
+            <h2 class="view-title">System Overview</h2>
+            <p class="view-subtitle">Live kiln management metrics and active schedule monitoring</p>
+          </div>
+        </div>
+
+        <!-- Overview Stats Cards -->
+        <div class="stats-grid">
+          <div @click="switchTab('users')" class="panel stat-card">
+            <div>
+              <p class="stat-label">Users</p>
+              <h3 x-text="$store.users.items?.length ?? 0" class="stat-value">--</h3>
+            </div>
+            <div class="stat-icon stat-icon--users">
+              <i data-lucide="users" class="icon-lg"></i>
+            </div>
+          </div>
+
+          <div @click="switchTab('devices')" class="panel stat-card">
+            <div>
+              <p class="stat-label">Kilns</p>
+              <h3 x-text="$store.devices.items?.length ?? 0" class="stat-value">--</h3>
+            </div>
+            <div class="stat-icon stat-icon--kilns">
+              <i data-lucide="cpu" class="icon-lg"></i>
+            </div>
+          </div>
+
+          <div @click="switchTab('schedules')" class="panel stat-card">
+            <div>
+              <p class="stat-label">Schedules</p>
+              <h3 x-text="$store.schedules.items?.length ?? 0" class="stat-value">--</h3>
+            </div>
+            <div class="stat-icon stat-icon--schedules">
+              <i data-lucide="calendar" class="icon-lg"></i>
+            </div>
+          </div>
+
+          <div @click="switchTab('firings')" class="panel stat-card">
+            <div>
+              <p class="stat-label">Firings</p>
+              <h3 x-text="$store.schedules.items?.length ?? 0" class="stat-value">--</h3>
+            </div>
+            <div class="stat-icon stat-icon--firings">
+              <i data-lucide="calendar" class="icon-lg"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- Active Firing Visualizer -->
+        <div class="panel firing-monitor">
+          <div class="firing-monitor-header">
+            <div>
+              <div class="firing-monitor-tags">
+                <span class="firing-monitor-badge">Active Firing Monitor</span>
+              </div>
+              <h2 x-text="tabs.schedules.selectedSchedule ? tabs.schedules.selectedSchedule.name : 'Select a Firing'" class="firing-monitor-title">Select a Schedule Below</h2>
+              <span x-text="tabs.schedules.selectedSchedule ? '(' + tabs.schedules.selectedScheduleOwnerName + ')' : ''" class="firing-monitor-owner"></span>
+            </div>
+            <div class="firing-monitor-controls">
+              <select :value="tabs.schedules.selectedSchedule?.id ?? ''"
+                      @change="tabs.schedules.selectSchedule($store.schedules.items.find(s => s.id == $event.target.value))"
+                      class="firing-select">
+                <option value="">Select Firing...</option>
+                <template x-for="s in ($store.schedules.items ?? [])" :key="s.id">
+                  <option :value="s.id" x-text="s.name"></option>
+                </template>
+              </select>
+            </div>
+          </div>
+
+          <div class="firing-chart">
+            <canvas id="dashboardChart" x-data="{ chart: null }" x-effect="refreshChart($el, tabs.schedules.schedulePhases)"/>
+          </div>
+        </div>
+      </section>

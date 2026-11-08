@@ -1,0 +1,208 @@
+      <!-- SCHEDULES VIEW -->
+      <section x-data="tabs.schedules" x-show="show" class="view">
+        <div class="view-header">
+          <div>
+            <h2 class="view-title">Firing Schedules &amp; Curves</h2>
+            <p class="view-subtitle">Define firing ramp/hold profiles</p>
+          </div>
+          <div class="view-toolbar">
+            <button @click="modal.open()" class="btn-create">
+              <i data-lucide="calendar-plus" class="icon"></i> Create Schedule
+            </button>
+          </div>
+        </div>
+
+        <div class="schedules-layout">
+          <!-- Schedules List Side Column -->
+          <aside class="schedule-sidebar">
+            <h3 class="schedule-sidebar-title">Available Profiles</h3>
+            <div class="schedule-list">
+              <template x-if="($store.schedules.items ?? []).length === 0">
+                <div class="schedule-list-empty">No schedules. Click "Create Schedule" above.</div>
+              </template>
+              <template x-for="s in ($store.schedules.items ?? [])" :key="s.id">
+                <div @click="selectSchedule(s)" :class="{ 'is-selected': selectedSchedule?.id === s.id}" class="schedule-item">
+                  <div class="schedule-item-header">
+                    <h4 x-text="s.name" class="schedule-item-title"></h4>
+                  </div>
+                  <p class="schedule-item-meta">Operator: <span x-text="($store.users.items ?? []).find(u => u.id === s.user_id)?.name || 'User ID #' + s.user_id" class="schedule-item-owner"></span></p>
+                </div>
+              </template>
+            </div>
+          </aside>
+
+          <!-- Schedule Detailed View & Phase Editor -->
+          <div class="schedule-main">
+            <div class="panel schedule-detail">
+
+              <div x-show="!selectedSchedule" class="empty-state">
+                <i data-lucide="flame" class="empty-state-icon"></i>
+                <p>Select or create a firing schedule to view its curve and edit phases.</p>
+              </div>
+
+              <div x-show="selectedSchedule" class="schedule-detail-body">
+                <!-- Header -->
+                <div class="schedule-detail-header">
+                  <div>
+                    <h2 x-text="selectedSchedule?.name || '--'" class="schedule-detail-title">--</h2>
+                    <p class="schedule-detail-meta">Operator: <span x-text="selectedScheduleOwnerName" class="schedule-detail-owner">--</span></p>
+                  </div>
+                  <div class="view-toolbar">
+                    <button @click="modal.open(selectedSchedule)" class="btn-tool">
+                      <i data-lucide="edit-3" class="icon"></i>
+                    </button>
+                    <button @click="modal.delete(selectedSchedule)" class="btn-tool-danger">
+                      <i data-lucide="trash-2" class="icon"></i>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Temperature Chart -->
+                <div class="chart-section">
+                  <h4 class="subsection-title">Temperature (°C)</h4>
+                  <div class="chart-frame">
+                    <canvas id="scheduleChart" x-data="{ chart: null }" x-effect="refreshChart($el, schedulePhases)"/>
+                  </div>
+                </div>
+
+                <!-- Sequential Firing Phases Table -->
+                <div>
+                  <div class="subsection-header">
+                    <h4 class="subsection-title">Sequential Firing Phases</h4>
+                    <button @click="phaseModal.open()" class="btn-outline-accent">
+                      <i data-lucide="plus-circle" class="icon"></i> Append Phase
+                    </button>
+                  </div>
+                  <div class="table-frame">
+                    <table class="phase-table">
+                      <thead>
+                        <tr class="phase-table-head-row">
+                          <th x-show="$store.auth.admin">Ordinal</thx>
+                          <th>Phase Name</th>
+                          <th>Type</th>
+                          <th>Target Temp</th>
+                          <th>Rate (°/h)</th>
+                          <th>Duration</th>
+                          <th class="col-actions">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody class="phase-table-body">
+                        <template x-if="schedulePhases.length === 0">
+                          <tr><td colspan="6" class="table-empty">No phases defined for this schedule yet. Click "+ Add Phase".</td></tr>
+                        </template>
+                        <template x-for="p in schedulePhases" :key="p.id">
+                          <tr class="phase-table-row">
+                            <td x-show="$store.auth.admin" x-text="p.ordinal" class="cell-numeric"></td>
+                            <td x-text="p.name" class="cell-strong"></td>
+                            <td>
+                              <span :class="p.phase_type === 'ramp' ? 'phase-badge--ramp' : 'phase-badge--constant'" class="phase-badge" x-text="p.phase_type"></span>
+                            </td>
+                            <td x-text="p.temperature !== null && p.temperature !== undefined ? `${p.temperature}°C` : '--'" class="cell-numeric"></td>
+                            <td x-text="getDisplayRateForDurationPhase(p)" class="cell-numeric"></td>
+                            <td x-text="getDisplayDurationForRatePhase(p)" class="cell-numeric"></td>
+                            <td class="cell-actions">
+                              <button @click="phaseModal.open(null, p)" title="Insert phase before this one" class="row-action">
+                                <i x-icon="list-plus" class="icon-sm"></i>
+                              </button>
+                              <button @click="phaseModal.open(p)" title="Edit phase" class="row-action">
+                                <i x-icon="edit-2" class="icon-sm"></i>
+                              </button>
+                              <button @click="phaseModal.delete(selectedSchedule.id, p)" title="Delete phase" class="row-action-danger">
+                                <i x-icon="trash-2" class="icon-sm"></i>
+                              </button>
+                            </td>
+                          </tr>
+                        </template>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SCHEDULE MODAL -->
+        <div x-data="modal" x-show="show" class="modal-backdrop">
+          <div @click.outside="close()" class="modal">
+            <div class="modal-header">
+              <h3 x-text="form.id ? 'Edit Schedule' : 'Create Schedule'" class="modal-title"></h3>
+              <button @click="close()" class="modal-close"><i data-lucide="x" class="icon-md"></i></button>
+            </div>
+            <form @submit.prevent="submit()" class="form-stack">
+              <div>
+                <label class="form-label">Schedule Name *</label>
+                <input type="text" x-model="form.name" required maxlength="30" class="form-control" placeholder="e.g. Cone 6 Glaze Firing">
+              </div>
+              <div>
+                <label class="form-label">User *</label>
+                <select x-model.number="form.user_id" required class="form-control">
+                  <template x-for="u in ($store.users.items ?? [])" :key="u.id">
+                    <option :value="u.id" x-text="`${u.name} (${u.username})`"></option>
+                  </template>
+                </select>
+              </div>
+              <div class="form-actions">
+                <button type="button" @click="close()" class="btn-text">Cancel</button>
+                <button type="submit" class="btn-primary">Save Schedule</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- PHASE MODAL -->
+        <div x-data="phaseModal" x-show="show" class="modal-backdrop">
+          <div @click.outside="close()" class="modal">
+            <div class="modal-header">
+              <h3 x-text="form.id ? 'Edit Phase' : 'Add Phase'" class="modal-title"></h3>
+              <button @click="close()" class="modal-close"><i data-lucide="x" class="icon-md"></i></button>
+            </div>
+            <form @submit.prevent="submit()" class="form-stack">
+              <div>
+                <label class="form-label">Phase Name *</label>
+                <input type="text" x-model="form.name" required maxlength="30" class="form-control" placeholder="e.g. Ramp to Cone">
+              </div>
+
+              <div>
+                <label class="form-label">Phase Type *</label>
+                <select x-model="form.phase_type" @change="onPhaseTypeChange()" required class="form-control">
+                  <option value="ramp">Ramp</option>
+                  <option value="constant">Constant (Hold)</option>
+                </select>
+              </div>
+
+              <!-- Temperature Input -->
+              <div>
+                <label class="form-label">Target Temp (°C) *</label>
+                <input type="number" x-model="form.temperature" @input="recalculateRampValues()" :readonly="form.phase_type === 'constant'" :class="{ 'is-readonly': form.phase_type === 'constant' }" required placeholder="e.g. 1220" class="form-control">
+                <span x-show="form.phase_type === 'constant'" class="form-hint">Holds preceding phase temperature (Read-Only)</span>
+              </div>
+
+              <div class="form-row">
+                <!-- Rate Input container -->
+                <div x-show="form.phase_type === 'ramp'">
+                  <div class="form-label-row">
+                    <label class="form-label">Rate (°/h)</label>
+                    <span x-show="activeRampMode === 'duration'" class="tag-calculated">Calculated</span>
+                  </div>
+                  <input type="number" x-model="form.rate" @focus="setActiveRampMode('rate')" @input="recalculateRampValues()" :class="{ 'is-calculated': activeRampMode === 'duration' }" placeholder="150" class="form-control">
+                </div>
+
+                <!-- Duration Input container -->
+                <div>
+                  <div class="form-label-row">
+                    <label class="form-label">Duration (HH:MM)</label>
+                    <span x-show="activeRampMode === 'rate'" class="tag-calculated">Calculated</span>
+                  </div>
+                  <input type="text" x-model="form.duration" @focus="setActiveRampMode('duration')" @input="recalculateRampValues()" :class="{ 'is-calculated': form.phase_type === 'ramp' && activeRampMode === 'rate' }" placeholder="01:30" class="form-control">
+                </div>
+              </div>
+
+              <div class="form-actions">
+                <button type="button" @click="close()" class="btn-text">Cancel</button>
+                <button type="submit" class="btn-primary">Save Phase</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>

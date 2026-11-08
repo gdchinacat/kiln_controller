@@ -1,6 +1,17 @@
 const DEFAULT_ROOM_TEMP = 20;
 
 // --- Helper Functions ---
+async function initTab(element, tabName) {
+    const response = await fetch(`/static/tabs/${tabName}.html`);
+
+    if (!response.ok) {
+        throw new Error(`Failed to load tab ${tabName}: ${response.status}`);
+    }
+
+    element.innerHTML = await response.text();
+    Alpine.initTree(element);
+}
+
 function assert (condition, message) {
   if (!condition) {
     throw new Error(message);
@@ -236,8 +247,8 @@ function createEntityModal(config) {
         await config.entityStore.delete(entity.id);
         Alpine.store('toast').showToast(`${config.entityType} deleted`, "warning");
       });
+    },
 
-    }
   };
 }
 

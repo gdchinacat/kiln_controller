@@ -1,7 +1,10 @@
 const DEFAULT_ROOM_TEMP = 20;
 
 // --- Helper Functions ---
-async function initTab(element, tabName) {
+const tabLoaders = [];
+function loadTab(element, tabName) {
+  tabLoaders.push((async () => {
+    await import(`/static/tabs/${tabName}/${tabName}.js`);
     const response = await fetch(`/static/tabs/${tabName}/${tabName}.html`);
 
     if (!response.ok) {
@@ -10,6 +13,7 @@ async function initTab(element, tabName) {
 
     element.innerHTML = await response.text();
     Alpine.initTree(element);
+  })());
 }
 
 function assert (condition, message) {
@@ -509,7 +513,12 @@ function PhaseModal() {
 function BaseTab() {
     return {
         show: false,
-        open() { this.show = true; },
+        open() {
+          this.show = true; 
+          if (window.location.hash !== `#${this.name}`) {
+            history.replaceState(null, '', `#${this.name}`);
+          }
+        },
         close() { this.show = false; },
     }
 }
@@ -752,19 +761,14 @@ document.addEventListener('alpine:init', () => {
   Alpine.store('users', createEntityStore('/user')),
   Alpine.store('devices', createEntityStore('/device')),
   Alpine.store('schedules', createEntityStore('/schedule')),
+  Alpine.store('tabs', {}),
 
   Alpine.data('kilnApp', () => ({
 
+    activeTab: null,
+
     loginModal: LoginModal(),
     confirmModal: ConfirmModal(),
-
-    activeTab: null,
-    tabs: {
-        dashboard: DashboardTab(),
-        users: UsersTab(),
-        devices: DevicesTab(),
-        schedules: SchedulesTab(),
-    },
 
     async maybeShowLogin() {
       try {
@@ -775,20 +779,24 @@ document.addEventListener('alpine:init', () => {
     },
 
     init() {
-      this.activeTab = this.tabs[window.location.hash.replace("#", "")] || this.tabs.dashboard;
-      this.activeTab.open();
-      this.maybeShowLogin();
+      window.addEventListener('alpine:initialized', async () => {
+        await Promise.allSettled(tabLoaders);
+        let tabs = Alpine.store('tabs');
+        this.activeTab = tabs[window.location.hash.replace("#", "")] || tabs.dashboard;
+        this.activeTab.open();
+        this.maybeShowLogin();
 
-      window.addEventListener('hashchange', () => {
-        const tabname = window.location.hash.replace("#", "") || "dashboard";
-        if (tabname != this.activeTab?.name) {
-          if (this.activeTab) this.activeTab.close();
-          this.activeTab = this.tabs[tabname];
-          if (this.activeTab) {
-            this.activeTab.open();
-            this.maybeShowLogin();
+        window.addEventListener('hashchange', () => {
+          const tabname = window.location.hash.replace("#", "") || "dashboard";
+          if (tabname != this.activeTab?.name) {
+            if (this.activeTab) this.activeTab.close();
+            this.activeTab = tabs[tabname] || tabs.dashboard;
+            if (this.activeTab) {
+              this.activeTab.open();
+              this.maybeShowLogin();
+            }
           }
-        }
+        });
       });
     },
 

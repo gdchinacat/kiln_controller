@@ -1,75 +1,74 @@
-      <!-- DEVICES VIEW -->
-      <section x-data="tabs.devices" x-show="show" class="view">
-        <div class="view-header">
-          <div>
-            <h2 class="view-title">Kilns</h2>
-            <p class="view-subtitle">Hardware controllers connected to the server ecosystem</p>
-          </div>
-          <div class="view-toolbar">
-          </div>
-        </div>
+<section x-data="$store.tabs.devices" x-show="show" class="view">
+  <div class="view-header">
+    <div>
+      <h2 class="view-title">Kilns</h2>
+      <p class="view-subtitle">Hardware controllers connected to the server ecosystem</p>
+    </div>
+    <div class="view-toolbar">
+    </div>
+  </div>
 
-        <div class="kiln-grid">
-          <template x-if="($store.devices.items ?? []).length === 0">
-            <div class="panel-placeholder">No devices connected.</div>
-          </template>
-          <template x-for="d in ($store.devices.items ?? [])" :key="d.id">
-            <div class="panel kiln-card">
-              <div>
-                <div class="kiln-card-header">
-                  <div>
-                    <span class="kiln-state-badge">
-                      <span class="status-dot"></span> Active <!-- kiln state -->
-                    </span>
-                    <h3 x-text="d.name" class="kiln-card-title"></h3>
-                  </div>
-                  <div class="card-actions">
-                    <button @click="modal.open(d)" class="row-action"><i x-icon="edit-2" class="icon"></i></button>
-                    <button @click="modal.delete(d)" class="row-action-danger"><i x-icon="trash-2" class="icon"></i></button>
-                  </div>
-                </div>
-                <p x-text="d.description || 'No device description provided.'" class="kiln-card-description"></p>
-              </div>
-
-              <div class="kiln-card-footer">
-                <div class="detail-row">
-                  <span class="detail-label">Operator:</span>
-                  <span x-text="($store.users.items ?? []).find(u => u.id === d.user_id)?.name || 'User ID #' + d.user_id" class="detail-value"></span>
-                </div>
-              </div>
+  <div class="kiln-grid">
+    <template x-if="($store.devices.items ?? []).length === 0">
+      <div class="panel-placeholder">No devices connected.</div>
+    </template>
+    <template x-for="d in ($store.devices.items ?? [])" :key="d.id">
+      <div class="panel kiln-card">
+        <div>
+          <div class="kiln-card-header">
+            <div>
+              <span class="kiln-state-badge">
+                <span class="status-dot"></span> Active <!-- kiln state -->
+              </span>
+              <h3 x-text="d.name" class="kiln-card-title"></h3>
             </div>
-          </template>
+            <div class="card-actions">
+              <button @click="modal.open(d)" class="row-action"><i x-icon="edit-2" class="icon"></i></button>
+              <button @click="modal.delete(d)" class="row-action-danger"><i x-icon="trash-2" class="icon"></i></button>
+            </div>
+          </div>
+          <p x-text="d.description || 'No device description provided.'" class="kiln-card-description"></p>
         </div>
 
-        <!-- DEVICE MODAL -->
-        <div x-data="modal" x-show="show" class="modal-backdrop">
-          <div @click.outside="close()" class="modal">
-            <div class="modal-header">
-              <h3 x-text="'Edit Kiln'" class="modal-title"></h3>
-              <button @click="close()" class="modal-close"><i data-lucide="x" class="icon-md"></i></button>
-            </div>
-            <form @submit.prevent="submit()" class="form-stack">
-              <div>
-                <label class="form-label">Name *</label>
-                <input type="text" x-model="form.name" required maxlength="30" class="form-control">
-              </div>
-              <div>
-                <label class="form-label">Operator</label>
-                <select x-model.number="form.user_id" required class="form-control">
-                  <template x-for="u in ($store.users.items ?? [])" :key="u.id">
-                    <option :value="u.id" x-text="`${u.name} (${u.username})`"></option>
-                  </template>
-                </select>
-              </div>
-              <div>
-                <label class="form-label">Description</label>
-                <textarea x-model="form.description" rows="2" class="form-control"></textarea>
-              </div>
-              <div class="form-actions">
-                <button type="button" @click="close()" class="btn-text">Cancel</button>
-                <button type="submit" class="btn-primary">Save Kiln</button>
-              </div>
-            </form>
+        <div class="kiln-card-footer">
+          <div class="detail-row">
+            <span class="detail-label">Operator:</span>
+            <span x-text="($store.users.items ?? []).find(u => u.id === d.user_id)?.name || 'User ID #' + d.user_id" class="detail-value"></span>
           </div>
         </div>
-      </section>
+      </div>
+    </template>
+  </div>
+
+  <!-- DEVICE MODAL -->
+  <div x-data="modal" x-show="show" class="modal-backdrop">
+    <div @click.outside="close()" class="modal">
+      <div class="modal-header">
+        <h3 x-text="'Edit Kiln'" class="modal-title"></h3>
+        <button @click="close()" class="modal-close"><i data-lucide="x" class="icon-md"></i></button>
+      </div>
+      <form @submit.prevent="submit()" class="form-stack">
+        <div>
+          <label class="form-label">Name *</label>
+          <input type="text" x-model="form.name" required maxlength="30" class="form-control">
+        </div>
+        <div>
+          <label class="form-label">Operator</label>
+          <select x-model.number="form.user_id" required class="form-control">
+            <template x-for="u in ($store.users.items ?? [])" :key="u.id">
+              <option :value="u.id" x-text="`${u.name} (${u.username})`"></option>
+            </template>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Description</label>
+          <textarea x-model="form.description" rows="2" class="form-control"></textarea>
+        </div>
+        <div class="form-actions">
+          <button type="button" @click="close()" class="btn-text">Cancel</button>
+          <button type="submit" class="btn-primary">Save Kiln</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>

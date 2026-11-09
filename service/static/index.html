@@ -75,19 +75,19 @@
 
       <!-- Center Nav Tabs -->
       <nav class="nav-tabs">
-        <button @click="switchTab('dashboard')" :class="{ 'is-active': activeTab === tabs.dashboard }" class="nav-tab">
+        <button @click="switchTab('dashboard')" :class="{ 'is-active': activeTab === $store.tabs.dashboard }" class="nav-tab">
           <i data-lucide="layout-dashboard" class="icon"></i> Dashboard
         </button>
-        <button @click="switchTab('users')" :class="{ 'is-active': activeTab === tabs.users }" class="nav-tab">
+        <button @click="switchTab('users')" :class="{ 'is-active': activeTab === $store.tabs.users }" class="nav-tab">
           <i data-lucide="users" class="icon"></i> Users
         </button>
-        <button @click="switchTab('devices')" :class="{ 'is-active': activeTab === tabs.devices }" class="nav-tab">
+        <button @click="switchTab('devices')" :class="{ 'is-active': activeTab === $store.tabs.devices }" class="nav-tab">
           <i data-lucide="cpu" class="icon"></i> Kilns
         </button>
-        <button @click="switchTab('schedules')" :class="{ 'is-active': activeTab === tabs.schedules }" class="nav-tab">
+        <button @click="switchTab('schedules')" :class="{ 'is-active': activeTab === $store.tabs.schedules }" class="nav-tab">
           <i data-lucide="calendar" class="icon"></i> Schedules
         </button>
-        <button @click="switchTab('firings')" :class="{ 'is-active': activeTab === tabs.firings }" class="nav-tab">
+        <button @click="switchTab('firings')" :class="{ 'is-active': activeTab === $store.tabs.firings }" class="nav-tab">
           <i data-lucide="calendar" class="icon"></i> Firings
         </button>
       </nav>
@@ -102,11 +102,11 @@
     </header>
 
     <main class="app-main">
-    <div id="dashboard-tab" x-init="initTab($el, 'dashboard')"> </div>
-    <div id="users-tab" x-init="initTab($el, 'users')"> </div>
-    <div id="devices-tab" x-init="initTab($el, 'devices')"> </div>
-    <div id="schedules-tab" x-init="initTab($el, 'schedules')"> </div>
-    <div id="firings-tab" x-init="initTab($el, 'firings')"> </div>
+    <div id="dashboard-tab" x-init="loadTab($el, 'dashboard')"> </div>
+    <div id="users-tab" x-init="loadTab($el, 'users')"> </div>
+    <div id="devices-tab" x-init="loadTab($el, 'devices')"> </div>
+    <div id="schedules-tab" x-init="loadTab($el, 'schedules')"> </div>
+    <div id="firings-tab" x-init="loadTab($el, 'firings')"> </div>
     </main>
 
   <!-- LOGIN MODAL -->

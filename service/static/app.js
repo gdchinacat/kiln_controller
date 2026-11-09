@@ -140,12 +140,15 @@ function createEntityModal(config) {
       this.form = this.model();
     },
 
+    async created(entity) {},
+
     async submit() {
       if (this.form.id != '') {
         await config.entityStore.save(this.form);
         Alpine.store('toast').showToast(`${config.entityType} updated successfully!`, "success");
       } else {
-        await config.entityStore.create(this.form);
+        let created = await config.entityStore.create(this.form);
+        this.created(created);
         Alpine.store('toast').showToast(`${config.entityType} created successfully!`, "success");
       }
       this.close();

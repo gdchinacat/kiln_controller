@@ -107,6 +107,7 @@ function ScheduleModal() {
       entityType: 'Schedule',
       endpoint: '/schedule',
       entityStore: Alpine.store('schedules')}),
+    async created(schedule) { this.$data.selectSchedule(schedule)},
     model: model,
     form: model()
   };

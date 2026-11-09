@@ -261,46 +261,6 @@ function createEntityModal(config) {
   };
 }
 
-function UserModal() {
-  const model = () => ({
-    id: '',
-    version: null,
-    name: '',
-    id: '',
-    name: '',
-    username: '',
-    password: '',
-    email: '',
-    phone_number: '',
-  });
-
-  return {
-    ...createEntityModal({
-      entityType: 'User',
-      endpoint: '/user',
-      entityStore: Alpine.store('users')}),
-    model: model,
-    form: model()
-  };
-}
-
-function DeviceModal() {
-  const model = () => ({
-    id: '',
-    version: null,
-    name: '',
-    user_id: Alpine.store('auth').user?.id || ''});  // default to current user
-
-  return {
-    ...createEntityModal({
-      entityType: 'Kiln',
-      endpoint: '/device',
-      entityStore: Alpine.store('devices')}),
-    model: model,
-    form: model()
-  };
-}
-
 function ScheduleModal() {
   const model = () => ({
     id: '',
@@ -521,29 +481,6 @@ function BaseTab() {
         },
         close() { this.show = false; },
     }
-}
-
-function DashboardTab() {
-  return {
-    ...BaseTab(),
-    name: "dashboard",
-  }
-}
-
-function UsersTab() {
-  return {
-    ...BaseTab(),
-    name: "users",
-    modal: UserModal(),
-  }
-}
-
-function DevicesTab() {
-  return {
-    ...BaseTab(),
-    name: "devices",
-    modal: DeviceModal(),
-  }
 }
 
 function SchedulesTab() {

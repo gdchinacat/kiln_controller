@@ -322,8 +322,9 @@ function SchedulesTab() {
 
       let selectedSchedule = schedule ?? this.selectedSchedule;
 
-      if (selectedSchedule && (!schedules || !schedules.some(s => s.id === selectedSchedule.id))) {
-        selectedSchedule = null;
+      if (selectedSchedule) {
+        // use the schedule in store to ensure updates are applied.
+        selectedSchedule = schedules.find(p => p.id === selectedSchedule.id);
       }
 
       if (!selectedSchedule && schedules?.length > 0) {

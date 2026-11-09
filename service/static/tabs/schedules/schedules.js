@@ -391,7 +391,7 @@ function SchedulesTab() {
           next: phaseIdx < phases.length - 1 ? phases[phaseIdx + 1] : null,
         };
       }
-      return { previous: null, next: null};
+      return { previous: phase === null && phases ? phases[phases.length - 1] : null, next: null};
     },
 
     getPrecedingTemperature(editingOrdinal = null) {

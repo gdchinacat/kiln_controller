@@ -1,3 +1,4 @@
+'use strict';
 const DEFAULT_ROOM_TEMP = 20;
 
 // --- Helper Functions ---

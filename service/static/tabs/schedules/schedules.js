@@ -1,3 +1,4 @@
+'use strict';
 
 function durationToHours(durationStr) {
   if (!durationStr) return 0;

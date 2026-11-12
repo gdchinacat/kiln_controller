@@ -13,7 +13,7 @@
       <div class="panel-placeholder">No devices connected.</div>
     </template>
     <template x-for="d in ($store.devices.items ?? [])" :key="d.id">
-      <div class="panel kiln-card">
+      <div @click="select(d)" class="panel kiln-card" :class="{ 'is-selected': selected?.id === d.id}">
         <div>
           <div class="kiln-card-header">
             <div>

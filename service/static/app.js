@@ -173,6 +173,13 @@ function createEntityModal(config) {
 
 function Selectable(storeName) {
   return {
+    selected: null,
+
+    init() { this.watchSelection(); },
+    watchSelection() {
+      Alpine.effect(() => this.select());
+    },
+
     async select(entity = null) {
       const entities = Alpine.store(storeName).items;
 

@@ -56,12 +56,12 @@
         <div class="firing-monitor-tags">
           <span class="firing-monitor-badge">Active Firing Monitor</span>
         </div>
-        <h2 x-text="$store.tabs.schedules?.selectedSchedule ? $store.tabs.schedules?.selectedSchedule.name : 'Select a Firing'" class="firing-monitor-title">Select a Schedule Below</h2>
-        <span x-text="$store.tabs.schedules?.selectedSchedule ? '(' + $store.tabs.schedules?.selectedScheduleOwnerName + ')' : ''" class="firing-monitor-owner"></span>
+        <h2 x-text="$store.tabs.schedules?.selected ? $store.tabs.schedules?.selected.name : 'Select a Firing'" class="firing-monitor-title">Select a Schedule Below</h2>
+        <span x-text="$store.tabs.schedules?.selected ? '(' + $store.tabs.schedules?.selectedOwnerName + ')' : ''" class="firing-monitor-owner"></span>
       </div>
       <div class="firing-monitor-controls">
-        <select :value="$store.tabs.schedules?.selectedSchedule?.id ?? ''"
-                @change="$store.tabs.schedules?.selectSchedule($store.schedules.items.find(s => s.id == $event.target.value))"
+        <select :value="$store.tabs.schedules?.selected?.id ?? ''"
+                @change="$store.tabs.schedules?.select($store.schedules.items.find(s => s.id == $event.target.value))"
                 class="firing-select">
           <option value="">Select Firing...</option>
           <template x-for="s in ($store.schedules.items ?? [])" :key="s.id">

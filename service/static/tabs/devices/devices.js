@@ -23,11 +23,6 @@ function DevicesTab() {
     ...Selectable('devices'),
     name: "devices",
     modal: DeviceModal(),
-    selected: null,
-
-    async init() {
-      Alpine.effect(() => this.select());
-    },
 
   };
 }

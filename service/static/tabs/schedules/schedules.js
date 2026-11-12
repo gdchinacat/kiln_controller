@@ -107,7 +107,7 @@ function ScheduleModal() {
       entityType: 'Schedule',
       endpoint: '/schedule',
       entityStore: Alpine.store('schedules')}),
-    async created(schedule) { this.$data.selectSchedule(schedule)},
+    async created(schedule) { this.$data.select(schedule)},
     model: model,
     form: model()
   };
@@ -184,7 +184,7 @@ function PhaseModal() {
           let nextMinGapOrdinal = ordinal + ((subsequentPhases.length + 1) * 10);
           for (const phaseToUpdate of subsequentPhases) {
             await Alpine.store('network').apiRequest(
-              `/schedule/${this.selectedSchedule.id}/phase/${phaseToUpdate.id}`,
+              `/schedule/${this.selected.id}/phase/${phaseToUpdate.id}`,
               'PUT',
               { ...phaseToUpdate, ordinal: nextMinGapOrdinal }
             );
@@ -215,7 +215,7 @@ function PhaseModal() {
         version: p.version,
         ordinal: parseInt(this.form.ordinal),
         phase_type: p.phase_type,
-        schedule_id: parseInt(this.selectedSchedule.id),
+        schedule_id: parseInt(this.selected.id),
         temperature: p.temperature !== "" ? parseInt(p.temperature) : null,
         rate: (p.phase_type === 'constant') ? null : ((this.activeRampMode=='rate' && p.rate !== "") ? parseInt(p.rate) : null),
         duration: (this.activeRampMode === 'duration') ? (p.duration || null) : null,
@@ -223,10 +223,10 @@ function PhaseModal() {
 
       try {
         if (p.id) {
-          await Alpine.store('network').apiRequest(`/schedule/${this.selectedSchedule.id}/phase/${p.id}`, 'PUT', payload);
+          await Alpine.store('network').apiRequest(`/schedule/${this.selected.id}/phase/${p.id}`, 'PUT', payload);
           Alpine.store('toast').showToast("Phase updated!", "success");
         } else {
-          await Alpine.store('network').apiRequest(`/schedule/${this.selectedSchedule.id}/phase`, 'POST', payload);
+          await Alpine.store('network').apiRequest(`/schedule/${this.selected.id}/phase`, 'POST', payload);
           Alpine.store('toast').showToast("Phase added!", "success");
         }
         this.close();
@@ -308,48 +308,29 @@ function PhaseModal() {
 function SchedulesTab() {
   return {
     ...BaseTab(),
+    ...Selectable('schedules'),
     name: "schedules",
     modal: ScheduleModal(),
     phaseModal: PhaseModal(),
-    selectedSchedule: null,
     schedulePhases: [],
 
-    async init() {
-      Alpine.effect(() => this.selectSchedule());
-    },
-
-    async selectSchedule(schedule = null) {
-      const schedules = Alpine.store('schedules').items;
-
-      let selectedSchedule = schedule ?? this.selectedSchedule;
-
-      if (selectedSchedule) {
-        // use the schedule in store to ensure updates are applied.
-        selectedSchedule = schedules.find(p => p.id === selectedSchedule.id);
-      }
-
-      if (!selectedSchedule && schedules?.length > 0) {
-        selectedSchedule = schedules[0];
-      }
-
-      if (selectedSchedule != this.selectedSchedule) {
-        this.selectedSchedule = selectedSchedule;
-        this.reloadSelectedSchedulePhases();
-      }
+    init() {
+      this.watchSelection();
+      Alpine.effect(() => this.reloadSelectedSchedulePhases());
     },
 
     async reloadSelectedSchedulePhases() {
-      if (this.selectedSchedule) {
-        this.schedulePhases = await Alpine.store('network').apiRequest(`/schedule/${this.selectedSchedule.id}/phase`);
+      if (this.selected) {
+        this.schedulePhases = await Alpine.store('network').apiRequest(`/schedule/${this.selected.id}/phase`);
       } else {
         this.schedulePhases = [];
       }
     },
 
-    get selectedScheduleOwnerName() {
-      if (!this.selectedSchedule) return '--';
-      const u = Alpine.store('users').items?.find(x => x.id === this.selectedSchedule.user_id);
-      return u ? u.name : `User #${this.selectedSchedule.user_id}`;
+    get selectedOwnerName() {
+      if (!this.selected) return '--';
+      const u = Alpine.store('users').items?.find(x => x.id === this.selected.user_id);
+      return u ? u.name : `User #${this.selected.user_id}`;
     },
 
     getDisplayRateForDurationPhase(p) {

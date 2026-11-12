@@ -20,7 +20,7 @@
           <div class="schedule-list-empty">No schedules. Click "Create Schedule" above.</div>
         </template>
         <template x-for="s in ($store.schedules.items ?? [])" :key="s.id">
-          <div @click="selectSchedule(s)" :class="{ 'is-selected': selectedSchedule?.id === s.id}" class="schedule-item">
+          <div @click="select(s)" :class="{ 'is-selected': selected?.id === s.id}" class="schedule-item">
             <div class="schedule-item-header">
               <h4 x-text="s.name" class="schedule-item-title"></h4>
             </div>
@@ -34,23 +34,23 @@
     <div class="schedule-main">
       <div class="panel schedule-detail">
 
-        <div x-show="!selectedSchedule" class="empty-state">
+        <div x-show="!selected" class="empty-state">
           <i data-lucide="flame" class="empty-state-icon"></i>
           <p>Select or create a firing schedule to view its curve and edit phases.</p>
         </div>
 
-        <div x-show="selectedSchedule" class="schedule-detail-body">
+        <div x-show="selected" class="schedule-detail-body">
           <!-- Header -->
           <div class="schedule-detail-header">
             <div>
-              <h2 x-text="selectedSchedule?.name || '--'" class="schedule-detail-title">--</h2>
-              <p class="schedule-detail-meta">Operator: <span x-text="selectedScheduleOwnerName" class="schedule-detail-owner">--</span></p>
+              <h2 x-text="selected?.name || '--'" class="schedule-detail-title">--</h2>
+              <p class="schedule-detail-meta">Operator: <span x-text="selectedOwnerName" class="schedule-detail-owner">--</span></p>
             </div>
             <div class="view-toolbar">
-              <button @click="modal.open(selectedSchedule)" class="btn-tool">
+              <button @click="modal.open(selected)" class="btn-tool">
                 <i data-lucide="edit-3" class="icon"></i>
               </button>
-              <button @click="modal.delete(selectedSchedule)" class="btn-tool-danger">
+              <button @click="modal.delete(selected)" class="btn-tool-danger">
                 <i data-lucide="trash-2" class="icon"></i>
               </button>
             </div>
@@ -107,7 +107,7 @@
                           <i x-icon="edit-2" class="icon-sm"></i>
                         </button>
                         <button :disabled="!isPhaseDeletable(p)"
-                                @click="phaseModal.delete(selectedSchedule.id, p)"
+                                @click="phaseModal.delete(selected.id, p)"
                                 :title="isPhaseDeletable(p) ? 'Delete phase' : 'Phase cannot be deleted'"
                                 class="row-action-danger">
                           <i x-icon="trash-2" class="icon-sm"></i>

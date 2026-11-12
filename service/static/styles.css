@@ -110,6 +110,7 @@
   .operator-badge { @apply text-xs px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1; }
   .status-dot     { @apply w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse; }
 
+
   /* ------------------------------------------------------------------ */
   /* Data table (Users)                                                 */
   /* ------------------------------------------------------------------ */
@@ -133,9 +134,7 @@
   /* Kilns (devices)                                                    */
   /* ------------------------------------------------------------------ */
   .kiln-grid             { @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6; }
-  .kiln-card             { @apply p-5 flex flex-col justify-between space-y-4; }
-  .kiln-card.is-selected,
-  .kiln-card.is-selected:hover { @apply bg-orange-600/10 border-orange-500/50 shadow-lg shadow-orange-500/5; }
+  .kiln-card             { @apply p-5 flex flex-col justify-between space-y-4 hover:border-slate-700; }
   .kiln-card-header      { @apply flex items-start justify-between; }
   .kiln-state-badge      { @apply inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20; }
   .kiln-card-title       { @apply text-lg font-bold text-slate-100 mt-2; }
@@ -155,8 +154,6 @@
   .schedule-list-empty   { @apply p-4 text-center text-xs text-slate-500; }
 
   .schedule-item { @apply p-4 rounded-xl border transition-all cursor-pointer bg-slate-900/60 border-slate-800 hover:border-slate-700; }
-  .schedule-item.is-selected,
-  .schedule-item.is-selected:hover { @apply bg-orange-600/10 border-orange-500/50 shadow-lg shadow-orange-500/5; }
   .schedule-item-header { @apply flex items-center justify-between; }
   .schedule-item-title  { @apply font-bold text-slate-200 text-sm; }
   .schedule-item-meta   { @apply text-xs text-slate-400 mt-1; }
@@ -231,4 +228,11 @@
   .toast--error   { @apply bg-red-900/90 border-red-500 text-red-100; }
   .toast--warning { @apply bg-amber-900/90 border-amber-500 text-amber-100; }
   .toast--info    { @apply bg-slate-800/90 border-slate-600 text-slate-100; }
+
+  /* ------------------------------------------------------------------ */
+  /* Selected entity highlights                                         */
+  /* ------------------------------------------------------------------ */
+  .is-selected,
+  .is-selected:hover { @apply bg-orange-600/10 border-orange-500/50 shadow-lg shadow-orange-500/5; }
+
 }

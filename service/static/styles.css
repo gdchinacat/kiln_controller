@@ -79,7 +79,7 @@
   /* Dashboard                                                          */
   /* ------------------------------------------------------------------ */
   .stats-grid { @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4; }
-  .stat-card  { @apply p-5 flex items-center justify-between; }
+  .stat-card  { @apply p-5 flex items-center justify-between hover:border-slate-700; }
   .stat-label { @apply text-xs font-medium text-slate-400 uppercase tracking-wider; }
   .stat-value { @apply text-3xl font-bold mt-1 text-slate-100; }
   .stat-icon  { @apply p-3 rounded-xl border; }

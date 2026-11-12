@@ -41,7 +41,7 @@ function computeTemperatureProfilePoints(phases) {
   return points;
 }
 
-async function refreshChart(canvas, schedulePhases) {
+async function refreshPhasesChart(canvas, schedulePhases) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
@@ -403,4 +403,4 @@ function SchedulesTab() {
 }
 
 Alpine.store('tabs')['schedules'] = SchedulesTab();
-export const exports = { refreshChart: refreshChart }
+export const exports = { refreshPhasesChart: refreshPhasesChart }

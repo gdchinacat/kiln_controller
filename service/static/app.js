@@ -177,7 +177,7 @@ function Selectable(storeName) {
 
     init() { this.watchSelection(); },
     watchSelection() {
-      Alpine.effect(() => this.select());
+      Alpine.effect(() => { Alpine.store(storeName)?.items; this.select(); });
     },
 
     async select(entity = null) {

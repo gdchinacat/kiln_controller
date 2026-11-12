@@ -171,6 +171,28 @@ function createEntityModal(config) {
   };
 }
 
+function Selectable(storeName) {
+  return {
+    async select(entity = null) {
+      const entities = Alpine.store(storeName).items;
+
+      let selected = entity ?? this.selected;
+
+      if (selected) {
+        selected = entities.find(e => e.id === selected.id);
+      }
+
+      if (!selected && entities?.length > 0) {
+        selected = entities[0];
+      }
+
+      if (selected != this.selected) {
+        this.selected = selected;
+      }
+    }
+  };
+}
+
 function BaseTab() {
     return {
         show: false,

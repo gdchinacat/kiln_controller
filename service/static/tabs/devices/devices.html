@@ -40,6 +40,27 @@
     </template>
   </div>
 
+  <div class="panel device-metric">
+    <div class="device-metric-header">
+      <div>
+        <div class="device-metric-tags">
+          <span class="device-metric-badge">Kiln Metrics</span>
+        </div>
+        <h2 x-text="selectedMetric" class="device-metric-title"></h2>
+      </div>
+      <div class="device-metric-controls">
+        <select value="temperature" @change="selectedMetric = $event.target.value" class="device-metric-select">
+          <option value="temperature">Temperature</option>
+          <option value="uptime">Uptime</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="device-metric-chart">
+      <canvas id="deviceMetricChart" x-data="{ chart: null }" x-effect="chartMetric($el, selectedMetric)"></canvas>
+    </div>
+  </div>
+
   <!-- DEVICE MODAL -->
   <div x-data="modal" x-show="show" class="modal-backdrop">
     <div @click.outside="close()" class="modal">

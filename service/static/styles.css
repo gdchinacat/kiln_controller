@@ -144,6 +144,15 @@
   .detail-label          { @apply text-slate-500; }
   .detail-value          { @apply text-orange-400 font-medium; }
 
+  .device-metric          { @apply p-6; }
+  .device-metric-header   { @apply flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6; }
+  .device-metric-tags     { @apply flex items-center gap-2; }
+  .device-metric-badge    { @apply px-2.5 py-0.5 rounded-full text-xs font-semibold bg-orange-500/20 text-orange-400 border border-orange-500/30; }
+  .device-metric-title    { @apply capitalize inline text-2xl font-bold text-white mt-1; }
+  .device-metric-controls { @apply flex items-center gap-3; }
+  .device-metric-select   { @apply bg-slate-900 border border-slate-700 text-sm rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-orange-500; }
+  .device-metric-chart            { @apply w-full h-72 relative; }
+
   /* ------------------------------------------------------------------ */
   /* Schedules                                                          */
   /* ------------------------------------------------------------------ */

@@ -23,6 +23,11 @@ function DevicesTab() {
     ...Selectable('devices'),
     name: "devices",
     modal: DeviceModal(),
+    selectedMetric: 'temperature',
+
+    chartMetric(element, metric) {
+        alert(metric);
+    },
 
   };
 }

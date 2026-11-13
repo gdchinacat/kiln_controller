@@ -39,7 +39,7 @@ JOB_NAME = "kiln_controller"
 
 METRIC_NAME_MAP = {
     "uptime": "kiln.telemetry.uptime",
-    "temperature": "kiln.temperature.current",
+    "temperature": "kiln.temperature.core",
     # todo all the metrics!!!
 }
 
@@ -193,17 +193,20 @@ class VictoriaMetricsServer(MetricsServer):
         query_result = _QueryResult.model_validate(response)
 
         assert query_result.status == "success"  # todo proper error
-        assert query_result.stats.seriesFetched == 1  # todo proper error
+        assert query_result.stats.seriesFetched <= 1  # todo proper error
         assert query_result.data.resultType == "matrix"  # todo proper error
-        assert len(query_result.data.result) == 1  # todo proper error
+        assert len(query_result.data.result) <= 1  # todo proper error
 
-        result = query_result.data.result[0]
-        assert result.metric.name == metric
-        assert result.metric.instance == str(instance)
-        assert result.metric.job == "kiln_controller"
+        if len(query_result.data.result) > 0:
+            result = query_result.data.result[0]
+            assert result.metric.name == metric
+            assert result.metric.instance == str(instance)
+            assert result.metric.job == "kiln_controller"
 
-        times, values = map(list, zip(*result.values))
-        times = [datetime.fromtimestamp(t, tz=UTC) for t in times]
+            times, values = map(list, zip(*result.values))
+            times = [datetime.fromtimestamp(t, tz=UTC) for t in times]
+        else:
+            times = values = list[Any]()
         return QueryResult(times=times, series=[Series(metrics[0], values)])
 
 

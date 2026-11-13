@@ -17,7 +17,12 @@ function DeviceModal() {
   };
 }
 
-function epochToDate(epoch) { return epoch; }
+function zip(...arrays) {
+  const minLength = Math.min(...arrays.map(arr => arr.length));
+  return Array.from({ length: minLength }, (_, i) => 
+    arrays.map(arr => arr[i])
+  );
+}
 
 function DevicesTab() {
   return {
@@ -27,15 +32,28 @@ function DevicesTab() {
     modal: DeviceModal(),
     selectedMetric: 'temperature',
 
+    async queryMetrics() {
+      if (this.selected) {
+        const url = `/device/${this.selected.id}/metrics`;
+        const result = await Alpine.store('network').apiRequest(
+            url, 'POST', {metrics: [this.selectedMetric]});
+        const times = result.times;
+        const values = result.series[0].values;
+        const dataPoints = zip(times, values);
+        return dataPoints.map(([time, value]) => ({ x: new Date(time), y: value }));
+      }
+      return [];
+    },
+
     async chartMetric(canvas) {
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      const dataPoints = [{x: 0, y: 1}, {x: 1, y: 1}];
+      const dataPoints = await this.queryMetrics();
 
       const datasets = [{
         label: 'Temperature (°C)',
-        yAxisID: 'temperature',  // todo - select correct and make sure it exists
+        yAxisID: this.selectedMetric, // todo? map names?
         data: dataPoints,
         tooltip: { callbacks: {label: context => `${context.parsed.y.toFixed(1)} (°C)`}},
 
@@ -46,8 +64,8 @@ function DevicesTab() {
         fill: true,
         tension: 0.0,
         pointBackgroundColor: '#ea580c',
-        pointRadius: 4,
-        pointHoverRadius: 7
+        pointRadius: 1,
+        pointHoverRadius: 4
       }];
 
       if (canvas.chart) {
@@ -62,21 +80,32 @@ function DevicesTab() {
         data: { },
         options: {
           responsive: true,
+          animation: false,
           maintainAspectRatio: false,
           scales: {
             x: {
-              type: 'linear',
-              title: { display: true, text: 'Time', color: '#94a3b8' },
+              type: 'time',
+              title: { display: true, text: 'time', color: '#94a3b8' },
               grid: { color: '#1e293b' },
-              ticks: { color: '#64748b', callback: epochToDate },
+              ticks: {
+                color: '#64748b',
+                autoSkip: true,
+                maxTicksLimit: 8,
+              },
             },
 
             // todo - add/remove on demand
+            uptime: {
+              type: 'linear',
+              position: 'right',
+              title: { display: true, text: 'Uptime (s)' },
+              beginAtZero: false,
+            },
             temperature: {
               type: 'linear',
               position: 'left',
               title: { display: true, text: 'Temperature (°C)' },
-              beginAtZero: true,
+              beginAtZero: false,
             },
           },
           plugins: { legend: { display: false } },

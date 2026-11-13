@@ -31,30 +31,22 @@ function DevicesTab() {
     name: "devices",
     modal: DeviceModal(),
     selectedMetric: 'temperature',
+    chart: null,
 
-    async queryMetrics() {
-      if (this.selected) {
-        const url = `/device/${this.selected.id}/metrics`;
-        const result = await Alpine.store('network').apiRequest(
-            url, 'POST', {metrics: [this.selectedMetric]});
-        const times = result.times;
-        const values = result.series[0].values;
-        const dataPoints = zip(times, values);
-        return dataPoints.map(([time, value]) => ({ x: new Date(time), y: value }));
-      }
-      return [];
+    init() {
+      this.watchSelection();
+      this.createChart();
     },
 
-    async chartMetric(canvas) {
-      const ctx = canvas.getContext('2d');
+    async createChart() {
+      const canvas = document.getElementById('deviceMetricChart');
+      const ctx = canvas?.getContext('2d');
       if (!ctx) return;
-
-      const dataPoints = await this.queryMetrics();
 
       const datasets = [{
         label: 'Temperature (°C)',
         yAxisID: this.selectedMetric, // todo? map names?
-        data: dataPoints,
+        data: [],
         tooltip: { callbacks: {label: context => `${context.parsed.y.toFixed(1)} (°C)`}},
 
         // todo factor this display stuff out
@@ -68,19 +60,11 @@ function DevicesTab() {
         pointHoverRadius: 4
       }];
 
-      if (canvas.chart) {
-        const chart = Alpine.raw(canvas.chart);
-        chart.data = { datasets };
-        chart.update();
-        return;
-      }
-
-      canvas.chart = new Chart(ctx, {
+      this.chart = new Chart(ctx, {
         type: 'line',
-        data: { },
+        data: { datasets },
         options: {
           responsive: true,
-          animation: false,
           maintainAspectRatio: false,
           scales: {
             x: {
@@ -111,7 +95,34 @@ function DevicesTab() {
           plugins: { legend: { display: false } },
         }
       });
+
+      Alpine.effect(() => {this.selected && this.selectedMetric; this.updateChart();});
+      setInterval(() => {
+        this.updateChart(true);
+      }, 5000);
     },
+
+    async updateChart(skipAnimation=false) {
+      const chart = Alpine.raw(this.chart);
+      // todo replace the axis, not just the data
+      chart.data.datasets[0].data = await this.queryMetrics();
+      chart.update(skipAnimation ? 'none' : null);
+    },
+
+    async queryMetrics() {
+      if (this.selected) {
+        const result = await Alpine.store('network').apiRequest(
+          `/device/${this.selected.id}/metrics`, 'POST',
+          {metrics: [this.selectedMetric]}
+        );
+        const times = result.times;
+        const values = result.series[0].values;
+        const dataPoints = zip(times, values);
+        return dataPoints.map(([time, value]) => ({ x: new Date(time), y: value }));
+      }
+      return [];
+    },
+
 
   };
 }

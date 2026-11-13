@@ -27,13 +27,14 @@ from ...device.protocol import (
     Telemetry,
 )
 from ..dependencies import metrics_server, sessionmaker
-from ..metrics import MetricsServer
+from ..metrics import MetricsServer, QueryResult
 from ..models import (
     Device,
     DeviceCreate,
     DeviceCreateResponse,
     DeviceORM,
     DeviceUpdate,
+    MetricsRequest,
     SessionMaker,
 )
 from .base import create_router
@@ -183,3 +184,18 @@ async def telemetry(
 
     except* WebSocketDisconnect:
         await websocket.close()
+
+
+@devices_router.post("/{device_id}/metrics")
+async def metrics(
+    device_id: int,
+    request: MetricsRequest,
+    metrics_server: MetricsServer = metrics_server,
+) -> QueryResult:
+    return await metrics_server.query(
+        instance=device_id,
+        metrics=request.metrics,
+        start=request.start,
+        end=request.end,
+        step=request.step,
+    )

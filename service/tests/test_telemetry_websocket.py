@@ -2,8 +2,9 @@ import os
 import time
 from collections.abc import Generator
 from dataclasses import dataclass, field
+from datetime import datetime
 from queue import Queue
-from typing import NamedTuple, override
+from typing import Literal, NamedTuple, override
 
 import pytest
 from fastapi import FastAPI, status
@@ -20,7 +21,7 @@ from kiln_controller.device.protocol import (
     Telemetry,
 )
 from kiln_controller.service.main import app
-from kiln_controller.service.metrics import MetricsServer
+from kiln_controller.service.metrics import MetricsServer, QueryResult
 from kiln_controller.service.models import (
     Device,
     DeviceCreate,
@@ -49,6 +50,17 @@ class FakeMetricsServer(MetricsServer):
     async def telemetry(self, telemetry: Telemetry, device: DeviceORM) -> int:
         self.received_telemetry.put(telemetry)
         return telemetry.sample_count
+
+    @override
+    async def query(
+        self,
+        instance: int,
+        metrics: list[Literal["uptime", "temperature"]],
+        start: datetime | None = None,
+        end: datetime | None = None,
+        step: int | None = None,
+    ) -> QueryResult:
+        raise NotImplementedError()
 
 
 @pytest.fixture

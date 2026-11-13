@@ -6,7 +6,7 @@ from rest_client import Resource
 
 from ._auth import LoginInfo
 from ._client import Client
-from ._device import Device
+from ._device import Device, MetricsResponse
 from ._schedule import Phase, PhaseType, Schedule
 from ._user import User
 
@@ -14,6 +14,7 @@ __all__ = [
     "Client",
     "Device",
     "LoginInfo",
+    "MetricsResponse",
     "Phase",
     "PhaseType",
     "Resource",  # re-export base class of resources for convenience

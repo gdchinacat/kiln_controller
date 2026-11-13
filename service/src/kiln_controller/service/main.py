@@ -47,6 +47,9 @@ DB_URL = os.environ.get("DB_URL", SQLALCHEMY_DEFAULT_DATABASE_URL)
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.db_engine = await db.get_engine(DB_URL)
     app.state.db_sessionmaker = db.get_sessionmaker(app.state.db_engine)
+    app.state.metrics_server = VictoriaMetricsServer(
+        "http://localhost:8428", "http://localhost:4242"
+    )
     yield
 
 
@@ -60,9 +63,6 @@ app.add_middleware(
     same_site="lax",
 )
 
-app.state.metrics_server = VictoriaMetricsServer(
-    "http://localhost:4242/api/put"
-)
 
 app.frontend("/", directory="./static")
 app.mount("/static", StaticFiles(directory="static"), name="static")

@@ -21,20 +21,28 @@ import logging
 import os
 import time
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from enum import Enum
-from typing import Any, override
+from typing import Any, Literal, override
 
-import httpx
+import httpx2
+import pydantic
 from fastapi import status
 
 from ...device.protocol import Metrics, Sample, Telemetry
 from ..models import DeviceORM
-from . import MetricsServer
+from . import MetricsServer, QueryResult, Series
 
 logger = logging.getLogger("kiln_controller.victoriametrics")
 
 JOB_NAME = "kiln_controller"
+
+METRIC_NAME_MAP = {
+    "uptime": "kiln.telemetry.uptime",
+    "temperature": "kiln.temperature.current",
+    # todo all the metrics!!!
+}
 
 
 def log_metrics[**P, R](func: Callable[P, R]) -> Callable[P, R]:
@@ -100,6 +108,11 @@ def metrics_for_sample(
 @dataclass
 class VictoriaMetricsServer(MetricsServer):
     url: str
+    opentsdb_url: str
+
+    client: httpx2.AsyncClient = field(
+        default_factory=httpx2.AsyncClient, init=False
+    )
 
     @override
     async def telemetry(self, telemetry: Telemetry, device: DeviceORM) -> int:
@@ -135,20 +148,85 @@ class VictoriaMetricsServer(MetricsServer):
             ]
         )
 
-        async with (
-            httpx.AsyncClient() as client
-        ):  # todo - reuse the same httpx client
-            response = await client.put(self.url, json=json)
-            response.raise_for_status()
-            if response.status_code == status.HTTP_204_NO_CONTENT:
-                logger.debug(
-                    f"{len(json)} metrics sent successfully "
-                    f"for {len(telemetry.samples)} samples "
-                    f"for {', '.join(str(sample.timestamp) for sample in telemetry.samples)}."
-                )
-                return (
-                    telemetry.samples[-1].timestamp if telemetry.samples else 0
-                )
-            else:
-                logger.error(f"{response.status_code} {response.text=}")
-                return 0
+        response = await self.client.put(
+            f"{self.opentsdb_url}/api/put", json=json
+        )
+        response.raise_for_status()
+        if response.status_code == status.HTTP_204_NO_CONTENT:
+            logger.debug(
+                f"{len(json)} metrics sent successfully "
+                f"for {len(telemetry.samples)} samples "
+                f"for {', '.join(str(sample.timestamp) for sample in telemetry.samples)}."
+            )
+            return telemetry.samples[-1].timestamp if telemetry.samples else 0
+        else:
+            logger.error(f"{response.status_code} {response.text=}")
+            return 0
+
+    @override
+    async def query(
+        self,
+        instance: int,
+        metrics: list[Literal["uptime", "temperature"]],
+        start: datetime | None = None,
+        end: datetime | None = None,
+        step: int | None = None,
+    ) -> QueryResult:
+        end = end or datetime.now()
+        start = start or (
+            end - timedelta(minutes=5)  # todo? policy for default window
+        )
+        step = step or 5
+
+        # todo  support multiple metrics
+        assert len(metrics) == 1
+        metric = METRIC_NAME_MAP[metrics[0]]
+
+        if metric == "uptime":
+            metric = "telemetry.uptime"
+
+        url = f'{self.url}/api/v1/query_range?query={metric}{{instance="{instance}",job="kiln_controller"}}&step={step}s'
+
+        response = (await self.client.get(url)).raise_for_status().json()
+        query_result = _QueryResult.model_validate(response)
+
+        assert query_result.status == "success"  # todo proper error
+        assert query_result.stats.seriesFetched == 1  # todo proper error
+        assert query_result.data.resultType == "matrix"  # todo proper error
+        assert len(query_result.data.result) == 1  # todo proper error
+
+        result = query_result.data.result[0]
+        assert result.metric.name == metric
+        assert result.metric.instance == str(instance)
+        assert result.metric.job == "kiln_controller"
+
+        times, values = map(list, zip(*result.values))
+        times = [datetime.fromtimestamp(t, tz=UTC) for t in times]
+        return QueryResult(times=times, series=[Series(metrics[0], values)])
+
+
+class _Metric(pydantic.BaseModel):
+    name: str = pydantic.Field(alias="__name__")
+    instance: str
+    job: str
+
+
+class _Result(pydantic.BaseModel):
+    metric: _Metric
+    values: list[tuple[int, int]]
+
+
+class _Data(pydantic.BaseModel):
+    result: list[_Result]
+    resultType: str
+
+
+class _Stats(pydantic.BaseModel):
+    executionTimeMsec: int
+    seriesFetched: int
+
+
+class _QueryResult(pydantic.BaseModel):
+    data: _Data
+    stats: _Stats
+    status: str

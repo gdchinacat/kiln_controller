@@ -51,6 +51,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         "http://localhost:8428", "http://localhost:4242"
     )
     yield
+    await app.state.metrics_server.close()
 
 
 app = FastAPI(title="Kiln Controller", lifespan=lifespan)

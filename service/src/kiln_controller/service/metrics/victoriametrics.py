@@ -114,6 +114,9 @@ class VictoriaMetricsServer(MetricsServer):
         default_factory=httpx2.AsyncClient, init=False
     )
 
+    async def close(self) -> None:
+        await self.client.aclose()
+
     @override
     async def telemetry(self, telemetry: Telemetry, device: DeviceORM) -> int:
         # delta is significantly higher (~70ms) when calculated here relative

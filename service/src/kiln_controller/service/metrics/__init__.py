@@ -33,6 +33,12 @@ class MetricsServer(ABC):
     """
 
     @abstractmethod
+    async def close(self) -> None:
+        """
+        Close resources.
+        """
+
+    @abstractmethod
     async def telemetry(self, telemetry: Telemetry, device: DeviceORM) -> int:
         """
         Add the samples from the device to the metric service.

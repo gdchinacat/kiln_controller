@@ -47,6 +47,10 @@ class FakeMetricsServer(MetricsServer):
     )
 
     @override
+    async def close(self) -> None:
+        pass
+
+    @override
     async def telemetry(self, telemetry: Telemetry, device: DeviceORM) -> int:
         self.received_telemetry.put(telemetry)
         return telemetry.sample_count

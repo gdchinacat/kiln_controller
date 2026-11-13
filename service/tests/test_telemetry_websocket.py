@@ -21,11 +21,10 @@ from kiln_controller.device.protocol import (
     Telemetry,
 )
 from kiln_controller.service.main import app
-from kiln_controller.service.metrics import MetricsServer, QueryResult
+from kiln_controller.service.metrics import DeviceP, MetricsServer, QueryResult
 from kiln_controller.service.models import (
     Device,
     DeviceCreate,
-    DeviceORM,
     LoginRequest,
     SessionMaker,
     User,
@@ -51,7 +50,7 @@ class FakeMetricsServer(MetricsServer):
         pass
 
     @override
-    async def telemetry(self, telemetry: Telemetry, device: DeviceORM) -> int:
+    async def telemetry(self, telemetry: Telemetry, device: DeviceP) -> int:
         self.received_telemetry.put(telemetry)
         return telemetry.sample_count
 

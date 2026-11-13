@@ -31,8 +31,7 @@ import pydantic
 from fastapi import status
 
 from ...device.protocol import Metrics, Sample, Telemetry
-from ..models import DeviceORM
-from . import MetricsServer, QueryResult, Series
+from . import DeviceP, MetricsServer, QueryResult, Series
 
 logger = logging.getLogger("kiln_controller.victoriametrics")
 
@@ -118,7 +117,7 @@ class VictoriaMetricsServer(MetricsServer):
         await self.client.aclose()
 
     @override
-    async def telemetry(self, telemetry: Telemetry, device: DeviceORM) -> int:
+    async def telemetry(self, telemetry: Telemetry, device: DeviceP) -> int:
         # delta is significantly higher (~70ms) when calculated here relative
         # to when it was calculated in the websocket route. todo? The main use
         # will be to tell when a device has unreliable connectivity...and tens

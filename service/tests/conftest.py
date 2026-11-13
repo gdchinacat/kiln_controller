@@ -7,10 +7,13 @@ located in _fixtures.
 
 import ssl
 import time
+from collections import deque
 from collections.abc import Callable, Generator
 from contextlib import AbstractContextManager, contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import datetime
 from threading import Thread
+from typing import Any, Literal, override
 
 import fastapi
 import httpx2
@@ -21,6 +24,12 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from kiln_controller.client import Client
 from kiln_controller.service.main import app
+from kiln_controller.service.metrics import (
+    DeviceP,
+    MetricsServer,
+    QueryResult,
+    Telemetry,
+)
 from kiln_controller.service.models import (
     SessionMaker,
     get_engine,
@@ -45,8 +54,60 @@ type ServiceFactory = Callable[
 ]
 
 
+@dataclass
+class _MetricServerQueryArgs:
+    instance: int
+    metrics: list[Literal["uptime", "temperature"]]
+    start: datetime | None = None
+    end: datetime | None = None
+    step: int | None = None
+
+    def validate(self, *args: Any, **kwargs: Any) -> None:
+        assert _MetricServerQueryArgs(*args, **kwargs) == self
+
+
+@dataclass
+class StubMetricsServer(MetricsServer):
+    query_results: deque[tuple[_MetricServerQueryArgs, QueryResult]] = field(
+        default_factory=deque
+    )
+
+    def mock_query(
+        self, *args: Any, query_result: QueryResult, **kwargs: Any
+    ) -> None:
+        self.query_results.append(
+            (_MetricServerQueryArgs(*args, **kwargs), query_result)
+        )
+
+    @override
+    async def close(self) -> None: ...
+
+    @override
+    async def telemetry(
+        self, telemetry: Telemetry, device: DeviceP
+    ) -> int: ...
+
+    @override
+    async def query(
+        self,
+        instance: int,
+        metrics: list[Literal["uptime", "temperature"]],
+        start: datetime | None = None,
+        end: datetime | None = None,
+        step: int | None = None,
+    ) -> QueryResult:
+        args, result = self.query_results.popleft()
+        args.validate(instance, metrics, start, end, step)
+        return result
+
+
 @pytest.fixture(scope="session")
-def service_factory() -> ServiceFactory:
+def metrics_server() -> MetricsServer:
+    return StubMetricsServer()
+
+
+@pytest.fixture(scope="session")
+def service_factory(metrics_server: StubMetricsServer) -> ServiceFactory:
     @contextmanager
     def _factory(app: fastapi.FastAPI) -> Generator[Service]:
         ca = trustme.CA()
@@ -65,11 +126,6 @@ def service_factory() -> ServiceFactory:
 
             return context
 
-        # TODO - this service uses the global app defined in main which will cause
-        #        all sorts of problems with any tests that use global app state
-        #        (such as app.state.metrics_server).
-        # TODO - replace app state service references such as sessionmaker and
-        #        metrics_server.
         config = uvicorn.Config(
             app=app,
             host="127.0.0.1",
@@ -87,6 +143,7 @@ def service_factory() -> ServiceFactory:
 
         assigned_port = server.servers[0].sockets[0].getsockname()[1]
 
+        app.state.metrics_server = metrics_server
         try:
             yield Service(f"https://127.0.0.1:{assigned_port}", ca)
         finally:

@@ -150,14 +150,16 @@ class DeviceORM(DeviceValidator, ORMType, _DeviceAuth, table=True):
             return handler(data)
 
     ###
-    # Hack FiringORM in to avovid having to come back to victoriametrics in a bit
-    class FiringORM:
-        """stub for now...metrics needs it"""
-
-        id = 0
-
-    firing: ClassVar[Any] = FiringORM()
+    # Hack FiringORM in to avoid having to come back to victoriametrics in a bit
+    @property
+    def firing(self) -> FiringORM:
+        return FiringORM()
 
 
-FiringORM = DeviceORM.FiringORM
+class FiringORM:
+    """stub for now...metrics needs it"""
+
+    id: int | None = 0
+
+
 ### End FiringORM hack

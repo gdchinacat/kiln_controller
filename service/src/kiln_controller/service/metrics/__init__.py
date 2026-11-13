@@ -6,10 +6,9 @@ Integration with the metrics backend.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Protocol
 
 from ...device.protocol import Telemetry
-from ..models import DeviceORM
 
 __all__ = ("MetricsServer",)
 
@@ -26,6 +25,23 @@ class QueryResult:
     series: list[Series]
 
 
+class UserP(Protocol):
+    id: int | None
+
+
+class FiringP(Protocol):
+    id: int | None
+
+
+class DeviceP(Protocol):
+    id: int | None
+
+    @property
+    def user(self) -> UserP: ...
+    @property
+    def firing(self) -> FiringP: ...
+
+
 class MetricsServer(ABC):
     """
     MetricsServer is an abstraction on top of the underlying time series
@@ -39,7 +55,7 @@ class MetricsServer(ABC):
         """
 
     @abstractmethod
-    async def telemetry(self, telemetry: Telemetry, device: DeviceORM) -> int:
+    async def telemetry(self, telemetry: Telemetry, device: DeviceP) -> int:
         """
         Add the samples from the device to the metric service.
 

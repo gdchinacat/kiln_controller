@@ -2,7 +2,6 @@ import os
 import time
 from collections.abc import Generator
 from dataclasses import dataclass, field
-from datetime import datetime
 from queue import Queue
 from typing import Literal, NamedTuple, override
 
@@ -58,9 +57,9 @@ class FakeMetricsServer(MetricsServer):
     async def query(
         self,
         instance: int,
-        metrics: list[Literal["uptime", "temperature"]],
-        start: datetime | None = None,
-        end: datetime | None = None,
+        metric: Literal["uptime", "temperature"],
+        start: int | None = None,
+        end: int | None = None,
         step: int | None = None,
     ) -> QueryResult:
         raise NotImplementedError()

@@ -22,7 +22,6 @@ import os
 import time
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any, Literal, override
 
@@ -31,7 +30,7 @@ import pydantic
 from fastapi import status
 
 from ...device.protocol import Metrics, Sample, Telemetry
-from . import DeviceP, MetricsServer, QueryResult, Series
+from . import DeviceP, MetricsServer, QueryResult
 
 logger = logging.getLogger("kiln_controller.victoriametrics")
 
@@ -169,25 +168,18 @@ class VictoriaMetricsServer(MetricsServer):
     async def query(
         self,
         instance: int,
-        metrics: list[Literal["uptime", "temperature"]],
-        start: datetime | None = None,
-        end: datetime | None = None,
+        metric: Literal["uptime", "temperature"],
+        start: int | None = None,
+        end: int | None = None,
         step: int | None = None,
     ) -> QueryResult:
-        end = end or datetime.now()
-        start = start or (
-            end - timedelta(minutes=5)  # todo? policy for default window
-        )
-        step = step or 5
+        end = end or int(time.time())
+        start = start or (end - 5 * 60)  # todo? policy for query default
+        step = step or 5  # todo? policy for query default
 
-        # todo  support multiple metrics
-        assert len(metrics) == 1
-        metric = METRIC_NAME_MAP[metrics[0]]
+        vm_metric = METRIC_NAME_MAP[metric]
 
-        if metric == "uptime":
-            metric = "telemetry.uptime"
-
-        url = f'{self.url}/api/v1/query_range?query={metric}{{instance="{instance}",job="kiln_controller"}}&step={step}s'
+        url = f'{self.url}/api/v1/query_range?query={vm_metric}{{instance="{instance}",job="kiln_controller"}}&step={step}s'
 
         response = (await self.client.get(url)).raise_for_status().json()
         query_result = _QueryResult.model_validate(response)
@@ -199,15 +191,12 @@ class VictoriaMetricsServer(MetricsServer):
 
         if len(query_result.data.result) > 0:
             result = query_result.data.result[0]
-            assert result.metric.name == metric
+            assert result.metric.name == vm_metric
             assert result.metric.instance == str(instance)
             assert result.metric.job == "kiln_controller"
-
-            times, values = map(list, zip(*result.values))
-            times = [datetime.fromtimestamp(t, tz=UTC) for t in times]
+            return QueryResult(values=result.values)
         else:
-            times = values = list[Any]()
-        return QueryResult(times=times, series=[Series(metrics[0], values)])
+            return QueryResult(values=[])
 
 
 class _Metric(pydantic.BaseModel):
@@ -218,7 +207,7 @@ class _Metric(pydantic.BaseModel):
 
 class _Result(pydantic.BaseModel):
     metric: _Metric
-    values: list[tuple[int, int]]
+    values: list[tuple[int, int | float | None]]
 
 
 class _Data(pydantic.BaseModel):

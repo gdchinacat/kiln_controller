@@ -8,11 +8,12 @@ from asyncio import Queue, Task, TaskGroup, create_task, gather
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
 from functools import partial
-from typing import Any
+from typing import Annotated, Any, Literal
 
 from fastapi import (
     Depends,
     HTTPException,
+    Query,
     WebSocket,
     WebSocketDisconnect,
     status,
@@ -35,6 +36,7 @@ from ..models import (
     DeviceORM,
     DeviceUpdate,
     MetricsRequest,
+    MetricsSummary,
     SessionMaker,
 )
 from .base import create_router
@@ -186,15 +188,24 @@ async def telemetry(
         await websocket.close()
 
 
-@devices_router.post("/{device_id}/metrics")
-async def metrics(
+@devices_router.get("/{device_id}/metrics")
+async def metrics_summary(
     device_id: int,
-    request: MetricsRequest,
+    metrics_server: MetricsServer = metrics_server,
+) -> MetricsSummary:
+    raise NotImplementedError
+
+
+@devices_router.get("/{device_id}/metrics/{metric}")
+async def metrics(
+    metric: Literal["temperature", "uptime"],
+    request: Annotated[MetricsRequest, Query()],
+    device_id: int,
     metrics_server: MetricsServer = metrics_server,
 ) -> QueryResult:
     return await metrics_server.query(
         instance=device_id,
-        metrics=request.metrics,
+        metric=metric,
         start=request.start,
         end=request.end,
         step=request.step,

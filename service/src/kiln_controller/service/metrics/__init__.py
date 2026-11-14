@@ -5,7 +5,6 @@ Integration with the metrics backend.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Literal, Protocol
 
 from ...device.protocol import Telemetry
@@ -14,15 +13,8 @@ __all__ = ("MetricsServer",)
 
 
 @dataclass
-class Series:
-    metric: str
-    values: list[int | float | None]
-
-
-@dataclass
 class QueryResult:
-    times: list[datetime]
-    series: list[Series]
+    values: list[tuple[int, int | float | None]]
 
 
 class UserP(Protocol):
@@ -66,9 +58,9 @@ class MetricsServer(ABC):
     async def query(
         self,
         instance: int,
-        metrics: list[Literal["uptime", "temperature"]],
-        start: datetime | None = None,
-        end: datetime | None = None,
+        metric: Literal["uptime", "temperature"],
+        start: int | None = None,
+        end: int | None = None,
         step: int | None = None,
     ) -> QueryResult:
         """

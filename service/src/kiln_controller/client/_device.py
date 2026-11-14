@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import Literal
 
 import pydantic
@@ -6,14 +5,8 @@ import pydantic
 from rest_client import Resource, RestClient
 
 
-class Series(pydantic.BaseModel):
-    metric: str
-    values: list[int | float | None]
-
-
 class MetricsResponse(pydantic.BaseModel):
-    times: list[datetime]
-    series: list[Series]
+    values: list[tuple[int, int | float | None]]
 
 
 class Device(Resource[RestClient]):
@@ -25,10 +18,10 @@ class Device(Resource[RestClient]):
     description: str | None = None
     auth_token: str | None = None  # only exists on responses to POST
 
-    def metrics(
-        self, metrics: list[Literal["uptime", "temperature"]]
+    def metric(
+        self, metric: Literal["uptime", "temperature"]
     ) -> MetricsResponse:
-        response = self._client._http_client.post(
-            f"{self._url}/metrics", json={"metrics": metrics}
+        response = self._client._http_client.get(
+            f"{self._url}/metrics/{metric}"
         ).raise_for_status()
         return MetricsResponse.model_validate(response.json())

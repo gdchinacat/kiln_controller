@@ -17,13 +17,6 @@ function DeviceModal() {
   };
 }
 
-function zip(...arrays) {
-  const minLength = Math.min(...arrays.map(arr => arr.length));
-  return Array.from({ length: minLength }, (_, i) => 
-    arrays.map(arr => arr[i])
-  );
-}
-
 function DevicesTab() {
   return {
     ...BaseTab(),
@@ -112,13 +105,8 @@ function DevicesTab() {
     async queryMetrics() {
       if (this.selected) {
         const result = await Alpine.store('network').apiRequest(
-          `/device/${this.selected.id}/metrics`, 'POST',
-          {metrics: [this.selectedMetric]}
-        );
-        const times = result.times;
-        const values = result.series[0].values;
-        const dataPoints = zip(times, values);
-        return dataPoints.map(([time, value]) => ({ x: new Date(time), y: value }));
+          `/device/${this.selected.id}/metrics/${this.selectedMetric}`, 'GET');
+        return result.values.map(([time, value]) => ({ x: new Date(time * 1000), y: value }));
       }
       return [];
     },

@@ -11,7 +11,6 @@ from collections import deque
 from collections.abc import Callable, Generator
 from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass, field
-from datetime import datetime
 from threading import Thread
 from typing import Any, Literal, override
 
@@ -57,9 +56,9 @@ type ServiceFactory = Callable[
 @dataclass
 class _MetricServerQueryArgs:
     instance: int
-    metrics: list[Literal["uptime", "temperature"]]
-    start: datetime | None = None
-    end: datetime | None = None
+    metric: Literal["uptime", "temperature"]
+    start: int | None = None
+    end: int | None = None
     step: int | None = None
 
     def validate(self, *args: Any, **kwargs: Any) -> None:
@@ -91,13 +90,13 @@ class StubMetricsServer(MetricsServer):
     async def query(
         self,
         instance: int,
-        metrics: list[Literal["uptime", "temperature"]],
-        start: datetime | None = None,
-        end: datetime | None = None,
+        metric: Literal["uptime", "temperature"],
+        start: int | None = None,
+        end: int | None = None,
         step: int | None = None,
     ) -> QueryResult:
         args, result = self.query_results.popleft()
-        args.validate(instance, metrics, start, end, step)
+        args.validate(instance, metric, start, end, step)
         return result
 
 

@@ -20,10 +20,11 @@ TODO
 import logging
 import os
 import time
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, override
+from typing import Annotated, Any, override
+from urllib.parse import quote
 
 import httpx2
 import pydantic
@@ -193,34 +194,57 @@ class VictoriaMetricsServer(MetricsServer):
         self,
         instance: int,
         metric: MetricName,
-        start: int | None = None,
-        end: int | None = None,
-        step: int | None = None,
+        start: int | str | None = None,
+        end: int | str | None = None,
+        step: int | str | None = None,
     ) -> QueryResult:
-        # todo add filtering by kiln.info (user, firing)
-        end = end or int(time.time())
-        start = start or (end - 5 * 60)  # todo? policy for query default
-        step = step or 5  # todo? policy for query default
+
+        def _query_param(
+            **kwargs: int | str | None,
+        ) -> Iterator[str]:
+            for k, v in kwargs.items():
+                yield f"&{k}={quote(str(v))}" if v is not None else ""
+
+        # This is a simple wrapper on top of MetricsQL, the series parameters
+        # provided by the client are passed through as is, only include them if
+        # they are specified.
+        _step, _start, _end = _query_param(step=step, start=start, end=end)
+        range_query_params: str = f"{_step}{_start}{_end}"
+
+        # todo add filtering by kiln.info (user, firing) (multiply by filtered
+        #      kiln.info series).
 
         vm_metric = METRIC_NAME_MAP[metric]
 
-        url = f'{self.url}/api/v1/query_range?query={vm_metric}{{instance="{instance}",job="kiln_controller"}}&step={step}s&start={start}&end={end}'
+        url = f'{self.url}/api/v1/query_range?query={vm_metric}{{instance="{instance}",job="kiln_controller"}}{range_query_params}'
 
-        response = (await self.client.get(url)).raise_for_status().json()
-        query_result = _QueryResult.model_validate(response)
+        response = await self.client.get(url)
+        try:
+            response.raise_for_status()
+            query_result = _QueryResult.model_validate(response.json())
 
-        assert query_result.status == "success"  # todo proper error
-        assert query_result.data.resultType == "matrix"  # todo proper error
-        assert len(query_result.data.result) <= 1  # todo proper error
+            assert query_result.status == "success"  # todo proper error
+            assert (
+                query_result.data.resultType == "matrix"
+            )  # todo proper error
+            assert len(query_result.data.result) <= 1  # todo proper error
 
-        if len(query_result.data.result) > 0:
-            result = query_result.data.result[0]
-            assert result.metric.name == vm_metric
-            assert result.metric.instance == str(instance)
-            assert result.metric.job == "kiln_controller"
-            return QueryResult(values=result.values)
-        else:
+            if len(query_result.data.result) > 0:
+                result = query_result.data.result[0]
+                assert result.metric.name == vm_metric
+                assert result.metric.instance == str(instance)
+                assert result.metric.job == "kiln_controller"
+                return QueryResult(values=result.values)
             return QueryResult(values=[])
+        except Exception as e:
+            logger.error(
+                f"victoria metrics query error:\n\t{url=}\n\t {e=}\n\t{response.json()=}"
+            )
+            # todo return a proper error
+            raise
+
+
+type ForcedInt = Annotated[int, pydantic.BeforeValidator(lambda v: int(v))]
 
 
 class _Metric(pydantic.BaseModel):
@@ -231,7 +255,7 @@ class _Metric(pydantic.BaseModel):
 
 class _Result(pydantic.BaseModel):
     metric: _Metric
-    values: list[tuple[int, int | float | None]]
+    values: list[tuple[ForcedInt, int | float | None]]
 
 
 class _Data(pydantic.BaseModel):

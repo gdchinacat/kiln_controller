@@ -1,17 +1,18 @@
 import pydantic
 
+from ..metrics import MetricName
+
 __all__ = ("MetricsRequest", "MetricsResponse", "MetricsSummary")
 
 
 class MetricsRequest(pydantic.BaseModel):
-    start: int | None = None
-    end: int | None = None
-    step: int | None = pydantic.Field(default=None, gt=0)
+    start: int | str | None = None
+    end: int | str | None = None
+    step: int | str | None = None
 
 
 class MetricsSummary(pydantic.BaseModel):
-    metrics: tuple[str, ...]
-    # metrics: tuple[MetricName]
+    metrics: tuple[MetricName, ...]
 
 
 class MetricsResponse(pydantic.BaseModel):

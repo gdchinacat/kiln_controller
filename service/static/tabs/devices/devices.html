@@ -50,10 +50,10 @@
       </div>
       <div class="device-metric-controls">
         <button @click="chartPropertiesModal.open()"><i x-icon="settings" class="icon"></i></button>
-        <select value="temperature" @change="selectedMetric = $event.target.value" class="device-metric-select">
-          <option value="temperature">Temperature</option>
-          <option value="uptime">Uptime</option>
-          <option value="time_delta">Time Delta</option>
+        <select :value="selectedMetric" @change="selectedMetric = $event.target.value" class="device-metric-select">
+          <template x-for="metric in (metrics ?? [])">
+            <option :value="metric" x-text="metric"></option>
+          </template>
         </select>
       </div>
     </div>
@@ -105,15 +105,15 @@
       <form class="form-stack">
         <div>
           <label class="form-label">Start</label>
-          <input type="number" x-model="form.start" class="form-control">
+          <input type="text" x-model="form.start" class="form-control">
         </div>
         <div>
           <label class="form-label">End</label>
-          <input type="number" x-model="form.end" class="form-control">
+          <input type="text" x-model="form.end" class="form-control">
         </div>
         <div>
           <label class="form-label">Step</label>
-          <input type="number" x-model="form.step" class="form-control">
+          <input type="text" x-model="form.step" class="form-control">
         </div>
         <div>
           <label class="form-label">Auto-Refresh (seconds)</label>

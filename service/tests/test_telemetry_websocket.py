@@ -63,9 +63,9 @@ class FakeMetricsServer(MetricsServer):
         self,
         instance: int,
         metric: MetricName,
-        start: int | None = None,
-        end: int | None = None,
-        step: int | None = None,
+        start: int | str | None = None,
+        end: int | str | None = None,
+        step: int | str | None = None,
     ) -> QueryResult:
         raise NotImplementedError()
 

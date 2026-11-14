@@ -35,20 +35,12 @@ function ChartPropertiesModal() {
         this.show = false;
       },
 
-      get start() {
-        return this.form.start ? `start=${this.form.start}` : '';
-      },
-
-      get end() {
-        return this.form.end ? `end=${this.form.end}` : '';
-      },
-
-      get step() {
-        return this.form.step ? `step=${this.form.step}` : '';
-      },
-
       get queryParams() {
-        return `${this.step}&${this.start}&${this.end}`;
+        return new URLSearchParams(
+            Object.entries({step: this.form.step,
+                            start: this.form.start,
+                            end: this.form.end}).filter((
+            [k, v]) => v)).toString();
       }
     };
 }
@@ -60,9 +52,10 @@ function DevicesTab() {
     name: "devices",
     modal: DeviceModal(),
     chartPropertiesModal: ChartPropertiesModal(),
-    selectedMetric: 'temperature',
     chart: null,
     refreshIntervalId: null,
+    metrics: [],
+    selectedMetric: 'temperature',
 
     init() {
       this.watchSelection();
@@ -84,11 +77,12 @@ function DevicesTab() {
         borderColor: '#f97316',
         backgroundColor: 'rgba(249, 115, 22, 0.15)',
         borderWidth: 2,
-        fill: true,
+        fill: false,
         tension: 0.0,
         pointBackgroundColor: '#ea580c',
         pointRadius: 1,
-        pointHoverRadius: 4
+        pointHoverRadius: 4,
+        //spanGaps: 60*60*1*1000, // set to step to disconnect across gaps
       }];
 
       this.chart = new Chart(ctx, {
@@ -114,20 +108,21 @@ function DevicesTab() {
               type: 'linear',
               position: 'right',
               title: { display: true, text: 'Uptime (s)' },
-              beginAtZero: false,
+              beginAtZero: true,
             },
             temperature: {
               type: 'linear',
               position: 'left',
               title: { display: true, text: 'Temperature (°C)' },
-              beginAtZero: false,
+              beginAtZero: true,
             },
           },
           plugins: { legend: { display: false } },
         }
       });
 
-      Alpine.effect(() => {this.selected && this.selectedMetric; this.updateChart();});
+      Alpine.effect(() => { this.selected; this.fetchMetricSummary(); });
+      Alpine.effect(() => { this.selected && this.selectedMetric; this.updateChart(); });
       Alpine.effect(() => {
         const interval = (this.chartPropertiesModal.form.refresh || 5) * 1000;
         if (this.refreshIntervalId !== null) {
@@ -140,6 +135,14 @@ function DevicesTab() {
           }, interval);
         }
       });
+    },
+
+    async fetchMetricSummary() {
+      if (this.selected) {
+        const summary = await Alpine.store('network').apiRequest(
+          `/device/${this.selected.id}/metrics`, 'GET');
+        this.metrics = summary.metrics;
+      }
     },
 
     async updateChart(skipAnimation=false) {

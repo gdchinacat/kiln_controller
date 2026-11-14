@@ -61,7 +61,7 @@ class MetricsServer(ABC):
     """
 
     @property
-    def supported_metrics(self) -> tuple[str]:
+    def supported_metrics(self) -> tuple[MetricName]:
         """Get the metrics the server provides."""
         return get_args(MetricName.__value__)
 
@@ -84,9 +84,9 @@ class MetricsServer(ABC):
         self,
         instance: int,
         metric: MetricName,
-        start: int | None = None,
-        end: int | None = None,
-        step: int | None = None,
+        start: int | str | None = None,
+        end: int | str | None = None,
+        step: int | str | None = None,
     ) -> QueryResult:
         """
         Query the metric server for the metrics for the instance within the

@@ -23,24 +23,48 @@ import time
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Literal, override
+from typing import Any, override
 
 import httpx2
 import pydantic
 from fastapi import status
+from httpx2._models import Response
 
 from ...device.protocol import Metrics, Sample, Telemetry
-from . import DeviceP, MetricsServer, QueryResult
+from . import DeviceP, MetricName, MetricsServer, QueryResult
 
 logger = logging.getLogger("kiln_controller.victoriametrics")
 
 JOB_NAME = "kiln_controller"
 
+
+#fmt: off
 METRIC_NAME_MAP = {
-    "uptime": "kiln.telemetry.uptime",
-    "temperature": "kiln.temperature.core",
-    # todo all the metrics!!!
+    "telemetry":                  "kiln.telemetry",
+    "telemetry_state":            "kiln.telemetry.state",
+    "sample_count":               "kiln.telemetry.sample_count",
+    "time_delta":                 "kiln.telemetry.time_delta",
+    "uptime":                     "kiln.telemetry.uptime",
+
+    "state":                      "kiln.state",
+
+    "temperature":                "kiln.temperature.current",
+    "temperature.core":           "kiln.temperature.core",
+    "temperature.target":         "kiln.temperature.target",
+    "temperature.cold_junction":  "kiln.temperature.cold_junction",
+
+    "memory.size":                "kiln.memory.size",
+    "memory.heap_free":           "kiln.memory.heap_free",
+    "memory.min_heap_free":       "kiln.memory.min_heap_free",
+    "memory.largest_allocatable": "kiln.memory.largest_allocatable",
+    "memory.buffer_size":         "kiln.memory.buffer_size",
+
+    "duty_cycle":                 "kiln.duty_cycle",
+    "sub_sample_count":           "kiln.sub_sample_count",
+    # "timestamp_ms":               "kiln.telemetry.timestamp_ms",
+    # "timestamp":                  "kiln.timestamp",
 }
+#fmt: on
 
 
 def log_metrics[**P, R](func: Callable[P, R]) -> Callable[P, R]:
@@ -149,7 +173,7 @@ class VictoriaMetricsServer(MetricsServer):
             ]
         )
 
-        response = await self.client.put(
+        response: Response = await self.client.put(
             f"{self.opentsdb_url}/api/put", json=json
         )
         response.raise_for_status()
@@ -168,11 +192,12 @@ class VictoriaMetricsServer(MetricsServer):
     async def query(
         self,
         instance: int,
-        metric: Literal["uptime", "temperature"],
+        metric: MetricName,
         start: int | None = None,
         end: int | None = None,
         step: int | None = None,
     ) -> QueryResult:
+        # todo add filtering by kiln.info (user, firing)
         end = end or int(time.time())
         start = start or (end - 5 * 60)  # todo? policy for query default
         step = step or 5  # todo? policy for query default

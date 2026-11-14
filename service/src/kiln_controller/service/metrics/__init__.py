@@ -11,6 +11,26 @@ from ...device.protocol import Telemetry
 
 __all__ = ("MetricsServer",)
 
+type MetricName = Literal[
+    "telemetry",
+    "telemetry_state",
+    "sample_count",
+    "time_delta",
+    "uptime",
+    "state",
+    "temperature",
+    "temperature.core",
+    "temperature.target",
+    "temperature.cold_junction",
+    "memory.size",
+    "memory.heap_free",
+    "memory.min_heap_free",
+    "memory.largest_allocatable",
+    "memory.buffer_size",
+    "duty_cycle",
+    "sub_sample_count",
+]
+
 
 @dataclass
 class QueryResult:
@@ -58,7 +78,7 @@ class MetricsServer(ABC):
     async def query(
         self,
         instance: int,
-        metric: Literal["uptime", "temperature"],
+        metric: MetricName,
         start: int | None = None,
         end: int | None = None,
         step: int | None = None,

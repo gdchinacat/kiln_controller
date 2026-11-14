@@ -3,7 +3,7 @@ import time
 from collections.abc import Generator
 from dataclasses import dataclass, field
 from queue import Queue
-from typing import Literal, NamedTuple, override
+from typing import NamedTuple, override
 
 import pytest
 from fastapi import FastAPI, status
@@ -20,7 +20,12 @@ from kiln_controller.device.protocol import (
     Telemetry,
 )
 from kiln_controller.service.main import app
-from kiln_controller.service.metrics import DeviceP, MetricsServer, QueryResult
+from kiln_controller.service.metrics import (
+    DeviceP,
+    MetricName,
+    MetricsServer,
+    QueryResult,
+)
 from kiln_controller.service.models import (
     Device,
     DeviceCreate,
@@ -57,7 +62,7 @@ class FakeMetricsServer(MetricsServer):
     async def query(
         self,
         instance: int,
-        metric: Literal["uptime", "temperature"],
+        metric: MetricName,
         start: int | None = None,
         end: int | None = None,
         step: int | None = None,

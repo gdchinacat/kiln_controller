@@ -25,6 +25,7 @@ from kiln_controller.client import Client
 from kiln_controller.service.main import app
 from kiln_controller.service.metrics import (
     DeviceP,
+    MetricName,
     MetricsServer,
     QueryResult,
     Telemetry,
@@ -90,7 +91,7 @@ class StubMetricsServer(MetricsServer):
     async def query(
         self,
         instance: int,
-        metric: Literal["uptime", "temperature"],
+        metric: MetricName,
         start: int | None = None,
         end: int | None = None,
         step: int | None = None,

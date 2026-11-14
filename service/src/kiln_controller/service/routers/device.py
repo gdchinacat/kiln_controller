@@ -8,7 +8,7 @@ from asyncio import Queue, Task, TaskGroup, create_task, gather
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
 from functools import partial
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
 from fastapi import (
     Depends,
@@ -28,7 +28,7 @@ from ...device.protocol import (
     Telemetry,
 )
 from ..dependencies import metrics_server, sessionmaker
-from ..metrics import MetricsServer, QueryResult
+from ..metrics import MetricName, MetricsServer, QueryResult
 from ..models import (
     Device,
     DeviceCreate,
@@ -198,7 +198,7 @@ async def metrics_summary(
 
 @devices_router.get("/{device_id}/metrics/{metric}")
 async def metrics(
-    metric: Literal["temperature", "uptime"],
+    metric: MetricName,
     request: Annotated[MetricsRequest, Query()],
     device_id: int,
     metrics_server: MetricsServer = metrics_server,

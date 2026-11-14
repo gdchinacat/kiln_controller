@@ -179,13 +179,12 @@ class VictoriaMetricsServer(MetricsServer):
 
         vm_metric = METRIC_NAME_MAP[metric]
 
-        url = f'{self.url}/api/v1/query_range?query={vm_metric}{{instance="{instance}",job="kiln_controller"}}&step={step}s'
+        url = f'{self.url}/api/v1/query_range?query={vm_metric}{{instance="{instance}",job="kiln_controller"}}&step={step}s&start={start}&end={end}'
 
         response = (await self.client.get(url)).raise_for_status().json()
         query_result = _QueryResult.model_validate(response)
 
         assert query_result.status == "success"  # todo proper error
-        assert query_result.stats.seriesFetched <= 1  # todo proper error
         assert query_result.data.resultType == "matrix"  # todo proper error
         assert len(query_result.data.result) <= 1  # todo proper error
 

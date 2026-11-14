@@ -218,8 +218,8 @@ document.addEventListener('alpine:init', () => {
   Alpine.directive('icon', (el, { expression }) => {
     // x-icon="..." directive to create a data-lucide="..." on the element and
     // call lucide.createIcons() to register it.
-    el.setAttribute('data-lucide', expression);
-    lucide.createIcons({ scope: el });
+    el.innerHTML = `<i data-lucide="${expression}" class="icon"></i>`;
+    lucide.createIcons({ root: el });
   }),
 
   Alpine.store('network', {

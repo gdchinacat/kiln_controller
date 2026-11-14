@@ -17,14 +17,52 @@ function DeviceModal() {
   };
 }
 
+function ChartPropertiesModal() {
+    return {
+      show: false,
+      form: {
+        start: '',
+        stop: '',
+        step: '5',
+        refresh: '5',
+      },
+
+      open() {
+        this.show = true;
+      },
+
+      close() {
+        this.show = false;
+      },
+
+      get start() {
+        return this.form.start ? `start=${this.form.start}` : '';
+      },
+
+      get end() {
+        return this.form.end ? `end=${this.form.end}` : '';
+      },
+
+      get step() {
+        return this.form.step ? `step=${this.form.step}` : '';
+      },
+
+      get queryParams() {
+        return `${this.step}&${this.start}&${this.end}`;
+      }
+    };
+}
+
 function DevicesTab() {
   return {
     ...BaseTab(),
     ...Selectable('devices'),
     name: "devices",
     modal: DeviceModal(),
+    chartPropertiesModal: ChartPropertiesModal(),
     selectedMetric: 'temperature',
     chart: null,
+    refreshIntervalId: null,
 
     init() {
       this.watchSelection();
@@ -90,9 +128,18 @@ function DevicesTab() {
       });
 
       Alpine.effect(() => {this.selected && this.selectedMetric; this.updateChart();});
-      setInterval(() => {
-        this.updateChart(true);
-      }, 5000);
+      Alpine.effect(() => {
+        const interval = (this.chartPropertiesModal.form.refresh || 5) * 1000;
+        if (this.refreshIntervalId !== null) {
+          clearInterval(this.refreshIntervalId);
+          this.refreshintervalid = null;
+        }
+        if (interval > 0) {
+          this.refreshIntervalId = setInterval(() => {
+            this.updateChart(true);
+          }, interval);
+        }
+      });
     },
 
     async updateChart(skipAnimation=false) {
@@ -105,12 +152,15 @@ function DevicesTab() {
     async queryMetrics() {
       if (this.selected) {
         const result = await Alpine.store('network').apiRequest(
-          `/device/${this.selected.id}/metrics/${this.selectedMetric}`, 'GET');
+          `/device/${this.selected.id}/metrics/${this.selectedMetric}?${this.chartParams}`, 'GET');
         return result.values.map(([time, value]) => ({ x: new Date(time * 1000), y: value }));
       }
       return [];
     },
 
+    get chartParams() {
+      return this.chartPropertiesModal.queryParams;
+    },
 
   };
 }

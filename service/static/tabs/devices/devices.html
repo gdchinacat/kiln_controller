@@ -49,6 +49,7 @@
         <h2 x-text="selectedMetric" class="device-metric-title"></h2>
       </div>
       <div class="device-metric-controls">
+        <button @click="chartPropertiesModal.open()"><i x-icon="settings" class="icon"></i></button>
         <select value="temperature" @change="selectedMetric = $event.target.value" class="device-metric-select">
           <option value="temperature">Temperature</option>
           <option value="uptime">Uptime</option>
@@ -92,4 +93,33 @@
       </form>
     </div>
   </div>
+
+  <!-- CHART PROPERTIES MODAL -->
+  <div x-data="chartPropertiesModal" x-show="show" class="modal-backdrop">
+    <div @click.outside="close()" class="modal">
+      <div class="modal-header">
+        <h3 x-text="'Chart Properties'" class="modal-title"></h3>
+        <button @click="close()" class="modal-close"><i data-lucide="x" class="icon-md"></i></button>
+      </div>
+      <form class="form-stack">
+        <div>
+          <label class="form-label">Start</label>
+          <input type="number" x-model="form.start" class="form-control">
+        </div>
+        <div>
+          <label class="form-label">End</label>
+          <input type="number" x-model="form.end" class="form-control">
+        </div>
+        <div>
+          <label class="form-label">Step</label>
+          <input type="number" x-model="form.step" class="form-control">
+        </div>
+        <div>
+          <label class="form-label">Auto-Refresh (seconds)</label>
+          <input type="number" x-model="form.refresh" class="form-control">
+        </div>
+      </form>
+    </div>
+  </div>
+
 </section>

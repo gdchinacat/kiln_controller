@@ -19,8 +19,11 @@ from fixtures import kwargs
 from kiln_controller import client
 from kiln_controller.client import Device
 from kiln_controller.service.metrics import (
+    DeviceP,
     MetricName,
+    MetricsServer,
     QueryResult,
+    Telemetry,
 )
 from kiln_controller.service.metrics.victoriametrics import (
     METRIC_NAME_MAP,
@@ -56,6 +59,24 @@ def test_metrics_supported_consistently() -> None:
     )
 
 
+def test_metrics_server_supported_metrics() -> None:
+    class _MetricsServer(MetricsServer):
+        async def close(self) -> None: ...
+        async def telemetry(
+            self, telemetry: Telemetry, device: DeviceP
+        ) -> int: ...
+        async def query(
+            self,
+            instance: int,
+            metric: MetricName,
+            start: int | None = None,
+            end: int | None = None,
+            step: int | None = None,
+        ) -> QueryResult: ...
+
+    assert _MetricsServer().supported_metrics == supported_metrics()
+
+
 @kwargs.factory
 def metric_server_query(
     metrics_server: StubMetricsServer,
@@ -80,6 +101,14 @@ def metric_server_query(
         step=step,
         query_result=QueryResult([(0, 1)]),
     )
+
+
+@ kwargs["user"] << user_fixture()
+@ kwargs["client"] << user_client()
+@ kwargs["device"] << device_fixture()
+def test_metrics_summary(device: Device, **_: Any) -> None:
+    summary = device.metrics_summary()
+    assert set(summary.metrics) == set(supported_metrics())
 
 
 @pytest.mark.parametrize("metric", supported_metrics())

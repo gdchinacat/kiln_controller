@@ -5,7 +5,7 @@ Integration with the metrics backend.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Literal, Protocol
+from typing import Literal, Protocol, get_args
 
 from ...device.protocol import Telemetry
 
@@ -59,6 +59,11 @@ class MetricsServer(ABC):
     MetricsServer is an abstraction on top of the underlying time series
     database service the metrics are stored in.
     """
+
+    @property
+    def supported_metrics(self) -> tuple[str]:
+        """Get the metrics the server provides."""
+        return get_args(MetricName.__value__)
 
     @abstractmethod
     async def close(self) -> None:

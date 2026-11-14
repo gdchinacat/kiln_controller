@@ -193,7 +193,7 @@ async def metrics_summary(
     device_id: int,
     metrics_server: MetricsServer = metrics_server,
 ) -> MetricsSummary:
-    raise NotImplementedError
+    return MetricsSummary(metrics=metrics_server.supported_metrics)
 
 
 @devices_router.get("/{device_id}/metrics/{metric}")

@@ -9,7 +9,9 @@ class MetricsRequest(pydantic.BaseModel):
     step: int | None = pydantic.Field(default=None, gt=0)
 
 
-class MetricsSummary(pydantic.BaseModel): ...
+class MetricsSummary(pydantic.BaseModel):
+    metrics: tuple[str, ...]
+    # metrics: tuple[MetricName]
 
 
 class MetricsResponse(pydantic.BaseModel):

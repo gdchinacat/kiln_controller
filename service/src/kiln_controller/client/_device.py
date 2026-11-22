@@ -5,12 +5,25 @@ import pydantic
 from rest_client import Resource, RestClient
 
 
+class MetricInfo(pydantic.BaseModel):
+    units: str | None
+    name: str | None
+
+
+type MetricsInfo = dict[str, MetricInfo]
+
+
 class MetricsSummary(pydantic.BaseModel):
-    metrics: set[str]
+    metrics: MetricsInfo
+
+
+type MetricTime = int
+type MetricValue = int | float | None
+type MetricPoint = tuple[MetricTime, MetricValue]
 
 
 class MetricsResponse(pydantic.BaseModel):
-    values: list[tuple[int, int | float | None]]
+    values: list[MetricPoint]
 
 
 type MetricName = Literal[

@@ -5,9 +5,10 @@ Integration with the metrics backend.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Literal, Protocol, get_args
+from typing import Literal, Protocol
 
 from ...device.protocol import Telemetry
+from ..models.metrics import METRICS_INFO, MetricsInfo
 
 __all__ = ("MetricsServer",)
 
@@ -61,9 +62,9 @@ class MetricsServer(ABC):
     """
 
     @property
-    def supported_metrics(self) -> tuple[MetricName]:
+    def supported_metrics(self) -> MetricsInfo:
         """Get the metrics the server provides."""
-        return get_args(MetricName.__value__)
+        return METRICS_INFO
 
     @abstractmethod
     async def close(self) -> None:

@@ -1,26 +1,5 @@
 'use strict';
 
-// todo get this from the server
-window.metricInfo = {
-  telemetry: {},
-  telemetry_state: {},
-  sample_count: {},
-  time_delta: {},
-  uptime: { axis: 'count', },
-  state: {},
-  temperature: { axis: 'temperature', },
-  "temperature.core": {axis: 'temperature', name: 'core temperature'},
-  "temperature.target": {axis: 'temperature', name: 'target temperture'},
-  "temperature.cold_junction": {axis: 'temperature', name: 'cold junction temperature'},
-  "memory.size": { axis: 'bytes', name: 'memory size'},
-  "memory.heap_free": {axis: 'bytes', name: 'heap free'},
-  "memory.min_heap_free": {axis: 'bytes', name: 'heap free (min)'},
-  "memory.largest_allocatable": {axis: 'bytes', name: 'largest allocatable'},
-  "memory.sample_buffer_size": {axis: 'bytes', name: 'buffer size'},
-  duty_cycle: { axis: 'percent' },
-  sub_sample_count: { axis: 'count', },
-};
-
 function DeviceModal() {
   const model = () => ({
     id: '',
@@ -105,11 +84,11 @@ function ChartPropertiesModal() {
 }
 
 function Series(device, metric) {
+  const devicesTab = Alpine.store('tabs')['devices'];
   const series = {
     device,
     metric,
     async queryMetrics() {
-      const devicesTab = Alpine.store('tabs')['devices'];
       const result = await Alpine.store('network').apiRequest(
         `/device/${device.id}/metrics/${metric}?${devicesTab.chartPropertiesModal.queryParams}`, 'GET');
       this.dataset.data = result.values.map(([time, value]) => ({ x: new Date(time * 1000), y: value }));
@@ -119,7 +98,7 @@ function Series(device, metric) {
         data: null,
         tooltip: null,
 
-        yAxisID: metricInfo[metric]?.axis,
+        yAxisID: devicesTab.metrics[metric]?.units,
         label: '',
         borderColor: '#f97316',
         backgroundColor: 'rgba(249, 115, 22, 0.15)',
@@ -145,8 +124,8 @@ function DevicesTab() {
     // todo factor out chart
     chart: null,
     refreshIntervalId: null,
-    metrics: [],  // the available metrics for the selected device
-    selectedMetric: 'temperature', // todo allow multiple selections
+    metrics: null,  // the available metrics for the selected device
+    selectedMetric: "uptime", // todo allow multiple selections
     series: [ ],  // the series for the selected metrics
 
     init() {
@@ -218,16 +197,9 @@ function DevicesTab() {
         }
       });
 
-      Alpine.effect(() => { this.selected;
-        this.fetchMetricSummary(); });
-
-      Alpine.effect(() => {
-        if (this.selected && this.selectedMetric) {
-          this.series = [ Series(this.selected, this.selectedMetric, 'left') ];
-          this.chart.data.datasets = [ this.series[0].dataset ];
-        }
-        this.updateChart();
-      });
+      Alpine.effect(() => {if (this.selected) this.fetchMetricSummary(); });
+      Alpine.effect(() => {if (this.metrics && // todo - fires twice when selecting device
+                               this.selectedMetric) this.createSeries(); });
 
       Alpine.effect(() => {
         const interval = this.chartPropertiesModal.refresh * 1000;
@@ -249,6 +221,8 @@ function DevicesTab() {
         const summary = await Alpine.store('network').apiRequest(
           `/device/${this.selected.id}/metrics`, 'GET');
         this.metrics = summary.metrics;
+      } else {
+        this.metrics = null;
       }
     },
 
@@ -260,13 +234,27 @@ function DevicesTab() {
       Object.values(chart.options.scales).forEach(s => s.display = false);
       chart.options.scales.x.display = true;
       this.series.map((series) => {
-        const info = metricInfo[series.metric];
-        chart.options.scales[info.axis].display = true;
+        const info = this.metrics[series.metric];
+        chart.options.scales[info.units].display = true;
         series.dataset.spanGaps = this.chartPropertiesModal.step * 1000;
         //series.dataset.tooltip = { callbacks: {label: context => `${context.parsed.y.toFixed(1)}`}};
       });
 
       chart.update(skipAnimation ? 'none' : null);
+    },
+
+    createSeries() {
+      if (this.selected && this.metrics && this.selectedMetric) {
+        this.series = [ Series(this.selected, this.selectedMetric, 'left') ];
+        this.chart.data.datasets = [ this.series[0].dataset ];
+      } else {
+        this.series = [];
+      }
+      this.updateChart();
+    },
+
+    chartableMetrics() {
+        return Object.entries(this.metrics ?? {}).filter(([_, info]) => info.units);
     },
 
   };

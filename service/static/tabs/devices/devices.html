@@ -49,9 +49,9 @@
       </div>
       <div class="device-metric-controls">
         <button @click="chartPropertiesModal.open()"><i x-icon="settings" class="icon"></i></button>
-        <select :value="metrics ? selectedMetric : ''" @change="selectedMetric = $event.target.value" class="device-metric-select">
-          <template x-for="metric in (metrics ?? []).filter(m => metricInfo?.[m]?.axis)" :key="metric">
-            <option x-text="metricInfo?.[metric]?.name ?? metric" :value="metric"></option>
+        <select :value="selectedMetric" @change="selectedMetric = $event.target.value" class="device-metric-select">
+          <template x-for="[metric, info] in chartableMetrics()" :key="metric">
+            <option x-text="info.name ?? metric" :value="metric"></option>
           </template>
         </select>
       </div>

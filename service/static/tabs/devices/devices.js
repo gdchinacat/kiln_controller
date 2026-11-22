@@ -51,7 +51,7 @@ function ChartPropertiesModal() {
       show: false,
       form: {
         start: '',
-        stop: '',
+        end: '',
         step: '5s',
         refresh: '0',
       },
@@ -198,14 +198,13 @@ function DevicesTab() {
       });
 
       Alpine.effect(() => {if (this.selected) this.fetchMetricSummary(); });
-      Alpine.effect(() => {if (this.metrics && // todo - fires twice when selecting device
-                               this.selectedMetric) this.createSeries(); });
+      Alpine.effect(() => {if (this.metrics && this.selectedMetric) this.createSeries(); });
 
       Alpine.effect(() => {
         const interval = this.chartPropertiesModal.refresh * 1000;
         if (this.refreshIntervalId !== null) {
           clearInterval(this.refreshIntervalId);
-          this.refreshintervalid = null;
+          this.refreshIntervalId = null;
         }
         if (interval > 0) {
           this.refreshIntervalId = setInterval(() => {
@@ -217,18 +216,28 @@ function DevicesTab() {
 
     async fetchMetricSummary() {
       // get the list of supported metrics for the selected device
+      this.metrics = null; // prevent double queryMetrics() on selection change
       if (this.selected) {
         const summary = await Alpine.store('network').apiRequest(
           `/device/${this.selected.id}/metrics`, 'GET');
         this.metrics = summary.metrics;
-      } else {
-        this.metrics = null;
       }
     },
 
     async updateChart(skipAnimation=false) {
       const chart = Alpine.raw(this.chart);
       await Promise.allSettled(this.series.map(s => s.queryMetrics()));
+
+      //todo - I believe a race condition exists here where an update can start
+      //       for device 1 but before it completes another device is selected,
+      //       quries, updates chart, then the original one completes and
+      //       clobbers the chart with stale data (resulting in showing the
+      //       user metrics for device 1 when they think they are looking at
+      //       device 2 because that is what is selected). Not a priority to
+      //       fix at this point, but wanted it tracked so it doesn't lead to
+      //       difficult to troubleshoot bugs. No multi-tenant issues because
+      //       users can only see devices they have access to. Still likely to
+      //       waste troubleshooting time through confusion.
 
       // set axis visibility
       Object.values(chart.options.scales).forEach(s => s.display = false);

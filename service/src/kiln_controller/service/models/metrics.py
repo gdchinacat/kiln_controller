@@ -42,7 +42,7 @@ METRICS_INFO: MetricsInfo = {
         units="temperature", name="core temperature"
     ),
     "temperature.target": MetricInfo(
-        units="temperature", name="target temperture"
+        units="temperature", name="target temperature"
     ),
     "temperature.cold_junction": MetricInfo(
         units="temperature", name="cold junction temperature"

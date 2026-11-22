@@ -1,5 +1,6 @@
 'use strict';
 
+// todo get this from the server
 window.metricInfo = {
   telemetry: {},
   telemetry_state: {},
@@ -258,25 +259,14 @@ function DevicesTab() {
       // set axis visibility
       Object.values(chart.options.scales).forEach(s => s.display = false);
       chart.options.scales.x.display = true;
-      this.series.map((s) => {
-        const info = metricInfo[s.metric];
+      this.series.map((series) => {
+        const info = metricInfo[series.metric];
         chart.options.scales[info.axis].display = true;
+        series.dataset.spanGaps = this.chartPropertiesModal.step * 1000;
+        //series.dataset.tooltip = { callbacks: {label: context => `${context.parsed.y.toFixed(1)}`}};
       });
+
       chart.update(skipAnimation ? 'none' : null);
-
-      /** This should move into Series (with some management of shared resource remaining).
-
-      // done  1) put everything in here that needs to change
-      // todo  2) figure out how to get it from server (units, type, etc)
-      // todo  3) factor it out into Series that reacts to update correct item in chart.data.datasets
-      // set up the axis
-      scale.title.display = true;
-
-      // set up the dataset
-      dataset.tooltip = { callbacks: {label: context => `${context.parsed.y.toFixed(1)} (°C)`}},
-      dataset.label = `units for ${this.selectedMetric}`;
-      dataset.spanGaps = this.chartPropertiesModal.step * 1000,
-      */
     },
 
   };

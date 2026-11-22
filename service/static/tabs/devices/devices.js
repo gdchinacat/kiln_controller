@@ -83,7 +83,7 @@ function ChartPropertiesModal() {
     };
 }
 
-function Series(device, metric) {
+function Series(device, metric, info) {
   const devicesTab = Alpine.store('tabs')['devices'];
   const series = {
     device,
@@ -100,12 +100,12 @@ function Series(device, metric) {
 
         yAxisID: devicesTab.metrics[metric]?.units,
         label: '',
-        borderColor: '#f97316',
+        borderColor: info.color,
         backgroundColor: 'rgba(249, 115, 22, 0.15)',
         borderWidth: 2,
         fill: false,
         tension: 0.0,
-        pointBackgroundColor: '#ea580c',
+        pointBackgroundColor: info.color,
         pointRadius: 1,
         pointHoverRadius: 4,
     },
@@ -125,7 +125,7 @@ function DevicesTab() {
     chart: null,
     refreshIntervalId: null,
     metrics: null,  // the available metrics for the selected device
-    selectedMetric: "uptime", // todo allow multiple selections
+    selectedMetrics: [],
     series: [ ],  // the series for the selected metrics
 
     init() {
@@ -186,7 +186,7 @@ function DevicesTab() {
 
             bytes: {
               type: 'linear',
-              position: 'left',
+              position: 'right',
               title: { display: true, text: 'bytes' },
               beginAtZero: true,
               display: false,
@@ -198,7 +198,7 @@ function DevicesTab() {
       });
 
       Alpine.effect(() => {if (this.selected) this.fetchMetricSummary(); });
-      Alpine.effect(() => {if (this.metrics && this.selectedMetric) this.createSeries(); });
+      Alpine.effect(() => {if (this.metrics && this.selectedMetrics) this.createSeries(); });
 
       Alpine.effect(() => {
         const interval = this.chartPropertiesModal.refresh * 1000;
@@ -214,12 +214,37 @@ function DevicesTab() {
       });
     },
 
+    seriesColor(metric, info) { return info.color; },
+    metricLabel(metric, info) { return info.name ?? metric; },
+
     async fetchMetricSummary() {
       // get the list of supported metrics for the selected device
       this.metrics = null; // prevent double queryMetrics() on selection change
       if (this.selected) {
+        const palette = [
+          '#f97316', // orange
+          '#38bdf8', // sky blue
+          '#4ade80', // green
+          '#a78bfa', // violet
+          '#f43f5e', // rose
+          '#facc15', // yellow
+          '#2dd4bf', // teal
+          '#e879f9', // fuchsia
+          '#60a5fa', // blue
+          '#a3e635', // lime
+          '#fb7185', // pink
+          '#34d399', // emerald
+          '#fbbf24', // amber
+          '#818cf8', // indigo
+          '#22d3ee', // cyan
+          '#f87171', // red
+        ];
+
         const summary = await Alpine.store('network').apiRequest(
           `/device/${this.selected.id}/metrics`, 'GET');
+        Object.values(summary.metrics).forEach((info, i) => {
+            info.color = palette[i % palette.length];
+          });
         this.metrics = summary.metrics;
       }
     },
@@ -253,9 +278,9 @@ function DevicesTab() {
     },
 
     createSeries() {
-      if (this.selected && this.metrics && this.selectedMetric) {
-        this.series = [ Series(this.selected, this.selectedMetric, 'left') ];
-        this.chart.data.datasets = [ this.series[0].dataset ];
+      if (this.selected && this.metrics) {
+        this.series = this.selectedMetrics.map(m => Series(this.selected, m, this.metrics[m]));
+        this.chart.data.datasets = this.series.map(s => s.dataset);
       } else {
         this.series = [];
       }

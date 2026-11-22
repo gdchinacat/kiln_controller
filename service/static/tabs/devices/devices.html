@@ -47,14 +47,31 @@
           <span class="device-metric-badge">Kiln Metrics</span>
         </div>
       </div>
-      <div class="device-metric-controls">
-        <button @click="chartPropertiesModal.open()"><i x-icon="settings" class="icon"></i></button>
-        <select :value="selectedMetric" @change="selectedMetric = $event.target.value" class="device-metric-select">
-          <template x-for="[metric, info] in chartableMetrics()" :key="metric">
-            <option x-text="info.name ?? metric" :value="metric"></option>
-          </template>
-        </select>
-      </div>
+	  <div class="device-metric-controls">
+	    <button @click="chartPropertiesModal.open()"><i x-icon="settings" class="icon"></i></button>
+
+	    <div x-data="{ open: false }" @click.outside="open = false" class="relative">
+		  <button @click="open = !open" type="button" class="device-metric-select flex items-center gap-2">
+		    <span x-text="selectedMetrics.length ? `Metrics (${selectedMetrics.length})` : 'Select metrics'"></span>
+		    <span class="text-xs text-slate-400">▾</span>
+		  </button>
+
+		  <div x-show="open" x-transition
+			   class="absolute right-0 mt-1 w-64 max-h-80 overflow-y-auto rounded-lg bg-slate-900 border border-slate-700 shadow-xl z-20 p-1.5">
+		    <template x-for="[metric, info] in chartableMetrics()" :key="metric">
+			  <label class="flex items-center gap-2.5 px-2.5 py-1.5 rounded hover:bg-slate-800 cursor-pointer text-sm text-slate-200 select-none">
+			    <input type="checkbox"
+					   :value="metric"
+					   x-model="selectedMetrics"
+					   class="rounded border-slate-600 bg-slate-800 text-orange-500 focus:ring-0">
+			    <span class="w-2.5 h-2.5 rounded-full shrink-0"
+					  :style="`background-color: ${seriesColor(metric, info) ?? 'transparent'}`"></span>
+			    <span x-text="metricLabel(metric, info)" class="truncate"></span>
+			  </label>
+		    </template>
+		  </div>
+	    </div>
+	  </div>
     </div>
 
     <div class="device-metric-chart">

@@ -1,5 +1,25 @@
 'use strict';
 
+window.metricInfo = {
+  telemetry: {},
+  telemetry_state: {},
+  sample_count: {},
+  time_delta: {},
+  uptime: { axis: 'count', },
+  state: {},
+  temperature: { axis: 'temperature', },
+  "temperature.core": {axis: 'temperature', name: 'core temperature'},
+  "temperature.target": {axis: 'temperature', name: 'target temperture'},
+  "temperature.cold_junction": {axis: 'temperature', name: 'cold junction temperature'},
+  "memory.size": { axis: 'bytes', name: 'memory size'},
+  "memory.heap_free": {axis: 'bytes', name: 'heap free'},
+  "memory.min_heap_free": {axis: 'bytes', name: 'heap free (min)'},
+  "memory.largest_allocatable": {axis: 'bytes', name: 'largest allocatable'},
+  "memory.buffer_size": {axis: 'bytes', name: 'buffer size'},
+  duty_cycle: { axis: 'percent' },
+  sub_sample_count: { axis: 'count', },
+};
+
 function DeviceModal() {
   const model = () => ({
     id: '',

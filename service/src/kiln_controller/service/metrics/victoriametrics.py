@@ -58,7 +58,7 @@ METRIC_NAME_MAP = {
     "memory.heap_free":           "kiln.memory.heap_free",
     "memory.min_heap_free":       "kiln.memory.min_heap_free",
     "memory.largest_allocatable": "kiln.memory.largest_allocatable",
-    "memory.buffer_size":         "kiln.memory.buffer_size",
+    "memory.sample_buffer_size":  "kiln.memory.sample_buffer_size",
 
     "duty_cycle":                 "kiln.duty_cycle",
     "sub_sample_count":           "kiln.sub_sample_count",

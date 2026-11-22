@@ -28,7 +28,7 @@ type MetricName = Literal[
     "memory.heap_free",
     "memory.min_heap_free",
     "memory.largest_allocatable",
-    "memory.buffer_size",
+    "memory.sample_buffer_size",
     "duty_cycle",
     "sub_sample_count",
 ]

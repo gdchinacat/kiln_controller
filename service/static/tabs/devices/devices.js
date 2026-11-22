@@ -15,7 +15,7 @@ window.metricInfo = {
   "memory.heap_free": {axis: 'bytes', name: 'heap free'},
   "memory.min_heap_free": {axis: 'bytes', name: 'heap free (min)'},
   "memory.largest_allocatable": {axis: 'bytes', name: 'largest allocatable'},
-  "memory.buffer_size": {axis: 'bytes', name: 'buffer size'},
+  "memory.sample_buffer_size": {axis: 'bytes', name: 'buffer size'},
   duty_cycle: { axis: 'percent' },
   sub_sample_count: { axis: 'count', },
 };
@@ -103,9 +103,10 @@ function ChartPropertiesModal() {
     };
 }
 
-function Series(device, metric, yAxisID) {
+function Series(device, metric) {
   const series = {
-
+    device,
+    metric,
     async queryMetrics() {
       const devicesTab = Alpine.store('tabs')['devices'];
       const result = await Alpine.store('network').apiRequest(
@@ -117,7 +118,7 @@ function Series(device, metric, yAxisID) {
         data: null,
         tooltip: null,
 
-        yAxisID,
+        yAxisID: metricInfo[metric]?.axis,
         label: '',
         borderColor: '#f97316',
         backgroundColor: 'rgba(249, 115, 22, 0.15)',
@@ -129,7 +130,6 @@ function Series(device, metric, yAxisID) {
         pointHoverRadius: 4,
     },
   };
-  series.queryMetrics();
   return series;
 }
 
@@ -180,18 +180,36 @@ function DevicesTab() {
               },
             },
 
-            left: { // General purpose scale to be used and updated by dataset selection
+            temperature: {
               type: 'linear',
               position: 'left',
-              title: { display: true, text: 'left' },
+              title: { display: true, text: 'temperature (°C)'},
               beginAtZero: true,
+              display: false,
             },
 
-            right: { // General purpose scale to be used and updated by dataset selection
+            count: {
               type: 'linear',
-              position: 'right',
-              title: { display: true, text: 'right' },
+              position: 'left',
+              title: { display: true, text: 'count' },
               beginAtZero: true,
+              display: false,
+            },
+
+            percent: {
+              type: 'linear',
+              position: 'left',
+              title: { display: true, text: 'percent' },
+              beginAtZero: true,
+              display: false,
+            },
+
+            bytes: {
+              type: 'linear',
+              position: 'left',
+              title: { display: true, text: 'bytes' },
+              beginAtZero: true,
+              display: false,
             },
 
           },
@@ -236,6 +254,14 @@ function DevicesTab() {
     async updateChart(skipAnimation=false) {
       const chart = Alpine.raw(this.chart);
       await Promise.allSettled(this.series.map(s => s.queryMetrics()));
+
+      // set axis visibility
+      Object.values(chart.options.scales).forEach(s => s.display = false);
+      chart.options.scales.x.display = true;
+      this.series.map((s) => {
+        const info = metricInfo[s.metric];
+        chart.options.scales[info.axis].display = true;
+      });
       chart.update(skipAnimation ? 'none' : null);
 
       /** This should move into Series (with some management of shared resource remaining).
@@ -245,9 +271,6 @@ function DevicesTab() {
       // todo  3) factor it out into Series that reacts to update correct item in chart.data.datasets
       // set up the axis
       scale.title.display = true;
-      dataset.yAxisID = 'left',
-      scale.title.text = `units for ${this.selectedMetric}`;
-      scale.beginAtZero = true;
 
       // set up the dataset
       dataset.tooltip = { callbacks: {label: context => `${context.parsed.y.toFixed(1)} (°C)`}},

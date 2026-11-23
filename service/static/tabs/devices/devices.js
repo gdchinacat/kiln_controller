@@ -46,6 +46,31 @@ function parseDuration(durationStr) {
   return durationStr
 }
 
+const formatDuration = (totalSeconds) => {
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
+};
+
+function formatBytes(bytes, decimals = 2) {
+  if (!+bytes || bytes === 0) return '0 B';
+
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB'];
+
+  const i = Math.floor(Math.log(Math.abs(bytes)) / Math.log(k));
+
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+}
+
+
 function ChartPropertiesModal() {
     return {
       show: false,
@@ -83,23 +108,26 @@ function ChartPropertiesModal() {
     };
 }
 
-function Series(device, metric, info) {
-  const devicesTab = Alpine.store('tabs')['devices'];
+function Series(chart, device, metric, info, chartProperties) {
+  const name = info.name ?? metric;
+  const scale = chart.scales[info.units];
   const series = {
     device,
     metric,
+    info,
     async queryMetrics() {
       const result = await Alpine.store('network').apiRequest(
-        `/device/${device.id}/metrics/${metric}?${devicesTab.chartPropertiesModal.queryParams}`, 'GET');
+        `/device/${device.id}/metrics/${metric}?${chartProperties.queryParams}`, 'GET');
       this.dataset.data = result.values.map(([time, value]) => ({ x: new Date(time * 1000), y: value }));
     },
 
-    dataset:  {
-        data: null,
-        tooltip: null,
+    name,
 
-        yAxisID: devicesTab.metrics[metric]?.units,
-        label: '',
+    dataset: {
+        data: null,
+        label: name,
+        scale,
+        yAxisID: info.units,
         borderColor: info.color,
         backgroundColor: 'rgba(249, 115, 22, 0.15)',
         borderWidth: 2,
@@ -107,7 +135,8 @@ function Series(device, metric, info) {
         tension: 0.0,
         pointBackgroundColor: info.color,
         pointRadius: 1,
-        pointHoverRadius: 4,
+        pointHitRadius: 10,
+        pointHoverRadius: 5,
     },
   };
   return series;
@@ -166,6 +195,25 @@ function DevicesTab() {
               title: { display: true, text: 'temperature (°C)'},
               beginAtZero: true,
               display: false,
+              ticks: { callback: (value) => `${value}°C ` },
+            },
+
+            seconds: {
+              type: 'linear',
+              position: 'left',
+              title: { display: true, text: 'time (s)' },
+              beginAtZero: true,
+              display: false,
+              ticks: { callback: (value) => formatDuration(value) }
+            },
+
+            milliseconds: {
+              type: 'linear',
+              position: 'left',
+              title: { display: true, text: 'time (s)' },
+              beginAtZero: true,
+              display: false,
+              ticks: { callback: (value) => formatDuration(value/1000) }
             },
 
             count: {
@@ -174,6 +222,7 @@ function DevicesTab() {
               title: { display: true, text: 'count' },
               beginAtZero: true,
               display: false,
+              ticks: { callback: (value) => value },
             },
 
             percent: {
@@ -182,6 +231,7 @@ function DevicesTab() {
               title: { display: true, text: 'percent' },
               beginAtZero: true,
               display: false,
+              ticks: { callback: (value) => `${value}%` },
             },
 
             bytes: {
@@ -190,15 +240,23 @@ function DevicesTab() {
               title: { display: true, text: 'bytes' },
               beginAtZero: true,
               display: false,
+              ticks: { callback: (value) => formatBytes(value) },
             },
 
           },
-          plugins: { legend: { display: false } },
-        }
+          plugins: { legend: { display: true,
+                               position: "bottom", },
+                     tooltip: {
+                        callbacks: {
+                            label: (context) => context.dataset.scale.options.ticks.callback(context.parsed.y)
+                        }
+                    },
+                },
+        },
       });
 
-      Alpine.effect(() => {if (this.selected) this.fetchMetricSummary(); });
-      Alpine.effect(() => {if (this.metrics && this.selectedMetrics) this.createSeries(); });
+      Alpine.effect(() => { this.fetchMetricSummary(); });
+      Alpine.effect(() => { this.createSeries(); }); // todo - this creates series when chartProperties change, probably don't want that (use this.$watch('selected', () => this.createSeries()))
 
       Alpine.effect(() => {
         const interval = this.chartPropertiesModal.refresh * 1000;
@@ -279,7 +337,9 @@ function DevicesTab() {
 
     createSeries() {
       if (this.selected && this.metrics) {
-        this.series = this.selectedMetrics.map(m => Series(this.selected, m, this.metrics[m]));
+        this.series = this.selectedMetrics.map(
+            m => Series(this.chart, this.selected, m, this.metrics[m], this.chartPropertiesModal)
+        );
         this.chart.data.datasets = this.series.map(s => s.dataset);
       } else {
         this.series = [];

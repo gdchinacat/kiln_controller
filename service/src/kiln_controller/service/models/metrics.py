@@ -17,7 +17,12 @@ class MetricsRequest(pydantic.BaseModel):
 
 
 type Units = Literal[  # todo? naming
-    "count", "temperature", "percent", "bytes"
+    "count",
+    "temperature",
+    "percent",
+    "bytes",
+    "seconds",
+    "milliseconds",
 ]
 
 
@@ -33,9 +38,9 @@ type MetricsInfo = dict[str, MetricInfo]
 METRICS_INFO: MetricsInfo = {
     "telemetry": MetricInfo(),
     "telemetry_state": MetricInfo(),
-    "sample_count": MetricInfo(),
-    "time_delta": MetricInfo(),
-    "uptime": MetricInfo(units="count"),
+    "sample_count": MetricInfo(units="count", name="sample buffer ratio"),
+    "time_delta": MetricInfo(units="milliseconds", name="time delta"),
+    "uptime": MetricInfo(units="seconds"),
     "state": MetricInfo(),
     "temperature": MetricInfo(units="temperature"),
     "temperature.core": MetricInfo(
@@ -55,9 +60,10 @@ METRICS_INFO: MetricsInfo = {
         name="largest allocatable",
     ),
     "memory.sample_buffer_size": MetricInfo(units="bytes", name="buffer size"),
-    "duty_cycle": MetricInfo(units="percent"),
+    "duty_cycle": MetricInfo(units="percent", name="duty cycle"),
     "sub_sample_count": MetricInfo(
         units="count",
+        name="oversampling ratio",
     ),
 }
 

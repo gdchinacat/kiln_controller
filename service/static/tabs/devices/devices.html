@@ -40,7 +40,7 @@
     </template>
   </div>
 
-  <div class="panel device-metric">
+  <div x-data="MetricsChart('deviceMetricsChart')" class="panel device-metric">
     <div class="device-metric-header">
       <div>
         <div class="device-metric-tags">
@@ -75,7 +75,35 @@
     </div>
 
     <div class="device-metric-chart">
-      <canvas id="deviceMetricChart"></canvas>
+      <canvas id="deviceMetricsChart"></canvas>
+    </div>
+
+    <!-- CHART PROPERTIES MODAL -->
+    <div x-data="chartPropertiesModal" x-show="show" class="modal-backdrop">
+      <div @click.outside="close()" class="modal">
+        <div class="modal-header">
+          <h3 x-text="'Chart Properties'" class="modal-title"></h3>
+          <button @click="close()" class="modal-close"><i data-lucide="x" class="icon-md"></i></button>
+        </div>
+        <form class="form-stack">
+          <div>
+            <label class="form-label">Start</label>
+            <input type="text" x-model="form.start" class="form-control">
+          </div>
+          <div>
+            <label class="form-label">End</label>
+            <input type="text" x-model="form.end" class="form-control">
+          </div>
+          <div>
+            <label class="form-label">Step</label>
+            <input type="text" x-model="form.step" class="form-control">
+          </div>
+          <div>
+            <label class="form-label">Auto-Refresh (seconds)</label>
+            <input type="number" x-model="form.refresh" class="form-control">
+          </div>
+        </form>
+      </div>
     </div>
   </div>
 
@@ -106,34 +134,6 @@
         <div class="form-actions">
           <button type="button" @click="close()" class="btn-text">Cancel</button>
           <button type="submit" class="btn-primary">Save Kiln</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- CHART PROPERTIES MODAL -->
-  <div x-data="chartPropertiesModal" x-show="show" class="modal-backdrop">
-    <div @click.outside="close()" class="modal">
-      <div class="modal-header">
-        <h3 x-text="'Chart Properties'" class="modal-title"></h3>
-        <button @click="close()" class="modal-close"><i data-lucide="x" class="icon-md"></i></button>
-      </div>
-      <form class="form-stack">
-        <div>
-          <label class="form-label">Start</label>
-          <input type="text" x-model="form.start" class="form-control">
-        </div>
-        <div>
-          <label class="form-label">End</label>
-          <input type="text" x-model="form.end" class="form-control">
-        </div>
-        <div>
-          <label class="form-label">Step</label>
-          <input type="text" x-model="form.step" class="form-control">
-        </div>
-        <div>
-          <label class="form-label">Auto-Refresh (seconds)</label>
-          <input type="number" x-model="form.refresh" class="form-control">
         </div>
       </form>
     </div>

@@ -142,15 +142,9 @@ function Series(chart, device, metric, info, chartProperties) {
   return series;
 }
 
-function DevicesTab() {
+Alpine.data('MetricsChart', (chartName) => {
   return {
-    ...BaseTab(),
-    ...Selectable('devices'),
-    name: "devices",
-    modal: DeviceModal(),
     chartPropertiesModal: ChartPropertiesModal(),
-
-    // todo factor out chart
     chart: null,
     refreshIntervalId: null,
     metrics: null,  // the available metrics for the selected device
@@ -158,12 +152,11 @@ function DevicesTab() {
     series: [ ],  // the series for the selected metrics
 
     init() {
-      this.watchSelection();
       this.createChart();
     },
 
     async createChart() {
-      const canvas = document.getElementById('deviceMetricChart');
+      const canvas = document.getElementById(chartName);
       const ctx = canvas?.getContext('2d');
       if (!ctx) return;
 
@@ -352,6 +345,20 @@ function DevicesTab() {
     },
 
   };
+});
+
+function DevicesTab() {
+  return {
+    ...BaseTab(),
+    ...Selectable('devices'),
+    name: "devices",
+    modal: DeviceModal(),
+
+    init() {
+      this.watchSelection();
+    },
+
+  };
 }
 
-Alpine.store('tabs')['devices'] = DevicesTab();
+Alpine.store('tabs').devices = DevicesTab();

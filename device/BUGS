@@ -1,0 +1,39 @@
+
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+During WIFI disconnect testing noticed a telemetry response buffer error:
+---------------------------------------------------------------------------------
+
+[204545][D][telemetry.cpp:228] webSocketEvent(): [WSc] Connected to url: /device/1/telemetry
+
+[204547][I][time_sync.cpp:16] setTime(): updated time sync offset to 1795298285925
+[246079][W][STA.cpp:145] _onStaArduinoEvent(): Reason: 3 - AUTH_LEAVE
+[246080][D][STA.cpp:166] _onStaArduinoEvent(): WiFi AutoReconnect Running
+[246079][E][ssl_client.cpp:41] _handle_error(): [data_to_read():425]: (-76) UNKNOWN ERROR CODE (004C)
+[246082][E][NetworkClientSecure.cpp:313] available(): Closing connection on failed available check
+[246084][D][telemetry.cpp:223] webSocketEvent(): [WSc] Disconnected! reason: Connection lost
+
+E (262633) wifi:BIP replay detected
+[250084][D][NetworkManager.cpp:85] hostByName(): Clearing DNS cache
+[250085][E][NetworkManager.cpp:138] hostByName(): DNS Failed for 'dupree' with error '-54'
+[250086][E][ssl_client.cpp:127] start_ssl_client(): connect on fd 48, errno: 118, "Host is unreachable"
+[250088][I][NetworkClientSecure.cpp:153] connect(): Actual TLS start postponed.
+[250089][E][NetworkClientSecure.cpp:159] connect(): start_ssl_client: connect failed: -1
+[250090][D][telemetry.cpp:223] webSocketEvent(): [WSc] Disconnected! reason: TCP connection cleanup
+
+[250178][W][STA.cpp:145] _onStaArduinoEvent(): Reason: 2 - AUTH_EXPIRE
+[250179][D][STA.cpp:166] _onStaArduinoEvent(): WiFi AutoReconnect Running
+[254090][E][NetworkManager.cpp:138] hostByName(): DNS Failed for 'dupree' with error '-54'
+[254091][E][ssl_client.cpp:127] start_ssl_client(): connect on fd 48, errno: 118, "Host is unreachable"
+[254093][I][NetworkClientSecure.cpp:153] connect(): Actual TLS start postponed.
+[254094][E][NetworkClientSecure.cpp:159] connect(): start_ssl_client: connect failed: -1
+[254095][D][telemetry.cpp:223] webSocketEvent(): [WSc] Disconnected! reason: TCP connection cleanup
+
+[258095][D][NetworkManager.cpp:85] hostByName(): Clearing DNS cache
+[258400][D][NetworkManager.cpp:129] hostByName(): DNS found IPv4 192.168.12.188
+[259250][D][telemetry.cpp:228] webSocketEvent(): [WSc] Connected to url: /device/1/telemetry
+
+[259252][I][time_sync.cpp:16] setTime(): updated time sync offset to 1795298285918
+[261030][E][sampler.cpp:146] discard(): got sample ack for 1795298545 resulting in count 15 but only 14 buffered
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------

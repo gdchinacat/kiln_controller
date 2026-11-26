@@ -116,6 +116,7 @@ function ScheduleModal() {
 function PhaseModal() {
   return {
     show: false,
+    phase: null,
     name: '',
     activeRampMode: 'rate',
     form: {
@@ -283,8 +284,7 @@ function PhaseModal() {
     recalculateRampValues() {
       if (this.form.phase_type !== 'ramp') return;
       const targetTemp = parseFloat(this.form.temperature);
-      const currentOrdinal = parseInt(this.form.ordinal);
-      const startTemp = this.$data.getPrecedingTemperature(currentOrdinal);
+      const startTemp = this.$data.getPrecedingTemperature(this.form.phase);
 
       if (isNaN(targetTemp)) return;
       const tempDiff = Math.abs(targetTemp - startTemp);
@@ -338,7 +338,7 @@ function SchedulesTab() {
       if (p.rate !== null && p.rate !== undefined && p.rate > 0) return `${p.rate}°/h`;
 
       if (p.duration) {
-        const startTemp = this.getPrecedingTemperature(p.ordinal);
+        const startTemp = this.getPrecedingTemperature(p);
         const targetTemp = p.temperature !== null && p.temperature !== undefined ? p.temperature : startTemp;
         const tempDiff = Math.abs(targetTemp - startTemp);
         const hours = durationToHours(p.duration);
@@ -354,7 +354,7 @@ function SchedulesTab() {
     getDisplayDurationForRatePhase(p) {
       if (p.duration) return p.duration;
       if (p.phase_type === 'ramp' && p.rate && p.rate > 0) {
-        const startTemp = this.getPrecedingTemperature(p.ordinal);
+        const startTemp = this.getPrecedingTemperature(p);
         const targetTemp = p.temperature !== null && p.temperature !== undefined ? p.temperature : startTemp;
         const tempDiff = Math.abs(targetTemp - startTemp);
         const hours = tempDiff / p.rate;
@@ -378,15 +378,10 @@ function SchedulesTab() {
       return { previous: phase === null && phases ? phases[phases.length - 1] : null, next: null};
     },
 
-    getPrecedingTemperature(editingOrdinal = null) {
-      // todo use surroundingPhases
-      let targetList = [...this.$data.schedulePhases];
-      if (editingOrdinal !== null) {
-        targetList = targetList.filter(p => p.ordinal < editingOrdinal);
-      }
-      if (targetList.length === 0) return DEFAULT_ROOM_TEMP;
-      const lastPhase = targetList[targetList.length - 1];
-      return (lastPhase.temperature !== null && lastPhase.temperature !== undefined) ? lastPhase.temperature : DEFAULT_ROOM_TEMP;
+    getPrecedingTemperature(phase = null) {
+      const { previous, next } = this.surroundingPhases(phase);
+      if (previous == null) return DEFAULT_ROOM_TEMP;
+      return (previous.temperature !== null && previous.temperature !== undefined) ? previous.temperature : DEFAULT_ROOM_TEMP;
     },
 
     isPhaseDeletable(phase) {

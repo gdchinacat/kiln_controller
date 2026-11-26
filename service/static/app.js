@@ -310,7 +310,6 @@ document.addEventListener('alpine:init', () => {
 
   }),
 
-  // todo? - move the entity stores onto kilnApp
   Alpine.store('users', createEntityStore('/user')),
   Alpine.store('devices', createEntityStore('/device')),
   Alpine.store('schedules', createEntityStore('/schedule')),

@@ -283,7 +283,8 @@ Alpine.data('MetricsChart', (chartName) => {
       });
 
       Alpine.effect(() => { this.fetchMetricSummary(); });
-      Alpine.effect(() => { this.createSeries(); }); // todo - this creates series when chartProperties change, probably don't want that (use this.$watch('selected', () => this.createSeries()))
+      Alpine.effect(() => { this.createSeries(); });
+      Alpine.effect(() => { this.updateChart(); });
 
       Alpine.effect(() => {
         const interval = this.chartPropertiesModal.refresh * 1000;
@@ -339,17 +340,6 @@ Alpine.data('MetricsChart', (chartName) => {
       const chart = Alpine.raw(this.chart);
       await Promise.allSettled(this.series.map(s => s.queryMetrics()));
 
-      //todo - I believe a race condition exists here where an update can start
-      //       for device 1 but before it completes another device is selected,
-      //       quries, updates chart, then the original one completes and
-      //       clobbers the chart with stale data (resulting in showing the
-      //       user metrics for device 1 when they think they are looking at
-      //       device 2 because that is what is selected). Not a priority to
-      //       fix at this point, but wanted it tracked so it doesn't lead to
-      //       difficult to troubleshoot bugs. No multi-tenant issues because
-      //       users can only see devices they have access to. Still likely to
-      //       waste troubleshooting time through confusion.
-
       // set axis visibility
       Object.values(chart.options.scales).forEach(s => s.display = false);
       chart.options.scales.x.display = true;
@@ -371,7 +361,6 @@ Alpine.data('MetricsChart', (chartName) => {
       } else {
         this.series = [];
       }
-      this.updateChart();
     },
 
     chartableMetrics() {

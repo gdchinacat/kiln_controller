@@ -7,7 +7,6 @@ from rest_client import Resource, RestClient
 
 class MetricInfo(pydantic.BaseModel):
     units: str | None
-    name: str | None
 
 
 type MetricsInfo = dict[str, MetricInfo]

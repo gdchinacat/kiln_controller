@@ -17,8 +17,8 @@ class MetricsRequest(pydantic.BaseModel):
 
 
 type Units = Literal[  # todo? naming
-    "count",
-    "temperature",
+    "samples",
+    "celcius",
     "percent",
     "bytes",
     "seconds",
@@ -27,10 +27,7 @@ type Units = Literal[  # todo? naming
 
 
 class MetricInfo(pydantic.BaseModel):
-    units: Units | None = (
-        None  # todo? "units: None" should mean it is unitless, not that it shouldn't be displayed
-    )
-    name: str | None = None
+    units: Units | None = None
 
 
 type MetricsInfo = dict[str, MetricInfo]
@@ -38,33 +35,21 @@ type MetricsInfo = dict[str, MetricInfo]
 METRICS_INFO: MetricsInfo = {
     "telemetry": MetricInfo(),
     "telemetry_state": MetricInfo(),
-    "sample_count": MetricInfo(units="count", name="sample buffer ratio"),
-    "time_delta": MetricInfo(units="milliseconds", name="time delta"),
+    "sample_count": MetricInfo(units="samples"),
+    "time_delta": MetricInfo(units="milliseconds"),
     "uptime": MetricInfo(units="seconds"),
     "state": MetricInfo(),
-    "temperature": MetricInfo(units="temperature"),
-    "temperature.core": MetricInfo(
-        units="temperature", name="core temperature"
-    ),
-    "temperature.target": MetricInfo(
-        units="temperature", name="target temperature"
-    ),
-    "temperature.cold_junction": MetricInfo(
-        units="temperature", name="cold junction temperature"
-    ),
-    "memory.size": MetricInfo(units="bytes", name="memory size"),
-    "memory.heap_free": MetricInfo(units="bytes", name="heap free"),
-    "memory.min_heap_free": MetricInfo(units="bytes", name="heap free (min)"),
-    "memory.largest_allocatable": MetricInfo(
-        units="bytes",
-        name="largest allocatable",
-    ),
-    "memory.sample_buffer_size": MetricInfo(units="bytes", name="buffer size"),
-    "duty_cycle": MetricInfo(units="percent", name="duty cycle"),
-    "sub_sample_count": MetricInfo(
-        units="count",
-        name="oversampling ratio",
-    ),
+    "temperature": MetricInfo(units="celcius"),
+    "temperature.core": MetricInfo(units="celcius"),
+    "temperature.target": MetricInfo(units="celcius"),
+    "temperature.cold_junction": MetricInfo(units="celcius"),
+    "memory.size": MetricInfo(units="bytes"),
+    "memory.heap_free": MetricInfo(units="bytes"),
+    "memory.min_heap_free": MetricInfo(units="bytes"),
+    "memory.largest_allocatable": MetricInfo(units="bytes"),
+    "memory.sample_buffer_size": MetricInfo(units="bytes"),
+    "duty_cycle": MetricInfo(units="percent"),
+    "sub_sample_count": MetricInfo(units="samples"),
 }
 
 

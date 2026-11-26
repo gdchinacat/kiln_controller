@@ -70,6 +70,35 @@ function formatBytes(bytes, decimals = 2) {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }
 
+const MetricsInfo = {
+    "telemetry": {},
+    "telemetry_state": {},
+    "sample_count": {name: "sample buffer ratio"},
+    "time_delta": {name: "time delta"},
+    "uptime": {name: "uptime"},
+    "state": {},
+    "temperature": {name: "temperature"},
+    "temperature.core": {name: "core temperature"},
+    "temperature.target": {name: "target temperature"},
+    "temperature.cold_junction": {name: "cold junction temperature"},
+    "memory.size": {name: "memory size"},
+    "memory.heap_free": {name: "heap free"},
+    "memory.min_heap_free": {name: "minimum heap free"},
+    "memory.largest_allocatable": {name: "largest allocatable"},
+    "memory.sample_buffer_size": {name: "sample buffer size"},
+    "duty_cycle": {name: "duty cycle"},
+    "sub_sample_count": {name: "oversampling ratio"},
+};
+
+const unitBadges = {
+  celcius: '°C',
+  seconds: 's',
+  milliseconds: 'ms',
+  samples: 'count',
+  percent: '%',
+  bytes: 'B',
+};
+
 
 function ChartPropertiesModal() {
     return {
@@ -111,10 +140,12 @@ function ChartPropertiesModal() {
 function Series(chart, device, metric, info, chartProperties) {
   const name = info.name ?? metric;
   const scale = chart.scales[info.units];
+  const badge = unitBadges[info.units] ? ` [${unitBadges[info.units]}]` : '';
   const series = {
     device,
     metric,
     info,
+
     async queryMetrics() {
       const result = await Alpine.store('network').apiRequest(
         `/device/${device.id}/metrics/${metric}?${chartProperties.queryParams}`, 'GET');
@@ -125,7 +156,7 @@ function Series(chart, device, metric, info, chartProperties) {
 
     dataset: {
         data: null,
-        label: name,
+        label: `${name}${badge}`,
         scale,
         yAxisID: info.units,
         borderColor: info.color,
@@ -182,10 +213,10 @@ Alpine.data('MetricsChart', (chartName) => {
               },
             },
 
-            temperature: {
+            celcius: {
               type: 'linear',
               position: 'left',
-              title: { display: true, text: 'temperature (°C)'},
+              title: { display: true, text: 'temperature [°C]' },
               beginAtZero: true,
               display: false,
               ticks: { callback: (value) => `${value}°C ` },
@@ -194,8 +225,8 @@ Alpine.data('MetricsChart', (chartName) => {
             seconds: {
               type: 'linear',
               position: 'left',
-              title: { display: true, text: 'time (s)' },
-              beginAtZero: true,
+              title: { display: true, text: 'duration [s]' },
+              beginAtZero: false,
               display: false,
               ticks: { callback: (value) => formatDuration(value) }
             },
@@ -203,16 +234,16 @@ Alpine.data('MetricsChart', (chartName) => {
             milliseconds: {
               type: 'linear',
               position: 'left',
-              title: { display: true, text: 'time (s)' },
+              title: { display: true, text: 'delta [s]' },
               beginAtZero: true,
               display: false,
               ticks: { callback: (value) => formatDuration(value/1000) }
             },
 
-            count: {
+            samples: {
               type: 'linear',
               position: 'left',
-              title: { display: true, text: 'count' },
+              title: { display: true, text: 'samples [count]' },
               beginAtZero: true,
               display: false,
               ticks: { callback: (value) => value },
@@ -221,7 +252,7 @@ Alpine.data('MetricsChart', (chartName) => {
             percent: {
               type: 'linear',
               position: 'left',
-              title: { display: true, text: 'percent' },
+              title: { display: true, text: 'percent [%]' },
               beginAtZero: true,
               display: false,
               ticks: { callback: (value) => `${value}%` },
@@ -230,7 +261,7 @@ Alpine.data('MetricsChart', (chartName) => {
             bytes: {
               type: 'linear',
               position: 'right',
-              title: { display: true, text: 'bytes' },
+              title: { display: true, text: 'bytes [B]' },
               beginAtZero: true,
               display: false,
               ticks: { callback: (value) => formatBytes(value) },
@@ -241,7 +272,10 @@ Alpine.data('MetricsChart', (chartName) => {
                                position: "bottom", },
                      tooltip: {
                         callbacks: {
-                            label: (context) => context.dataset.scale.options.ticks.callback(context.parsed.y)
+                            label: (context) => {
+                                const formatted = context.dataset.scale.options.ticks.callback(context.parsed.y);
+                                return `${context.dataset.label}: ${formatted}`;
+                            }
                         }
                     },
                 },
@@ -293,8 +327,9 @@ Alpine.data('MetricsChart', (chartName) => {
 
         const summary = await Alpine.store('network').apiRequest(
           `/device/${this.selected.id}/metrics`, 'GET');
-        Object.values(summary.metrics).forEach((info, i) => {
+        Object.entries(summary.metrics).forEach(([name, info], i) => {
             info.color = palette[i % palette.length];
+            Object.assign(info, MetricsInfo[name]);
           });
         this.metrics = summary.metrics;
       }
@@ -322,7 +357,6 @@ Alpine.data('MetricsChart', (chartName) => {
         const info = this.metrics[series.metric];
         chart.options.scales[info.units].display = true;
         series.dataset.spanGaps = this.chartPropertiesModal.step * 1000;
-        //series.dataset.tooltip = { callbacks: {label: context => `${context.parsed.y.toFixed(1)}`}};
       });
 
       chart.update(skipAnimation ? 'none' : null);
